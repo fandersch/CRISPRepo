@@ -1509,7 +1509,7 @@ function(input, output, session) {
         }
       } 
     }
-    
+    print(class(dualSgRNAs_input))
     entrez_list_human <- con_sgRNAs %>%
       tbl("sgRNAs_human") %>%
       select(EntrezID) %>%
@@ -1533,7 +1533,7 @@ function(input, output, session) {
   
     print(dualSgRNAs_input)
     
-    entrez_old<--100
+    entrez_old<-0
     dualSgRNAs_output <- NULL
     position_not_found_counter<-0
     entrez_not_found_counter<-0
@@ -1542,8 +1542,8 @@ function(input, output, session) {
     
     for(i in 1:nrow(dualSgRNAs_input)){
       
-      input_sequence <- dualSgRNAs_input$sequence[i] %>% as.character
-      input_entrez <- dualSgRNAs_input$entrezID[i] %>% as.integer
+      input_sequence <- dualSgRNAs_input[i,2] %>% as.character
+      input_entrez <- dualSgRNAs_input[i,1] %>% as.integer
 
       if(entrez_old!=input_entrez){
         if(input_entrez %in% entrez_list_human){

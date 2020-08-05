@@ -1501,9 +1501,9 @@ function(input, output, session) {
     if (is.null(inFile)){
       return(NULL)
     }else{
-      dualSgRNAs_input <- read.csv(input$dualSgRNAs_inputFile$datapath, header=FALSE, sep = ";")
+      dualSgRNAs_input <- read.table(input$dualSgRNAs_inputFile$datapath, header=FALSE, sep = ";",stringsAsFactors = FALSE, colClasses = c("numeric", "character"))
       if(dualSgRNAs_input %>% ncol() != 2 | dualSgRNAs_input %>% nrow() == 0){
-        dualSgRNAs_input <- read.csv(input$dualSgRNAs_inputFile$datapath, header=FALSE, sep = ",")
+        dualSgRNAs_input <- read.table(input$dualSgRNAs_inputFile$datapath, header=FALSE, sep = ",", stringsAsFactors = FALSE, colClasses = c("numeric", "character"))
         if(dualSgRNAs_input %>% ncol() != 2 | dualSgRNAs_input %>% nrow() == 0){
           return(NULL)
         }

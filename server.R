@@ -1524,7 +1524,12 @@ function(input, output, session) {
       collect() %>%
       .$EntrezID
   
-    dualSgRNAs_input <- dualSgRNAs_input[order(dualSgRNAs_input$V1),]
+    colnames(dualSgRNAs_input) <- c("entrezID", "sequence")
+    
+    dualSgRNAs_input <- dualSgRNAs_input %>%
+      arrange(entrezID)
+  
+    print(dualSgRNAs_input)
     
     entrez_old<--100
     dualSgRNAs_output <- NULL
@@ -1535,8 +1540,8 @@ function(input, output, session) {
     
     for(i in 1:nrow(dualSgRNAs_input)){
       
-      input_sequence <- dualSgRNAs_input[i,2] %>% as.character
-      input_entrez <- dualSgRNAs_input[i,1]
+      input_sequence <- dualSgRNAs_input$sequence[i] %>% as.character
+      input_entrez <- dualSgRNAs_input$entrez[i]
 
       if(entrez_old!=input_entrez){
         if(input_entrez %in% entrez_list_human){

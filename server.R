@@ -64,7 +64,7 @@ function(input, output, session) {
     #query database
     if(input$gwsBrowseScreenDatasetSelect %in% c("facs")){
       contrasts_buff <- contrasts_facs
-      # preselLibrary <- "zuber_library_original"
+      
       facs <- con_facs %>%
         tbl(tableSelect) %>%
         filter(contrast_id %in% presel_contrasts) %>%
@@ -84,21 +84,22 @@ function(input, output, session) {
         tbl(tableSelect) %>%
         filter(gene_id %in% presel, contrast_id %in% presel_contrasts) %>%
         left_join(con %>% tbl("contrasts"), by = "contrast_id") %>%
-        left_join(con %>% tbl("features"), by = local(input$gwsBrowseScreenSearchRadio)) %>%
-        select(contrast_id, contrast_id_QC, local(input$gwsBrowseScreenSearchRadio), lfc, effect, symbol = hgnc_symbol, entrez_id, species) %>%
+        left_join(con %>% tbl("features") %>% rename(symbol=hgnc_symbol), by = local(input$gwsBrowseScreenSearchRadio)) %>%
+        select(contrast_id, contrast_id_QC, local(input$gwsBrowseScreenSearchRadio), lfc, effect, symbol, entrez_id, species) %>%
         distinct() %>%
         collect()
-      
       if(input$gwsBrowseScreenSpeciesSelect == "all"){
         df_human <- df %>% 
           filter(species == "human") %>%
           left_join(dict_joined, by=c("symbol" = "Symbol_human")) %>%
-          select(contrast_id, contrast_id_QC, local(input$gwsBrowseScreenSearchRadio), lfc, effect, Symbol_human = symbol, entrezID_human, Symbol_mouse,  entrezID_mouse)
+          mutate(EntrezID_human = entrez_id) %>%
+          select(contrast_id, contrast_id_QC, local(input$gwsBrowseScreenSearchRadio), lfc, effect, Symbol_human = symbol, EntrezID_human, Symbol_mouse,  EntrezID_mouse)
         
         df_mouse <- df %>% 
           filter(species == "mouse") %>%
           left_join(dict_joined, by=c("symbol" = "Symbol_mouse")) %>%
-          select(contrast_id, contrast_id_QC, local(input$gwsBrowseScreenSearchRadio), lfc, effect, Symbol_human, entrezID_human, Symbol_mouse = symbol, entrezID_mouse)
+          mutate(EntrezID_mouse = entrez_id) %>%
+          select(contrast_id, contrast_id_QC, local(input$gwsBrowseScreenSearchRadio), lfc, effect, Symbol_human, EntrezID_human, Symbol_mouse = symbol, EntrezID_mouse)
         
         df <- df_human %>% rbind(df_mouse)
       }
@@ -117,8 +118,8 @@ function(input, output, session) {
         select(input$gwsBrowseScreenIndexRadio) %>%
         as.data.frame() %>% as.matrix() %>% as.vector()
       
-      brks_smaller <- seq(min(values), 0, .05)
-      brks_bigger <- seq(0, max(values), .05)
+      brks_smaller <- seq(min(values,na.rm = TRUE), 0, .05)
+      brks_bigger <- seq(0, max(values,na.rm = TRUE), .05)
       
       clrs_smaller <- round(seq(40, 255, length.out = (length(brks_smaller) + 1)), 0) %>%
       {paste0("rgb(255,", ., ",", ., ")")}
@@ -139,23 +140,12 @@ function(input, output, session) {
       
       if(input$gwsBrowseScreenSpeciesSelect == "all"){
         
-        symbols_entrezIDs <- features %>% 
-          select(hgnc_symbol, entrez_id) %>% 
-          rbind(dict_joined %>% select(hgnc_symbol = Symbol_human, entrez_id = entrezID_human)) %>% 
-          distinct %>%
-          mutate(entrez_id = as.numeric(entrez_id))
-        
-        
-        
         dt <- df %>%
-          select(contrast_id, local(input$gwsBrowseScreenSearchRadio), Symbol_human, entrezID_human, Symbol_mouse, entrezID_mouse, input$gwsBrowseScreenIndexRadio) %>%
+          select(contrast_id, local(input$gwsBrowseScreenSearchRadio), Symbol_human, EntrezID_human, Symbol_mouse, EntrezID_mouse, input$gwsBrowseScreenIndexRadio) %>%
           select(-contains("gene_id")) %>%
           spread(contrast_id, input$gwsBrowseScreenIndexRadio) %>%
           arrange(Symbol_human, Symbol_mouse) %>%
-          select(-entrezID_human, -entrezID_mouse) %>%
-          left_join(symbols_entrezIDs %>% select(hgnc_symbol, EntrezID_human = entrez_id), by=c("Symbol_human" = "hgnc_symbol")) %>%
-          left_join(symbols_entrezIDs %>% select(hgnc_symbol, EntrezID_mouse = entrez_id), by=c("Symbol_mouse" = "hgnc_symbol")) %>%
-          select(Symbol_human, EntrezID_human, Symbol_mouse, EntrezID_mouse, everything())
+          select(Symbol_human, EntrezID_human, Symbol_mouse, EntrezID_mouse=EntrezID_mouse, everything())
         
         nfreezeColumns <- nfreezeColumns + 2
       }else{
@@ -165,7 +155,6 @@ function(input, output, session) {
           select(-contains("gene_id")) %>%
           arrange(symbol)
       }
-      
       
       colnames_dt <- colnames(dt)
       contrast_ids <- df$contrast_id %>% unique
@@ -211,7 +200,7 @@ function(input, output, session) {
         "    $('th:eq('+i+')',thead).attr('title', tooltips[i]);",
         "  }",
         "}")
-    
+      
       dt <- dt %>%
         DT::datatable(extensions = c('FixedColumns','FixedHeader'), 
                       options = list(
@@ -262,6 +251,7 @@ function(input, output, session) {
       filter(species %in% speciesList) %>%
       select(tissue_name) %>%
       distinct() %>%
+      arrange(tissue_name) %>%
       .$tissue_name
     
   })
@@ -275,6 +265,7 @@ function(input, output, session) {
     libraries %>%
       filter(species %in% speciesList) %>%
       select(library_id) %>%
+      arrange(library_id) %>%
       .$library_id
   })
   
@@ -633,36 +624,26 @@ function(input, output, session) {
   
   
   gwsGeneDataFrame <- reactive({
+    #specify which table to select
     if(input$gwsGeneSearchRadio == "guide_id"){
       tableSelect <- "guide_stats"
     }else{
       tableSelect <- "gene_stats"
     }
     
-    if(input$gwsBrowseScreenSpeciesSelect == "human"){
+    #specify which sgRNAs table to join
+    if(input$gwsGeneSpeciesSelect == "human"){
       tableSgRNAs <- "sgRNAs_human"
     }else{
       tableSgRNAs <- "sgRNAs_mouse"
     }
     
-    if(input$gwsGeneDatasetSelect %in% c("facs")){
-      presel_genes = features_facs %>%
-        filter(symbol %in% input$gwsGeneGeneSelect) %>%
-        select(gene_id) %>% distinct %>% .$gene_id
-      
-      presel_entrez = features_facs %>%
-        filter(symbol %in% input$gwsGeneGeneSelect) %>%
-        select(entrez_id) %>% distinct %>% .$entrez_id
-    }else{
-      presel_genes = features %>%
-        filter(hgnc_symbol %in% input$gwsGeneGeneSelect) %>%
-        select(gene_id) %>% distinct %>% .$gene_id
-      
-      presel_entrez = features %>%
-        filter(hgnc_symbol %in% input$gwsGeneGeneSelect) %>%
-        select(entrez_id) %>% distinct %>% .$entrez_id
-    }
+    #retrieve selected genes
+    presel_genes_both<- input$gwsGeneGeneSelect %>% strsplit(split="\\(|\\)")
+    presel_genes <- unlist(presel_genes_both)[c(TRUE, FALSE)] %>% trimws()
+    presel_entrez <- unlist(presel_genes_both)[c(FALSE, TRUE)]
     
+    #retrieve selected contrasts
     if(isTRUE(input$gwsGeneCheckContrastAll)){
       presel_contrasts <- gwsGeneContrastList()
     }else{
@@ -671,62 +652,94 @@ function(input, output, session) {
     
     #query database
     if(input$gwsGeneDatasetSelect %in% c("facs")){
+      database_con <- con_facs
+      if(input$gwsGeneSpeciesSelect == "human"){
+        gene_select <- presel_genes
+      }else{
+        gene_select <- presel_entrez
+      }
+      features_buff <- features_facs
       contrasts_buff <- contrasts_facs
-      # preselLibrary <- "zuber_library_original"
-      
-      df <- con_facs %>%
-        tbl(tableSelect) %>%
-        filter(gene_id %in% presel_genes, contrast_id %in% presel_contrasts) %>%
-        left_join(con_facs %>% tbl("contrasts"), by = "contrast_id") %>%
-        left_join(con_facs %>% tbl("features"))
       
     }else{
-      #get gene_stats/guide_stats 
-      df <- con %>%
-        tbl(tableSelect) %>%
-        filter(gene_id %in% presel_genes, contrast_id %in% presel_contrasts) %>%
-        left_join(con %>% tbl("contrasts"), by = "contrast_id") 
-      
-      if(input$gwsGeneSearchRadio == "guide_id"){
-        df <- df %>%
-          left_join(con %>% tbl("features"), by = c("gene_id", "guide_id")) %>%
-          rename(symbol = hgnc_symbol)
-      }else{
-        df <- df %>%
-          left_join(con %>% tbl("features"), by = local(input$gwsGeneSearchRadio)) %>%
-          rename(symbol = hgnc_symbol)
-      }
+      database_con <- con
+      gene_select <- presel_entrez
+      features_buff <- features
+      contrasts_buff <- contrasts
     }
-    
-    #If guides wnat to be displayed also get the sequence as separte field
-    if(input$gwsGeneSearchRadio == "guide_id"){
+
+    #get gene_stats/guide_stats
+    df <- database_con %>%
+      tbl(tableSelect) %>%
+      filter(gene_id %in% gene_select, contrast_id %in% presel_contrasts) %>%
+      left_join(contrasts_buff, copy=TRUE, by = "contrast_id")
       
-      #get guide ranks
-      sgRNAs <- con_sgRNAs %>%
-        tbl(tableSgRNAs) %>%
-        filter(EntrezID %in% c(presel_entrez)) %>%
-        select(entrez_id = EntrezID, sgRNA_23mer, `VBC-Score`=VBC.score, Length = len_cloning_sgRNA, rank_overall = final_rank, rank_validation = final_validated_rank) %>%
-        collect() %>%
-        mutate(entrez_id = as.character(entrez_id), rank_overall = as.character(rank_overall), rank_validation = as.character(rank_validation))
+    if(input$gwsGeneSearchRadio == "guide_id"){
+      if(input$gwsGeneSpeciesSelect == "all"){
+        sgRNAs <- con_sgRNAs %>%
+          tbl("sgRNAs_human") %>%
+          filter(EntrezID %in% c(presel_entrez)) %>%
+          select(entrez_id = EntrezID, sgRNA_23mer, `VBC-Score`=VBC.score, Length = len_cloning_sgRNA, rank_overall = final_rank, rank_validation = final_validated_rank) %>%
+          collect() %>%
+          mutate(entrez_id = as.character(entrez_id), rank_overall = as.character(rank_overall), rank_validation = as.character(rank_validation)) %>%
+          rbind(
+            con_sgRNAs %>%
+              tbl("sgRNAs_mouse") %>%
+              filter(EntrezID %in% c(presel_entrez)) %>%
+              select(entrez_id = EntrezID, sgRNA_23mer, `VBC-Score`=VBC.score, Length = len_cloning_sgRNA, rank_overall = final_rank, rank_validation = final_validated_rank) %>%
+              collect() %>%
+              mutate(entrez_id = as.character(entrez_id), rank_overall = as.character(rank_overall), rank_validation = as.character(rank_validation))
+          )
+      }else{
+        #get guide ranks
+        sgRNAs <- con_sgRNAs %>%
+          tbl(tableSgRNAs) %>%
+          filter(EntrezID %in% c(presel_entrez)) %>%
+          select(entrez_id = EntrezID, sgRNA_23mer, `VBC-Score`=VBC.score, Length = len_cloning_sgRNA, rank_overall = final_rank, rank_validation = final_validated_rank) %>%
+          collect() %>%
+          mutate(entrez_id = as.character(entrez_id), rank_overall = as.character(rank_overall), rank_validation = as.character(rank_validation))
+      }
       
       #join guide ranks
       df <- df %>%
-        select(contrast_id, contrast_id_QC, guide_id, gene_id, lfc, effect, symbol, entrez_id, sequence, context) %>%
-        collect() %>%
+        left_join(features_buff, copy=TRUE, by = c("gene_id", "guide_id")) %>%
+        select(contrast_id, contrast_id_QC, guide_id, gene_id, lfc, effect, symbol, entrez_id, sequence, context, species) %>%
         distinct() %>%
-        dplyr::mutate(sgRNA_23mer = substr(context, 5, nchar(context)-3))
-      
-      df <- df %>%
+        collect() %>%
+        dplyr::mutate(sgRNA_23mer = substr(context, 5, nchar(context)-3)) %>%
         left_join(sgRNAs, copy=TRUE, by=c("sgRNA_23mer" = "sgRNA_23mer", "entrez_id" = "entrez_id")) %>%
-        select(guide_id, entrez_id, sequence, sgRNA_23mer, symbol, `VBC-Score`, Length, rank_overall, rank_validation, everything()) %>%
-        distinct()
+        distinct() %>%
+        mutate_at(c("lfc","effect"), funs(round(., 3))) %>%
+        arrange(symbol)
       
     }else{
       df <- df %>%
-        select(contrast_id, contrast_id_QC, gene_id, lfc, effect, symbol, entrez_id) %>%
+        left_join(features_buff %>% select(-guide_id, -sequence) %>% distinct, copy=TRUE, by ="gene_id") %>%
+        select(contrast_id, contrast_id_QC, gene_id, lfc, effect, symbol, entrez_id, species) %>%
         distinct() %>%
-        collect()
-            }
+        collect() %>%
+        mutate_at(c("lfc","effect"), funs(round(., 3))) %>%
+        arrange(symbol)
+    }
+      
+    if(input$gwsGeneSpeciesSelect == "all"){
+      df_human <- df %>% 
+        filter(species == "human") %>%
+        left_join(dict_joined, by=c("symbol" = "Symbol_human")) %>%
+        mutate(EntrezID_human = entrez_id) %>%
+        rename(Symbol_human = symbol) %>%
+        select(-entrez_id)
+      
+      df_mouse <- df %>% 
+        filter(species == "mouse") %>%
+        left_join(dict_joined, by=c("symbol" = "Symbol_mouse")) %>%
+        mutate(EntrezID_mouse = entrez_id) %>%
+        rename(Symbol_mouse = symbol) %>%
+        select(-entrez_id)
+    
+      df <- df_human %>% rbind(df_mouse)
+    }
+      
     #remove duplicate entries to enable spread
     remove_duplicates <- df[df %>% select(contrast_id, local(input$gwsGeneSearchRadio)) %>% duplicated,]
     df <- df %>%
@@ -735,14 +748,13 @@ function(input, output, session) {
     if (nrow(df) > 0) {
       presel_contrasts <- df$contrast_id %>% unique
       
+      print(df)
+      
       df <- df %>%
-        select(contrast_id, local(input$gwsGeneSearchRadio), entrez_id, symbol, local(input$gwsGeneIndexRadio), matches("sequence"), matches("Length"), matches("sgRNA_23mer"), matches("VBC-score"), matches("rank_overall"), matches("rank_validation")) %>%
+        select(contrast_id, contains("entrez_id"), contains("symbol"), contains("Symbol_human"), contains("EntrezID_human"), contains("Symbol_mouse"), contains("EntrezID_mouse"), local(input$gwsGeneIndexRadio), matches("sequence"), matches("Length"), matches("sgRNA_23mer"), matches("VBC-score"), matches("rank_overall"), matches("rank_validation")) %>%
         spread(contrast_id, input$gwsGeneIndexRadio) %>%
-        select(-contains(local(input$gwsGeneSearchRadio))) %>%
         distinct() %>%
-        arrange(symbol) %>%
-        #round
-        mutate_at(presel_contrasts, funs(round(., 3)))
+        select(contains("EntrezID_human"), contains("Symbol_human"), contains("EntrezID_mouse"), contains("Symbol_mouse"), everything())
       
       #create actionButtons for each rows
       Action <- shinyInput(actionButton, nrow(df), 'button_', label = "sgRNAs", onclick = 'Shiny.onInputChange(\"select_button\",  this.id)' )
@@ -753,6 +765,7 @@ function(input, output, session) {
   #make 
   gwsGeneDataTable <- eventReactive(input$gwsGeneLoadButton,{
       df <- gwsGeneDataFrame()
+      
       if (nrow(df) > 0) {
         if(!is.null(input$gwsGeneGeneSelect)){
           output$gwsGeneInfo <- renderText({
@@ -789,12 +802,17 @@ function(input, output, session) {
           if(!is.null(gwsGeneDatatable$sequence)){
             nfreezeColumns <- 3
             nColorizeTableColumns <- 9
-            presel_contrasts <- colnames(gwsGeneDatatable)[9:(length(colnames(gwsGeneDatatable))-1)]
           }else{
             nfreezeColumns <- 2
             nColorizeTableColumns <- 3
-            presel_contrasts <- colnames(gwsGeneDatatable)[3:(length(colnames(gwsGeneDatatable))-1)]
           }
+          
+          if(input$gwsGeneSpeciesSelect == "all"){
+            nfreezeColumns <- nfreezeColumns + 2
+            nColorizeTableColumns <- nColorizeTableColumns + 2
+          }
+          
+          presel_contrasts <- colnames(gwsGeneDatatable)[nColorizeTableColumns:(length(colnames(gwsGeneDatatable))-1)]
           
           colnames_gwsGeneDatatable <- colnames(gwsGeneDatatable)
           tooltip <- ''
@@ -873,21 +891,94 @@ function(input, output, session) {
   ####################################
   
   gwsGeneTissueList <- reactive({
+    if(input$gwsGeneSpeciesSelect == "all"){
+      speciesList <- c("human", "mouse")
+    }else{
+      speciesList <- input$gwsGeneSpeciesSelect
+    }
+    
     pheno %>%
-      filter(species ==  input$gwsGeneSpeciesSelect) %>%
+      filter(species %in% speciesList) %>%
       select(tissue_name) %>%
       distinct() %>%
+      arrange(tissue_name) %>%
       .$tissue_name
   })
   
   gwsGeneLibraryList <- reactive({
+    if(input$gwsGeneSpeciesSelect == "all"){
+      speciesList <- c("human", "mouse")
+    }else{
+      speciesList <- input$gwsGeneSpeciesSelect
+    }
+    
     libraries %>%
-      filter(species == input$gwsGeneSpeciesSelect) %>%
+      filter(species %in% speciesList) %>%
       select(library_id) %>%
+      arrange(library_id) %>%
       .$library_id
   })
   
+  gwsGeneContrastList <- reactive({
+    if(input$gwsGeneSpeciesSelect == "all"){
+      speciesList <- c("human", "mouse")
+    }else{
+      speciesList <- input$gwsGeneSpeciesSelect
+    }
+    
+    preselLibrary = libraries %>%
+      filter(species %in% speciesList) %>%
+      select(library_id) %>%
+      .$library_id
+    
+    if(!isTRUE(input$gwsGeneCheckLibraryAll) & !is.null(input$gwsGeneLibrarySelect)){
+      preselLibrary = libraries %>%
+        filter(species %in% speciesList) %>%
+        filter(library_id %in% input$gwsGeneLibrarySelect) %>%
+        .$library_id
+    }
+    
+    preselTissue = pheno %>%
+      filter(species %in%  speciesList) %>%
+      select(tissue_name) %>%
+      distinct() %>%
+      .$tissue_name
+    
+    if(!isTRUE(input$gwsGeneCheckTissueAll) & !is.null(input$gwsGeneTissueSelect)){
+      preselTissue = pheno %>%
+        filter(species %in%  speciesList) %>%
+        filter(tissue_name %in% input$gwsGeneTissueSelect) %>%
+        .$tissue_name
+    }
+    
+    if(input$gwsGeneDatasetSelect %in% c("facs")){
+      contrasts_buff <- contrasts_facs
+      if("human" %in%  speciesList){
+        preselLibrary <- "zuber_library_original"
+      }else{
+        preselLibrary <- "zuber_library_mouse_original"
+      }
+    }else{
+      contrasts_buff <- contrasts
+    }
+    contrasts_buff %>%
+      filter(species %in%  speciesList) %>%
+      filter(library_id %in% preselLibrary) %>%
+      filter(tissue_name %in%  preselTissue) %>%
+      filter(type == input$gwsGeneDatasetSelect) %>%
+      select(contrast_id) %>%
+      distinct() %>%
+      .$contrast_id
+    
+  })
+  
   gwsGeneGeneList <- reactive({
+    if(input$gwsGeneSpeciesSelect == "all"){
+      speciesList <- c("human", "mouse")
+    }else{
+      speciesList <- input$gwsGeneSpeciesSelect
+    }
+    
     if(input$gwsGeneDatasetSelect %in% c("facs")){
       if(isTRUE(input$gwsGeneCheckContrastAll)){
         presel_contrasts <- gwsGeneContrastList()
@@ -900,14 +991,15 @@ function(input, output, session) {
         filter(contrast_id %in% presel_contrasts) %>%
         select(gene_id) %>%
         distinct() %>%
-        left_join(con_facs %>% tbl("features") %>% select(gene_id, symbol)) %>%
+        left_join(con_facs %>% tbl("features") %>% select(gene_id, symbol, entrez_id)) %>%
         collect() %>%
-        arrange(symbol) %>%
-        .$symbol
+        dplyr::mutate(gene = ifelse(is.na(symbol), paste0("No symbol found (", entrez_id, ")"), paste0(symbol , " (", entrez_id, ")"))) %>%
+        arrange(gene) %>%
+        .$gene
       
     }else{
       preselLibrary = libraries %>%
-        filter(species == input$gwsGeneSpeciesSelect) %>%
+        filter(species %in% speciesList) %>%
         select(library_id) %>%
         .$library_id
       if(!isTRUE(input$gwsGeneCheckLibraryAll) & !is.null(input$gwsGeneLibrarySelect)){
@@ -918,58 +1010,12 @@ function(input, output, session) {
       }
       features %>%
         filter(library_id %in% preselLibrary) %>% 
-        select(hgnc_symbol) %>%
+        select(symbol, entrez_id) %>%
         distinct() %>%
-        arrange(hgnc_symbol) %>%
-        .$hgnc_symbol
+        dplyr::mutate(gene = ifelse(is.na(symbol), paste0("No symbol found (", entrez_id, ")"), paste0(symbol , " (", entrez_id, ")"))) %>%
+        arrange(gene) %>%
+        .$gene
     }
-  })
-  
-  gwsGeneContrastList <- reactive({
-    preselLibrary = libraries %>%
-      filter(species == input$gwsGeneSpeciesSelect) %>%
-      select(library_id) %>%
-      .$library_id
-    
-    if(!isTRUE(input$gwsGeneCheckLibraryAll) & !is.null(input$gwsGeneLibrarySelect)){
-      preselLibrary = libraries %>%
-        filter(species == input$gwsGeneSpeciesSelect) %>%
-        filter(library_id %in% input$gwsGeneLibrarySelect) %>%
-        .$library_id
-    }
-    
-    preselTissue = pheno %>%
-      filter(species ==  input$gwsGeneSpeciesSelect) %>%
-      select(tissue_name) %>%
-      distinct() %>%
-      .$tissue_name
-    
-    if(!isTRUE(input$gwsGeneCheckTissueAll) & !is.null(input$gwsGeneTissueSelect)){
-      preselTissue = pheno %>%
-        filter(species ==  input$gwsGeneSpeciesSelect) %>%
-        filter(tissue_name %in% input$gwsGeneTissueSelect) %>%
-        .$tissue_name
-    }
-    
-    if(input$gwsGeneDatasetSelect %in% c("facs")){
-      contrasts_buff <- contrasts_facs
-      if("human" ==  input$gwsGeneSpeciesSelect){
-        preselLibrary <- "zuber_library_original"
-      }else{
-        preselLibrary <- "zuber_library_mouse_original"
-      }
-    }else{
-      contrasts_buff <- contrasts
-    }
-    contrasts_buff %>%
-      filter(species ==  input$gwsGeneSpeciesSelect) %>%
-      filter(library_id %in% preselLibrary) %>%
-      filter(tissue_name %in%  preselTissue) %>%
-      filter(type == input$gwsGeneDatasetSelect) %>%
-      select(contrast_id) %>%
-      distinct() %>%
-      .$contrast_id
-    
   })
   
   ###########################
@@ -985,13 +1031,30 @@ function(input, output, session) {
   #actionButton handler for datatable buttons
   observeEvent(input$select_button, {
     row <- as.numeric(strsplit(input$select_button, "_")[[1]][2])
-    gene <- gwsGeneDataFrame()[row,2]
+    if(input$gwsGeneSpeciesSelect == "all"){
+      symbol_human <- gwsGeneDataFrame()[row,2]
+      entrez_id_human <- gwsGeneDataFrame()[row,1]
+      symbol_mouse <- gwsGeneDataFrame()[row,4]
+      entrez_id_mouse <- gwsGeneDataFrame()[row,3]
+      gene = c(ifelse(is.na(symbol_human), paste0("No symbol found (", entrez_id_human, ")"), paste0(symbol_human , " (", entrez_id_human, ")")),
+               ifelse(is.na(symbol_mouse), paste0("No symbol found (", entrez_id_mouse, ")"), paste0(symbol_mouse , " (", entrez_id_mouse, ")")))
+    }else{
+      symbol <- gwsGeneDataFrame()[row,2]
+      entrez_id <- gwsGeneDataFrame()[row,1]
+      gene = ifelse(is.na(symbol), paste0("No symbol found (", entrez_id, ")"), paste0(symbol , " (", entrez_id, ")"))
+      
+    }
+    
     updateSelectizeInput(session, 'sgRNAsGeneSelect', choices = sgRNAsGeneList(), selected = gene, server = TRUE)
     updateTabItems(session, "tabs", "sgRNAsSidebar")
   })
   
   observeEvent(input$gwsGeneSpeciesSelect, {
-    updateSelectizeInput(session, 'gwsGeneDatasetSelect', choices = list("dropout" = "dropout", "drug_modifier" = "synthetic", "facs_based" = "facs"), selected = "dropout", server = TRUE)
+    if(input$gwsGeneSpeciesSelect == "all"){
+      updateSelectizeInput(session, 'gwsGeneDatasetSelect', choices = list("dropout" = "dropout", "drug_modifier" = "synthetic"), selected = "dropout", server = TRUE)
+    }else{
+      updateSelectizeInput(session, 'gwsGeneDatasetSelect', choices = list("dropout" = "dropout", "drug_modifier" = "synthetic", "facs_based" = "facs"), selected = "dropout", server = TRUE)
+    }
     #select checkbox tissue
     updateCheckboxInput(session, 'gwsGeneCheckTissueAll', value = FALSE)
     #update tissue selectbox
@@ -1007,8 +1070,8 @@ function(input, output, session) {
     #update gene selectbox
     updateSelectizeInput(session, 'gwsGeneGeneSelect', choices = gwsGeneGeneList(), server = TRUE)
     #update other species selects
-    updateSelectizeInput(session, 'sgRNAsSpeciesSelect', choices = list("Human" = "human", "Mouse" = "mouse"), selected = input$gwsGeneSpeciesSelect, server = TRUE)
-    updateSelectizeInput(session, 'gwsBrowseScreenSpeciesSelect', choices = list("Human" = "human", "Mouse" = "mouse"), selected = input$gwsGeneSpeciesSelect, server = TRUE)
+    updateSelectizeInput(session, 'sgRNAsSpeciesSelect', choices = list("Human" = "human", "Mouse" = "mouse", "All"="all"), selected = input$gwsGeneSpeciesSelect, server = TRUE)
+    updateSelectizeInput(session, 'gwsBrowseScreenSpeciesSelect', choices = list("Human" = "human", "Mouse" = "mouse", "All"="all"), selected = input$gwsGeneSpeciesSelect, server = TRUE)
     #disable load button
     disable("gwsGeneLoadButton")
     gwsGeneUpdateText()
@@ -1234,33 +1297,6 @@ function(input, output, session) {
     
   }, ignoreNULL = FALSE)
   
-  
-  # output$gwsGeneFCAverage <- renderInfoBox({
-  #   df <- gwsGeneDataFrame()
-  #   if(is.null(df) | is.null(df$lfc)){
-  #     infoBox(title = "Average Fold-change",
-  #             value = NA)
-  #   }else{
-  #     infoBox(title = "Average Fold-change",
-  #             value = gwsGeneDataFrame() %>%
-  #               summarize(value = round(mean(lfc, na.rm = TRUE), 3)) %>%
-  #               .$value)
-  #   }
-  # })
-  # 
-  # output$gwsGeneEffectAverage <- renderInfoBox({
-  #   df <- gwsGeneDataFrame()
-  #   if(is.null(df) | is.null(df$effect)){
-  #     infoBox(title = "Average Effect",
-  #             value = NA)
-  #   }else{
-  #     infoBox(title = "Average Effect",
-  #             value = gwsGeneDataFrame() %>%
-  #               summarize(value = round(mean(effect, na.rm = TRUE), 3)) %>%
-  #               .$value)
-  #   }
-  # })
-  
   output$gwsGeneButtonDownload <- downloadHandler(
     filename = function() {
       table <- gwsGeneDataTable()
@@ -1301,8 +1337,10 @@ function(input, output, session) {
   }, 
   filter = "bottom", 
   rownames= FALSE,
+  extensions = c('FixedColumns','FixedHeader'),
   options = list(autoWidth = FALSE,
                  headerCallback = JS(headerCallback),
+                 fixedColumns = list(leftColumns = 1),
                  scrollX=TRUE,
                  columnDefs = list(list(className = 'dt-center', targets = "_all")),
                  pageLength = 25,
@@ -1343,26 +1381,50 @@ function(input, output, session) {
   })
   
   sgRNAsTable <- eventReactive(input$sgRNAsGeneSelect,{
+    
+    presel_genes<- input$sgRNAsGeneSelect %>% strsplit(split="\\(|\\)")
+    presel_gene_symbol <- unlist(presel_genes)[c(TRUE, FALSE)] %>% trimws()
+    presel_gene_entrez <- unlist(presel_genes)[c(FALSE, TRUE)] %>% as.numeric
+    
+    #specify which sgRNAs table to join
     if(input$sgRNAsSpeciesSelect == "human"){
+      tableSgRNAs <- "sgRNAs_human"
+    }else{
+      tableSgRNAs <- "sgRNAs_mouse"
+    }
+    
+    
+    if(input$sgRNAsSpeciesSelect == "all"){
       sgRNAs <- con_sgRNAs %>%
         tbl("sgRNAs_human") %>%
-        filter(Symbol %in% local(input$sgRNAsGeneSelect)) %>%
-        select(`Entrez ID` = EntrezID, Symbol = HGNC_approved, `20-mer + NGG` = sgRNA_23mer, Position, `Mature sgRNA` = cloning_sgRNAs_trimmed,
-               `VBC-Score`=VBC.score, `Frameshift ratio inDelphi`, `Cleavage activity`, Length = len_cloning_sgRNA, `Off-target predictions` = Off_target, 
+        filter(EntrezID %in% presel_gene_entrez) %>%
+        select(`Entrez ID` = EntrezID, Symbol, `20-mer + NGG` = sgRNA_23mer, Position, Exon = exon, `Mature sgRNA` = mature_sgRNA,
+               `VBC-Score`=VBC.score, `Frameshift ratio inDelphi` = inDelphi, `Cleavage activity` = cleavage_activity, Length = len_cloning_sgRNA, `Off-target predictions` = Off_target, 
                Length = len_cloning_sgRNA, `Prediction rank`= final_rank, `Validation rank` = final_validated_rank, `SNP targeting` = SNP_targeting,
                `Restriction-site- / Poly-A- / Multi-T-containing` = RS_PolyA_multiT_containing, `Failed validation / Single outlier validation` = failed_outlier_validation, 
-               `Trans-species (human/mouse)` = transgenic, `Maps to genome` = check) %>%
-        collect()
-    }
-    if(input$sgRNAsSpeciesSelect == "mouse"){
+               `Trans-species (human/mouse)` = transspecies, `Maps to genome` = check) %>%
+        collect() %>%
+        rbind(
+          con_sgRNAs %>%
+            tbl("sgRNAs_mouse") %>%
+            filter(EntrezID %in% presel_gene_entrez) %>%
+            select(`Entrez ID` = EntrezID, Symbol, `20-mer + NGG` = sgRNA_23mer, Position, Exon = exon, `Mature sgRNA` = mature_sgRNA,
+                   `VBC-Score`=VBC.score, `Frameshift ratio inDelphi` = inDelphi, `Cleavage activity` = cleavage_activity, Length = len_cloning_sgRNA, `Off-target predictions` = Off_target, 
+                   Length = len_cloning_sgRNA, `Prediction rank`= final_rank, `Validation rank` = final_validated_rank, `SNP targeting` = SNP_targeting,
+                   `Restriction-site- / Poly-A- / Multi-T-containing` = RS_PolyA_multiT_containing, `Failed validation / Single outlier validation` = failed_outlier_validation, 
+                   `Trans-species (human/mouse)` = transspecies, `Maps to genome` = check) %>%
+            collect()
+            
+        )
+    }else{
       sgRNAs <- con_sgRNAs %>%
-        tbl("sgRNAs_mouse") %>%
-        filter(Symbol %in% local(input$sgRNAsGeneSelect)) %>%
-        select(`Entrez ID` = EntrezID, Symbol = `MGI name`, `20-mer + NGG` = sgRNA_23mer, Position, `Mature sgRNA` = cloning_sgRNAs_trimmed,
-               `VBC-Score`=VBC.score, `Frameshift ratio inDelphi`, `Cleavage activity`, Length = len_cloning_sgRNA, `Off-target predictions` = Off_target, 
-               Length = len_cloning_sgRNA, `Prediction rank`= final_rank, `Validation rank` = final_validated_rank,
+        tbl(tableSgRNAs) %>%
+        filter(EntrezID %in% presel_gene_entrez) %>% 
+        select(`Entrez ID` = EntrezID, Symbol, `20-mer + NGG` = sgRNA_23mer, Position, Exon = exon, `Mature sgRNA` = mature_sgRNA,
+               `VBC-Score`=VBC.score, `Frameshift ratio inDelphi` = inDelphi, `Cleavage activity` = cleavage_activity, Length = len_cloning_sgRNA, `Off-target predictions` = Off_target, 
+               Length = len_cloning_sgRNA, `Prediction rank`= final_rank, `Validation rank` = final_validated_rank, `SNP targeting` = SNP_targeting,
                `Restriction-site- / Poly-A- / Multi-T-containing` = RS_PolyA_multiT_containing, `Failed validation / Single outlier validation` = failed_outlier_validation, 
-               `Trans-species (human/mouse)` = transgenic, `Maps to genome` = check) %>%
+               `Trans-species (human/mouse)` = transspecies, `Maps to genome` = check) %>%
         collect()
     }
     if(sgRNAs$`Maps to genome` %>% as.character %>% unique %>% length == "1"){
@@ -1375,10 +1437,12 @@ function(input, output, session) {
     sgRNAs <- sgRNAsTable()
     if (nrow(sgRNAs) > 0) {
       sgRNAs %>% 
-        datatable(options = list(
+        datatable(extensions = c('FixedColumns','FixedHeader'),
+          options = list(
           autoWidth = FALSE,
           headerCallback = JS(headerCallback),
           scrollX=TRUE,
+          fixedColumns = list(leftColumns = 3),
           columnDefs = list(list(className = 'dt-center', targets = "_all")),
           pageLength = 25,
           lengthMenu = c(25, 50, 100, 200)
@@ -1390,9 +1454,23 @@ function(input, output, session) {
   
   sgRNAsGeneList <- reactive({
     if(input$sgRNAsSpeciesSelect == "human"){
-      gene_list <- gene_list_human
+      gene_list <- gene_list_human %>%
+      dplyr::mutate(gene = ifelse(is.na(Symbol), paste0("No symbol found (", EntrezID, ")"), paste0(Symbol , " (", EntrezID, ")"))) %>%
+        arrange(gene) %>%
+        .$gene
     }else{
-      gene_list <- gene_list_mouse
+      if(input$sgRNAsSpeciesSelect == "mouse"){
+        gene_list <- gene_list_mouse %>%
+          dplyr::mutate(gene = ifelse(is.na(Symbol), paste0("No symbol found (", EntrezID, ")"), paste0(Symbol , " (", EntrezID, ")"))) %>%
+          arrange(gene) %>%
+          .$gene
+      }else{
+        gene_list <- gene_list_mouse %>% 
+          rbind(gene_list_human) %>%
+          dplyr::mutate(gene = ifelse(is.na(Symbol), paste0("No symbol found (", EntrezID, ")"), paste0(Symbol , " (", EntrezID, ")"))) %>%
+          arrange(gene) %>%
+          .$gene
+      }
     }
     gene_list
   })
@@ -1412,6 +1490,10 @@ function(input, output, session) {
   
   output$dualSgRNAsInfo <- renderText({
     invisible(paste("**************** TESTING MODE!!! THIS FEATURE IS STILL UNDER DEVELOPMENT, PLEASE DOUBLE CHECK YOUR RESULTS!!! **************", HTML('<br/>'), "INFO: Please upload a csv file with the provided file browser on the right side! ", HTML('<br/>'), " The file must have two columns: (1) the entrez-ID and (2) the 23 nucleotide long sgRNA sequence (no header)!"))
+  })
+  
+  #upon loading do nothing
+  output$dualSgRNAsTableOutput <- renderDataTable({
   })
   
   
@@ -1462,8 +1544,7 @@ function(input, output, session) {
             tbl("sgRNAs_human") %>%
             filter(EntrezID == input_entrez) %>%
             collect() %>%
-            mutate_at(c("HGNC_approved", "sgRNA_23mer", "sgRNA_ID", "Position", "cloning_sgRNAs_trimmed", "Off_target", "guide_origin"), as.character) %>%
-            rename("Symbol" = "HGNC_approved")
+            mutate_at(c("Symbol", "sgRNA_23mer", "sgRNA_ID", "Position", "mature_sgRNA", "Off_target", "guide_origin"), as.character) %>%
           
           entrez_old <- input_entrez
         }else{
@@ -1472,9 +1553,8 @@ function(input, output, session) {
               tbl("sgRNAs_mouse") %>%
               filter(EntrezID == input_entrez) %>%
               collect() %>%
-              mutate_at(c("MGI name", "sgRNA_23mer", "sgRNA_ID", "Position", "cloning_sgRNAs_trimmed", "Off_target", "guide_origin"), as.character) %>%
-              mutate(SNP_targeting = NA) %>%
-              rename("Symbol" = "MGI name")
+              mutate_at(c("Symbol", "sgRNA_23mer", "sgRNA_ID", "Position", "mature_sgRNA", "Off_target", "guide_origin"), as.character) %>%
+              mutate(SNP_targeting = NA)
             
             entrez_old <- input_entrez
           }else{
@@ -1498,17 +1578,19 @@ function(input, output, session) {
           position_not_found_counter<-position_not_found_counter + 1
         }
         
+        input_exon <- sgRNA_candidates[sgRNA_candidates$sgRNA_23mer == input_sequence, "exon"] %>% as.character()
         input_orientation <-  str_split(input_position, pattern = "[()]")[[1]][2]
         input_chr <-  str_split(input_position, pattern = "[-:(]")[[1]][1]
         input_start <-  ifelse(input_orientation=="+", str_split(input_position, pattern = "[-:(]")[[1]][2], str_split(input_position, pattern = "[-:(]")[[1]][3])
         input_end <-  ifelse(input_orientation=="+", str_split(input_position, pattern = "[-:(]")[[1]][3], str_split(input_position, pattern = "[-:(]")[[1]][2])
+        
         
         # The 30nt include 4nt+23nt sgRNA + 3nt.
         # 3nt upstream of PAM
         input_genomic_cutting_position = ifelse(input_orientation=="+", as.numeric(input_end) - 3 - 3 - 3, as.numeric(input_end) + 3 + 3 + 3)
 
         sgRNAs_selected <- sgRNA_candidates %>%
-          filter(!is.na(Position)) %>%
+          filter(!is.na(Position) & Position != "") %>%
           rowwise() %>%
           mutate(orientation =  str_split(Position, pattern = "[()]")[[1]][2],
                  chr = str_split(Position, pattern = "[-:(]")[[1]][1],
@@ -1517,11 +1599,20 @@ function(input, output, session) {
           mutate(genomic_cutting_position = ifelse(orientation=="+", as.numeric(end) - 3 - 3 - 3, as.numeric(end) + 3 + 3 + 3)) %>%
           mutate(cutting_distance = input_genomic_cutting_position - genomic_cutting_position,
                  produces_frameshift = ifelse(cutting_distance %% 3 != 0, TRUE, FALSE),
-                 proximity_100kb = ifelse(abs(cutting_distance)<=1000, TRUE, FALSE)) %>%
+                 proximity_100kb = ifelse(abs(cutting_distance)<=1000, TRUE, FALSE),
+                 targets_same_exon = ifelse(input_exon==exon, TRUE, FALSE)) %>%
           filter(proximity_100kb == TRUE, produces_frameshift == TRUE, check == TRUE) %>%
-          mutate(original_sgRNA = input_sequence, original_sgRNA_position = input_position) %>%
-          arrange(EntrezID) %>%
-          select(EntrezID, Symbol, original_sgRNA, original_sgRNA_position,  matching_sgRNA=sgRNA_23mer, Position, VBC.score, Off_target, cutting_distance, `Exon number refGene`, everything())
+          mutate(original_sgRNA = input_sequence, original_sgRNA_position = input_position, original_sgRNA_exon_number = input_exon) %>%
+          mutate(VBC.score = ifelse(VBC.score <= 0.001, NA, VBC.score)) %>%
+          arrange(final_rank) %>%
+          select(EntrezID, Symbol, original_sgRNA, original_sgRNA_position, original_sgRNA_exon_number,  matching_sgRNA=sgRNA_23mer, Position, VBC.score, Off_target, cutting_distance, exon, targets_same_exon, everything()) 
+        
+        #Limit number of reported dual-sgRNA-combinations per gene
+        if(input$dualSgRNAs_LimitOutput == TRUE){
+          limit <- ifelse(nrow(sgRNAs_selected) > input$dualSgRNAs_nOutput, input$dualSgRNAs_nOutput, nrow(sgRNAs_selected))
+          sgRNAs_selected <- sgRNAs_selected[1:limit,]
+        }
+        
         
         if(i == 1){
           dualSgRNAs_output <- sgRNAs_selected
@@ -1561,9 +1652,8 @@ function(input, output, session) {
     dualSgRNAs_output 
   })
   
-  
-  output$dualSgRNAsTableOutput <- renderDataTable({
-
+  dualSgRNAsDataTable <- eventReactive(input$dualSgRNALoadButton,{
+   
     inFile <- input$dualSgRNAs_inputFile
 
     if (is.null(inFile)){
@@ -1585,22 +1675,38 @@ function(input, output, session) {
       }
 
       dualSgRNAs_output <- dualSgRNAsTable()
-  
       if (nrow(dualSgRNAs_output) > 0) {
-        dualSgRNAs_output %>%
-          datatable(options = list(
-            autoWidth = FALSE,
-            headerCallback = JS(headerCallback),
-            scrollX=TRUE,
-            columnDefs = list(list(className = 'dt-center', targets = "_all")),
-            pageLength = 25,
-            lengthMenu = c(25, 50, 100, 200)
-          ),
-          filter = list(position = 'top', clear = FALSE),
-          rownames= FALSE)
+        return(
+          dualSgRNAs_output %>%
+            datatable(options = list(
+              autoWidth = FALSE,
+              headerCallback = JS(headerCallback),
+              scrollX=TRUE,
+              columnDefs = list(list(className = 'dt-center', targets = "_all")),
+              pageLength = 25,
+              lengthMenu = c(25, 50, 100, 200)
+            ),
+            filter = list(position = 'top', clear = FALSE),
+            rownames= FALSE)
+        )
       }
     }
   })
+  
+  observeEvent(input$dualSgRNALoadButton, {
+    output$dualSgRNAsTableOutput <- renderDataTable({
+      dualSgRNAsDataTable()
+    })
+  })
+  
+  observeEvent(input$dualSgRNAs_LimitOutput, {
+    if(isTRUE(input$dualSgRNAs_LimitOutput)){
+      enable("dualSgRNAs_nOutput")
+    }else{
+      disable("dualSgRNAs_nOutput")
+    }
+    
+  }, ignoreNULL = FALSE)
   
   output$dualSgRNAsButtonDownload <- downloadHandler(
     filename = function() {
@@ -1608,6 +1714,470 @@ function(input, output, session) {
     },
     content = function(file) {
       dualSgRNAsTable() %>% write_tsv(file)
+    }
+  )
+  
+  
+  # ----------------------------------------------------------------------------
+  # ExpressionData
+  # ----------------------------------------------------------------------------
+  
+  
+  expressionDataUpdateText <- function(){
+    output$expressionDataInfo <- renderText({
+      if(is.null(input$expressionDataTissueSelect) & !isTRUE(input$expressionDataCheckTissueAll)){
+        invisible("INFO: Please select the tissue(s) in the right panel!")
+      }else{
+        if(is.null(input$expressionDataCellLineSelect) & !isTRUE(input$expressionDataCheckCellLineAll)){
+          invisible("INFO: Please select the cell line(s) in the right panel!")
+        }else{
+          if(is.null(input$expressionDataGeneSelect) & !isTRUE(input$expressionDataCheckGeneAll)){
+            invisible("INFO: Please select the gene(s) you want to browse in the right panel!")
+          }else{
+            invisible("INFO: Click Load data!")
+          }
+        }
+      }
+    })
+  }
+  
+  #upon load display nothing
+  output$expressionDataTable <- renderDataTable({
+  })
+  
+  #query database and create dataframe
+  expressionDataDataFrame <- reactive({
+    #get selected species
+    if(input$expressionDataSpeciesSelect == "all"){
+      speciesList <- c("human", "mouse")
+    }else{
+      speciesList <- input$expressionDataSpeciesSelect
+    }
+    
+    #get selected tissue
+    if(isTRUE(input$expressionDataCheckTissueAll)){
+      presel_tissue <- expressionDataTissueList()
+    }else{
+      presel_tissue <- local(input$expressionDataTissueSelect)
+    }
+    
+    #get selected cell line
+    if(isTRUE(input$expressionDataCheckCellLineAll)){
+      presel_cell_line <- expressionDataCellLineList()
+    }else{
+      presel_cell_line <- local(input$expressionDataCellLineSelect)
+    }
+    
+    if(isTRUE(input$expressionDataCheckGeneAll)){
+      presel_genes <- expressionDataGeneList()
+    }else{
+      presel_genes <- local(input$expressionDataGeneSelect)
+    }
+    
+    presel_genes<- presel_genes %>% strsplit(split="\\(|\\)")
+    presel_gene_symbol <- unlist(presel_genes)[c(TRUE, FALSE)] %>% trimws()
+    presel_gene_entrez <- unlist(presel_genes)[c(FALSE, TRUE)] %>% as.numeric
+    
+    sample_ids <- cellline_list_expressionData %>%
+      filter(species %in% speciesList) %>%
+      filter(tissue_name %in%  presel_tissue) %>%
+      filter(cell_line_name %in% presel_cell_line) %>%
+      select(sample_id) %>%
+      .$sample_id
+    
+    df <- con_expression %>%
+      tbl("expression_data_values") %>%
+      select(sample_id, gene_symbol, entrez_id, expression_value) %>%
+      filter(entrez_id %in% presel_gene_entrez, gene_symbol %in% presel_gene_symbol, sample_id %in% sample_ids) %>%
+      distinct() %>%
+      collect()
+    
+    df <- df %>%
+      left_join(cellline_list_expressionData %>% select(sample_id, species, unit))
+
+    if(input$expressionDataSpeciesSelect == "all"){
+      df_human <- df %>%
+        filter(species == "human") %>%
+        left_join(dict_joined %>% select(Symbol_human, Symbol_mouse, EntrezID_mouse) %>% filter(!is.na(Symbol_human)), by=c("gene_symbol" = "Symbol_human")) %>%
+        dplyr::rename(Symbol_human = gene_symbol, EntrezID_human = entrez_id)
+      
+      df_mouse <- df %>%
+        filter(species == "mouse") %>%
+        left_join(dict_joined %>% select(Symbol_human, Symbol_mouse, EntrezID_human) %>% filter(!is.na(Symbol_mouse)), by=c("gene_symbol" = "Symbol_mouse")) %>%
+        dplyr::rename(Symbol_mouse = gene_symbol, EntrezID_mouse = entrez_id)
+      
+      df <- df_human %>% rbind(df_mouse)
+    }
+
+    df
+    
+  })
+  
+  #create datatable out of dataframe
+  expressionDataDataTable <- eventReactive(input$expressionDataLoadButton,{
+    
+    df <- expressionDataDataFrame()
+        if (nrow(df) > 0) {
+          
+      # # color codig for heatmap
+      # values <- df %>%
+      #   select(input$gwsBrowseScreenIndexRadio) %>%
+      #   as.data.frame() %>% as.matrix() %>% as.vector()
+      # 
+      # brks_smaller <- seq(min(values), 0, .05)
+      # brks_bigger <- seq(0, max(values), .05)
+      # 
+      # clrs_smaller <- round(seq(40, 255, length.out = (length(brks_smaller) + 1)), 0) %>%
+      # {paste0("rgb(255,", ., ",", ., ")")}
+      # clrs_bigger <- round(seq(255, 40, length.out = (length(brks_bigger))), 0) %>%
+      # {paste0("rgb(", ., ",", ., ",255)")}
+      # 
+      # brks <- c(as.vector(brks_smaller), as.vector(brks_bigger))
+      # clrs <- c(as.vector(clrs_smaller), as.vector(clrs_bigger))
+      # 
+      nfreezeColumns <- 2
+      
+      if(input$expressionDataSpeciesSelect == "all"){
+        
+        dt <- df %>%
+          select(sample_id, expression_value, Symbol_human, EntrezID_human, Symbol_mouse, EntrezID_mouse, unit) %>%
+          spread(sample_id, expression_value) %>%
+          arrange(Symbol_human, Symbol_mouse) %>%
+          select(Symbol_human, EntrezID_human, Symbol_mouse, EntrezID_mouse, everything())
+
+        nfreezeColumns <- nfreezeColumns + 2
+      }else{
+        dt <- df %>%
+          select(sample_id, gene_symbol, entrez_id, expression_value, unit) %>%
+          spread(sample_id, expression_value) %>%
+          arrange(gene_symbol)
+      }
+
+      # #tooltips
+      # colnames_dt <- colnames(dt)
+      # contrast_ids <- df$contrast_id %>% unique
+      # tooltip <- ''
+      # 
+      # if(input$gwsBrowseScreenDatasetSelect %in% c("dropout")){
+      #   for(i in 1:length(colnames_dt)){
+      #     if(i < length(colnames_dt)){
+      #       tooltip <- paste0(tooltip, "'", colnames_dt[i], "'",  ", " )
+      #     }else{
+      #       tooltip <- paste0(tooltip, "'", colnames_dt[i], "'")
+      #     }
+      #     if(colnames_dt[i] %in% contrast_ids){
+      #       colnames_dt[i] <- contrasts %>% select(contrast_id, contrast_id_QC) %>% filter(contrast_id == colnames_dt[i]) %>% .$contrast_id_QC
+      #     }
+      #   }
+      #   colnames(dt) <- colnames_dt
+      # }
+
+      # headerCallback <- c(
+      #   "function(thead, data, start, end, display){",
+      #   "  var $ths = $(thead).find('th');",
+      #   "  $ths.css({'vertical-align': 'bottom', 'white-space': 'nowrap'});",
+      #   "  var betterCells = [];",
+      #   "  $ths.each(function(){",
+      #   "    var cell = $(this);",
+      #   "    var newDiv = $('<div>', {height: 'auto', width: 'auto'});",
+      #   "    var newInnerDiv = $('<div>', {text: cell.text()});",
+      #   "    newDiv.css({margin: 'auto'});",
+      #   "    newInnerDiv.css({",
+      #   "      transform: 'rotate(180deg)',",
+      #   "      'writing-mode': 'tb-rl',",
+      #   "      'white-space': 'nowrap'",
+      #   "    });",
+      #   "    newDiv.append(newInnerDiv);",
+      #   "    betterCells.push(newDiv);",
+      #   "  });",
+      #   "  $ths.each(function(i){",
+      #   "    $(this).html(betterCells[i]);",
+      #   "  });",
+      #   paste0("  var tooltips = [", tooltip, "];"),
+      #   paste0("  for(var i=0; i<", length(colnames_dt), "; i++){"),
+      #   "    $('th:eq('+i+')',thead).attr('title', tooltips[i]);",
+      #   "  }",
+      #   "}")
+
+      dt <- dt %>%
+        DT::datatable(extensions = c('FixedColumns','FixedHeader'),
+                      options = list(
+                        autoWidth = FALSE,
+                        headerCallback = JS(headerCallback),
+                        scrollX=TRUE,
+                        fixedColumns = list(leftColumns = nfreezeColumns),
+                        columnDefs = list(list(className = 'dt-center', targets = "_all")),
+                        pageLength = 25,
+                        lengthMenu = c(25, 50, 100, 200)
+                        #fixedHeader = TRUE
+                      ),
+                      filter = list(position = 'top', clear = FALSE),
+                      rownames= FALSE)
+        # formatStyle(seq(nfreezeColumns+1, length(colnames_dt),1),
+        #             backgroundColor = styleInterval(brks, clrs))
+        
+      if(!is.null(input$expressionDataGeneSelect)){
+        output$expressionDataInfo <- renderText({
+          "Info: Loading completed!"
+        })
+      }
+      #display datatable
+      dt
+    }else{
+      if(!is.null(input$expressionDataGeneSelect)){
+        output$expressionDataInfo <- renderText({
+          "WARNING: No data found!"
+        })
+      }else{
+        expressionDataUpdateText()
+      }
+    }
+  })
+  
+  #####################################
+  # Expression Data Selectbox Lists
+  ####################################
+  
+  expressionDataTissueList <- reactive({
+    if(input$expressionDataSpeciesSelect == "all"){
+      speciesList <- c("human", "mouse")
+    }else{
+      speciesList <- input$expressionDataSpeciesSelect
+    }
+    
+    cellline_list_expressionData %>%
+      filter(species %in% speciesList) %>%
+      select(tissue_name) %>%
+      distinct() %>%
+      arrange(tissue_name) %>%
+      .$tissue_name
+    
+  })
+  
+  expressionDataCellLineList <- reactive({
+    if(input$expressionDataSpeciesSelect == "all"){
+      speciesList <- c("human", "mouse")
+    }else{
+      speciesList <- input$expressionDataSpeciesSelect
+    }
+    
+    preselTissue = cellline_list_expressionData %>%
+      filter(species %in%  speciesList) %>%
+      select(tissue_name) %>%
+      distinct() %>%
+      .$tissue_name
+    
+    if(!isTRUE(input$expressionDataCheckTissueAll) & !is.null(input$expressionDataTissueSelect)){
+      preselTissue = cellline_list_expressionData %>%
+        filter(species %in% speciesList) %>%
+        filter(tissue_name %in% input$expressionDataTissueSelect) %>%
+        select(tissue_name) %>%
+        distinct() %>%
+        .$tissue_name
+    }
+    
+    cellline_list_expressionData %>%
+      filter(species %in% speciesList, tissue_name %in% preselTissue) %>%
+      select(cell_line_name) %>%
+      arrange(cell_line_name) %>%
+      .$cell_line_name
+  })
+  
+  expressionDataGeneList <- reactive({
+    if(!isTRUE(input$expressionDataCheckCellLineAll) & (is.null(input$expressionDataCellLineSelect))){
+      NULL
+    }else{
+      if(input$expressionDataSpeciesSelect == "all"){
+        speciesList <- c("human", "mouse")
+      }else{
+        speciesList <- input$expressionDataSpeciesSelect
+      }
+      
+      gene_list_expressionData %>%
+        filter(species %in% speciesList) %>%
+        select(gene_symbol, entrez_id) %>%
+        collect() %>%
+        dplyr::mutate(gene = ifelse(is.na(gene_symbol), paste0("No symbol found (", entrez_id, ")"), paste0(gene_symbol , " (", entrez_id, ")"))) %>%
+        arrange(gene) %>%
+        .$gene
+    }
+  })
+  
+  
+  #################################
+  # Browse Screen Observers
+  ################################
+  
+  observeEvent(input$expressionDataLoadButton, {
+    output$expressionDataTable <- renderDataTable({
+      expressionDataDataTable()
+    })
+  })
+  
+  observeEvent(input$expressionDataSpeciesSelect, {
+    #select checkbox tissue
+    updateCheckboxInput(session, 'expressionDataCheckTissueAll', value = FALSE)
+    #update tissue selectbox
+    updateSelectizeInput(session, 'expressionDataTissueSelect', choices = expressionDataTissueList(), server = TRUE)
+    #update cell linne selectbox
+    updateSelectizeInput(session, 'expressionDataCellLineSelect', choices = expressionDataCellLineList(), server = TRUE)
+    #select cell line checkbox
+    updateCheckboxInput(session, 'expressionDataCheckCellLineAll', value = FALSE)
+    #update contrasts selectb
+    updateSelectizeInput(session, 'expressionDataGeneSelect', choices = expressionDataGeneList(), server = TRUE)
+    #unselect checkbox contrasts
+    updateCheckboxInput(session, 'expressionDataCheckGeneAll', value = FALSE)
+    #disable laod button
+    disable("expressionDataLoadButton")
+    expressionDataUpdateText()
+  })
+  
+  observeEvent(input$expressionDataTissueSelect, {
+    if(!is.null(input$expressionDataTissueSelect)){
+      #unselect checkbox tissue
+      updateCheckboxInput(session, 'expressionDataCheckTissueAll', value = FALSE)
+    }
+    
+    #update cell line selectbox
+    updateSelectizeInput(session, 'expressionDataCellLineSelect', choices = expressionDataCellLineList(), server = TRUE)
+    #select cell line checkbox
+    updateCheckboxInput(session, 'expressionDataCheckCellLineAll', value = FALSE)
+    #update cell line selectb
+    if(isTRUE(input$expressionDataCheckTissueAll) | (!is.null(input$expressionDataTissueSelect))){
+      enable("expressionDataCellLineSelect")
+      enable("expressionDataCheckCellLineAll")
+    }else{
+      disable("expressionDataCellLineSelect")
+      disable("expressionDataCheckCellLineAll")
+    }
+    
+    #update gene selectb
+    updateSelectizeInput(session, 'expressionDataGeneSelect', choices = expressionDataGeneList(), server = TRUE)
+    #unselect checkbox contrasts
+    updateCheckboxInput(session, 'expressionDataCheckGeneAll', value = FALSE)
+    
+    expressionDataUpdateText()
+    
+  }, ignoreNULL = FALSE)
+  
+  observeEvent(input$expressionDataCheckTissueAll, {
+    if(isTRUE(input$expressionDataCheckTissueAll)){
+      #reset tissue selectbox
+      updateSelectizeInput(session, 'expressionDataTissueSelect', choices = expressionDataTissueList(), server = TRUE)
+    }
+    
+    #update cell line selectbox
+    updateSelectizeInput(session, 'expressionDataCellLineSelect', choices = expressionDataCellLineList(), server = TRUE)
+    #select cell line checkbox
+    updateCheckboxInput(session, 'expressionDataCheckCellLineAll', value = FALSE)
+    #update cell line selectb
+    if(isTRUE(input$expressionDataCheckTissueAll) | (!is.null(input$expressionDataTissueSelect))){
+      enable("expressionDataCellLineSelect")
+      enable("expressionDataCheckCellLineAll")
+    }else{
+      disable("expressionDataCellLineSelect")
+      disable("expressionDataCheckCellLineAll")
+    }
+    
+    #update gene selectb
+    updateSelectizeInput(session, 'expressionDataGeneSelect', choices = expressionDataGeneList(), server = TRUE)
+    #unselect checkbox contrasts
+    updateCheckboxInput(session, 'expressionDataCheckGeneAll', value = FALSE)
+    
+    expressionDataUpdateText()
+    
+  }, ignoreNULL = FALSE)
+  
+  observeEvent(input$expressionDataCellLineSelect, {
+    if(!is.null(input$expressionDataCellLineSelect)){
+      #unselect library checkbox
+      updateCheckboxInput(session, 'expressionDataCheckCellLineAll', value = FALSE)
+    }
+    
+    #update gene selectb
+    updateSelectizeInput(session, 'expressionDataGeneSelect', choices = expressionDataGeneList(), server = TRUE)
+    #unselect checkbox gene
+    updateCheckboxInput(session, 'expressionDataCheckGeneAll', value = FALSE)
+    
+    if((isTRUE(input$expressionDataCheckCellLineAll) | (!is.null(input$expressionDataCellLineSelect))) & (isTRUE(input$expressionDataCheckTissueAll) | (!is.null(input$expressionDataTissueSelect)))) {
+      enable("expressionDataGeneSelect")
+      enable("expressionDataCheckGeneAll")
+    }else{
+      disable("expressionDataGeneSelect")
+      disable("expressionDataCheckGeneAll")
+    }
+    expressionDataUpdateText()
+    
+  }, ignoreNULL = FALSE)
+  
+  observeEvent(input$expressionDataCheckCellLineAll, {
+    if(isTRUE(input$expressionDataCheckCellLineAll)){
+      #update library selectbox
+      updateSelectizeInput(session, 'expressionDataCellLineSelect', choices = expressionDataCellLineList(), server = TRUE)
+    }
+    
+    #update gene selectb
+    updateSelectizeInput(session, 'expressionDataGeneSelect', choices = expressionDataGeneList(), server = TRUE)
+    #unselect checkbox gene
+    updateCheckboxInput(session, 'expressionDataCheckGeneAll', value = FALSE)
+    
+    if((isTRUE(input$expressionDataCheckCellLineAll) | (!is.null(input$expressionDataCellLineSelect))) & (isTRUE(input$expressionDataCheckTissueAll) | (!is.null(input$expressionDataTissueSelect)))) {
+      enable("expressionDataGeneSelect")
+      enable("expressionDataCheckGeneAll")
+    }else{
+      disable("expressionDataGeneSelect")
+      disable("expressionDataCheckGeneAll")
+    }
+    expressionDataUpdateText()
+    
+  }, ignoreNULL = FALSE)
+  
+  observeEvent(input$expressionDataGeneSelect, {
+    #unselect library checkbox
+    if(!is.null(input$expressionDataGeneSelect)){
+      updateCheckboxInput(session, 'expressionDataCheckGeneAll', value = FALSE)
+    }
+    if(isTRUE(input$expressionDataCheckGeneAll) | (!is.null(input$expressionDataGeneSelect))){
+      enable("expressionDataLoadButton")
+    }else{
+      disable("expressionDataLoadButton")
+    }
+    expressionDataUpdateText()
+    
+  }, ignoreNULL = FALSE)
+  
+  observeEvent(input$expressionDataCheckGeneAll, {
+    #unselect library selectbox
+    if(isTRUE(input$expressionDataCheckGeneAll)){
+      geneList <- expressionDataGeneList()
+      updateSelectizeInput(session, 'expressionDataGeneSelect', choices = geneList, server = TRUE)
+    }
+    if(isTRUE(input$expressionDataCheckGeneAll) | (!is.null(input$expressionDataGeneSelect))){
+      enable("expressionDataLoadButton")
+    }else{
+      disable("expressionDataLoadButton")
+    }
+    expressionDataUpdateText()
+    
+  }, ignoreNULL = FALSE)
+  
+  output$expressionDataButtonDownload <- downloadHandler(
+    filename = function() {
+      if(isTRUE(input$expressionDataCheckGeneAll)){
+        paste0(paste(c("expresssion_all_genes_", local(input$expressionDataTissueSelect), local(input$expressionDataCellLineSelect)),  collapse="_"), ".txt")
+      }else{
+        str_replace_all(string = paste0("expression_", paste(local(input$expressionDataGeneSelect),collapse="_"), ".txt"), pattern = " ", replacement = "_")
+      }
+    },
+    content = function(file) {
+      df <- expressionDataDataFrame()
+      
+      if (nrow(df) > 0) {
+        dt <- df %>%
+          select(sample_id, gene_symbol, entrez_id, expression_value, unit) %>%
+          spread(sample_id, expression_value) %>%
+          arrange(gene_symbol) %>% write_tsv(file)
+      }
     }
   )
   

@@ -31,6 +31,10 @@ con <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "screen.db")
 
 con_facs <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "screen_facs.db")
 
+con_expression <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "expression_data.db")
+
+con_sgRNAs <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "sgRNAs.db")
+
 
 pheno <- con %>%
   tbl("pheno") %>%
@@ -48,7 +52,7 @@ species <- pheno %>%
 
 features <- con %>%
   tbl("features") %>%
-  select(guide_id, gene_id, hgnc_symbol, entrez_id, library_id, sequence) %>%
+  select(guide_id, gene_id, symbol=hgnc_symbol, entrez_id, sequence, context, library_id) %>%
   filter(gene_id != "AMBIGUOUS") %>%
   filter(gene_id != "UNMAPPED") %>%
   filter(gene_id != "NOFEATURE") %>%
@@ -59,7 +63,7 @@ features <- con %>%
 
 features_facs <- con_facs %>%
   tbl("features") %>%
-  select(guide_id, gene_id, entrez_id, symbol, sequence) %>%
+  select(guide_id, gene_id, entrez_id, symbol, sequence, context) %>%
   distinct %>% collect()
 
 contrasts <- con %>%
@@ -70,50 +74,32 @@ contrasts_facs <- con_facs %>%
   tbl("contrasts") %>%
   collect()
 
-con_sgRNAs <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "sgRNAs.db")
-
 gene_list_human <- con_sgRNAs %>%
   tbl("sgRNAs_human") %>%
-  select(HGNC_approved) %>%
-  rename(Symbol=HGNC_approved) %>%
+  select(Symbol, EntrezID) %>%
   distinct %>%
   arrange(Symbol) %>% 
-  collect %>%
-  .$Symbol
+  collect()
 
 gene_list_mouse <- con_sgRNAs %>%
   tbl("sgRNAs_mouse") %>%
-  select(Symbol=`MGI name`) %>%
+  select(Symbol, EntrezID) %>%
   distinct %>%
   arrange(Symbol) %>%
-  collect() %>%
-  .$Symbol
+  collect()
+
+cellline_list_expressionData <- con_expression %>%
+  tbl("expression_data_meta_info") %>%
+  select(sample_id, cell_line_name, tissue_name, species, unit) %>%
+  distinct() %>%
+  arrange(cell_line_name) %>%
+  collect()
+
+gene_list_expressionData <- con_expression %>%
+  tbl("expression_data_genes") %>%
+  collect()
 
 #make dictionary
-dict_joined <- read_tsv("dict/dict_joined.txt")
-
-
-# sgRNAs <- con_sgRNAs %>%
-#   tbl("sgRNAs_human") %>%
-#   rename(Symbol = HGNC_approved, `23mer` = sgRNA_23mer,  Sequence = cloning_sgRNAs_trimmed, Length = len_cloning_sgRNA, maps_to_genome = check) %>%
-#   select(-sgRNA_ID) %>%
-#   collect()
-# 
-# sgRNAs_human_genes <- sgRNAs_human %>%
-#   select(Symbol) %>%
-#   distinct %>%
-#   arrange(Symbol) %>%
-#   .$Symbol
-# 
-# sgRNAs_mouse <- con_sgRNAs %>%
-#   tbl("sgRNAs_mouse") %>%
-#   rename(Symbol = MGI.name, `23mer` = sgRNA_23mer,  Sequence = cloning_sgRNAs_trimmed, Length = len_cloning_sgRNA, maps_to_genome = check) %>%
-#   select(-sgRNA_ID) %>%
-#   collect()
-# 
-# sgRNAs_mouse_genes <- sgRNAs_mouse %>%
-#   select(Symbol) %>%
-#   distinct %>%
-#   arrange(Symbol) %>%
-#   .$Symbol
+dict_joined <- read_tsv("dict/dict_joined.txt") %>%
+  select(EntrezID_human=entrezID_human, Symbol_human, EntrezID_mouse=entrezID_mouse, Symbol_mouse)
 

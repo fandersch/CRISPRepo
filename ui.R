@@ -28,7 +28,8 @@ sidebar <- dashboardSidebar(
              menuSubItem(text = "Gene Search", tabName = "gwsGeneTab")),
     menuItem(text = "Libraries", tabName = "libSidebar"),
     menuItem(text = "Genome-wide sgRNA predictions", tabName = "sgRNAsSidebar"),
-    menuItem(text = "Dual sgRNA design", tabName = "dualSgRNAsSidebar")
+    menuItem(text = "Dual sgRNA design", tabName = "dualSgRNAsSidebar"),
+    menuItem(text = "Expression data", tabName = "expressionDataSidebar")
   )
 )
 
@@ -167,7 +168,7 @@ body <- dashboardBody(
                          radioButtons(
                            "gwsGeneSpeciesSelect",
                            label = "Species:",
-                           choices = list("Human" = "human", "Mouse" = "mouse"),
+                           choices = list("Human" = "human", "Mouse" = "mouse", "All"="all"),
                            selected = "human",
                            inline = T
                          ),
@@ -248,38 +249,6 @@ body <- dashboardBody(
                            )
                          )
                      ),
-                     
-                     # box(
-                     #   width = NULL,
-                     #   solidHeader = TRUE,
-                     #   sliderInput(
-                     #     inputId = "gwsGeneSelectAUC",
-                     #     label = "AUC",
-                     #     min = 0.75,
-                     #     max = 1,
-                     #     value = 0.9,
-                     #     step = 0.01
-                     #   ),
-                     #   sliderInput(
-                     #     inputId = "gwsGeneSelectSSMD",
-                     #     label = "SSMD",
-                     #     min = 0,
-                     #     max = 4,
-                     #     step = 0.1,
-                     #     value = 2
-                     #   )
-                     # ),
-                     
-                     # box(
-                     #   width = NULL,
-                     #   solidHeader = TRUE,
-                     #   infoBoxOutput(width = NULL, "gwsGeneFCAverage")
-                     # ),
-                     # box(
-                     #   width = NULL,
-                     #   solidHeader = TRUE,
-                     #   infoBoxOutput(width = NULL, "gwsGeneEffectAverage")
-                     # ),
                      box(
                        width = NULL,
                        solidHeader = TRUE,
@@ -329,7 +298,7 @@ body <- dashboardBody(
                          radioButtons(
                            "sgRNAsSpeciesSelect",
                            label = "Species:",
-                           choices = list("Human" = "human", "Mouse" = "mouse"),
+                           choices = list("Human" = "human", "Mouse" = "mouse", "All"="all"),
                            selected = "human",
                            inline = T
                          )
@@ -367,15 +336,27 @@ body <- dashboardBody(
               ),
               column(width = 3,
                      box(width = NULL, solidHeader = TRUE,
-
+                         checkboxInput(
+                           inputId = "dualSgRNAs_LimitOutput",
+                           label = "Limit the number of reported dual-sgRNA-combinations per gene (check to activate)",
+                           value = FALSE
+                         ),
+                         disabled(
+                          sliderInput("dualSgRNAs_nOutput", "Integer:",
+                                     min = 0, max = 50,
+                                     value = 25)
+                         ),
                          fileInput("dualSgRNAs_inputFile", "Choose CSV File",
                                    accept = c(
                                      "text/csv",
                                      "text/comma-separated-values,text/plain",
                                      ".csv")
-                         )
-                         # tags$hr(),
-                         # checkboxInput("header", "Header", TRUE)
+                         ),
+                         
+                           actionButton(inputId = "dualSgRNALoadButton", 
+                                        label = "Load data!"
+                           )
+                         
                      ),
                      box(
                        width = NULL,
@@ -387,7 +368,90 @@ body <- dashboardBody(
                        )
                      )
               )
-            ))
+            )),
+    
+    # Expression Data
+    tabItem(tabName = "expressionDataSidebar", width = NULL, 
+            fluidRow(tags$head(tags$style(HTML('#expressionDataInfo{color:tomato; font-weight: bold;}'))),
+                     column(width = 12,
+                            box(width = NULL, solidHeader = TRUE, textOutput(outputId="expressionDataInfo")))),
+            fluidRow(
+              column(width = 9,
+                     box(width = NULL, solidHeader = TRUE, withSpinner(dataTableOutput("expressionDataTable")))),
+              column(width = 3,
+                     box(width = NULL, solidHeader = TRUE,
+                         
+                         radioButtons(
+                           "expressionDataSpeciesSelect",
+                           label = "Species:",
+                           choices = list("Human" = "human", "Mouse" = "mouse", "All" = "all"),
+                           selected = "human",
+                           inline = T
+                         )
+                     ),
+                     box(width = NULL, solidHeader = TRUE,
+                         selectizeInput(
+                           inputId = "expressionDataTissueSelect",
+                           label = "Tissue:",
+                           choices = NULL,
+                           multiple = TRUE,
+                           selected = NULL
+                         ),
+                         checkboxInput(
+                           inputId = "expressionDataCheckTissueAll",
+                           label = "Search All Tissues",
+                           value = FALSE
+                         ),
+                         disabled(
+                           selectizeInput(
+                             inputId = "expressionDataCellLineSelect",
+                             label = "Cell Line:",
+                             choices = NULL,
+                             multiple = TRUE,
+                             selected = NULL
+                           )
+                         ),
+                         disabled(
+                           checkboxInput(
+                             inputId = "expressionDataCheckCellLineAll",
+                             label = "Search All Cell Lines",
+                             value = FALSE
+                           )
+                         ),
+                         disabled(
+                           selectizeInput(
+                             inputId = "expressionDataGeneSelect",
+                             label = "Gene:",
+                             choices = NULL,
+                             multiple = TRUE,
+                             selected = NULL
+                           )
+                         ),
+                         disabled(
+                           checkboxInput(
+                             inputId = "expressionDataCheckGeneAll",
+                             label = "Search All Genes",
+                             value = FALSE
+                           )
+                         ),
+                         disabled(
+                           actionButton(inputId = "expressionDataLoadButton", 
+                                        label = "Load data!"
+                           )
+                         )
+                     ),
+                     box(
+                       width = NULL,
+                       solidHeader = TRUE,
+                       downloadButton(
+                         width = NULL,
+                         outputId = "expressionDataButtonDownload",
+                         label = "Download"
+                       )
+                     )
+              )
+            ) 
+    )
   )
 )
   

@@ -748,8 +748,6 @@ function(input, output, session) {
     if (nrow(df) > 0) {
       presel_contrasts <- df$contrast_id %>% unique
       
-      print(df)
-      
       df <- df %>%
         select(contrast_id, contains("entrez_id"), contains("symbol"), contains("Symbol_human"), contains("EntrezID_human"), contains("Symbol_mouse"), contains("EntrezID_mouse"), local(input$gwsGeneIndexRadio), matches("sequence"), matches("Length"), matches("sgRNA_23mer"), matches("VBC-score"), matches("rank_overall"), matches("rank_validation")) %>%
         spread(contrast_id, input$gwsGeneIndexRadio) %>%
@@ -1532,6 +1530,8 @@ function(input, output, session) {
     dualSgRNAs_output <- NULL
     position_not_found_counter<-0
     entrez_not_found_counter<-0
+    entrez_not_found<-c()
+    position_not_found <- c()
     
     for(i in 1:nrow(dualSgRNAs_input)){
       
@@ -1558,7 +1558,9 @@ function(input, output, session) {
             
             entrez_old <- input_entrez
           }else{
+            entrez_not_found <- c(entrez_not_found, input_entrez)
             entrez_not_found_counter<- entrez_not_found_counter+1
+            position_not_found <- c(position_not_found, input_sequence)
             position_not_found_counter<- position_not_found_counter+1
             sgRNA_candidates <- NULL
           }
@@ -1624,19 +1626,19 @@ function(input, output, session) {
     
     if(entrez_not_found_counter>0 | position_not_found_counter > 0){
       if(entrez_not_found_counter ==1){
-        text_entrezID <- paste0(entrez_not_found_counter, " entrez-ID could not be found!<br>")
+        text_entrezID <- paste0(entrez_not_found_counter, " entrez-ID could not be found!<br>", "(", entrez_not_found, ")<br>")
       }else{
         if(entrez_not_found_counter >0){
-          text_entrezID <- paste0(entrez_not_found_counter, " entrez-IDs could not be found!<br>")
+          text_entrezID <- paste0(entrez_not_found_counter, " entrez-IDs could not be found!<br>", "(", paste(entrez_not_found, sep="", collapse = ", "), ")<br>")
         }else{
           text_entrezID <- ""
         }
       }
       if(position_not_found_counter ==1){
-        text_position <- paste0(position_not_found_counter, " sgRNA genomic position could not be obtained by the provided 23-mer sgRNA sequence!")
+        text_position <- paste0(position_not_found_counter, " sgRNA genomic position could not be obtained by the provided 23-mer sgRNA sequence!", "(", position_not_found, ")<br>")
       }else{
         if(position_not_found_counter >0){
-          text_position <- paste0(position_not_found_counter, " sgRNA genomic positions could not be obtained by the provided 23-mer sgRNA sequence!")
+          text_position <- paste0(position_not_found_counter, " sgRNA genomic positions could not be obtained by the provided 23-mer sgRNA sequence!", "(", paste(position_not_found, sep="", collapse = ", "), ")<br>")
         }else{
           text_position <- ""
         }

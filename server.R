@@ -1501,9 +1501,9 @@ function(input, output, session) {
     if (is.null(inFile)){
       return(NULL)
     }else{
-      dualSgRNAs_input <- read.table(input$dualSgRNAs_inputFile$datapath, header=FALSE, sep = ";",stringsAsFactors = FALSE, colClasses = c("numeric", "character"))
+      dualSgRNAs_input <- read.table(input$dualSgRNAs_inputFile$datapath, header=FALSE, sep = ";", stringsAsFactors = FALSE) %>% as.data.frame()
       if(dualSgRNAs_input %>% ncol() != 2 | dualSgRNAs_input %>% nrow() == 0){
-        dualSgRNAs_input <- read.table(input$dualSgRNAs_inputFile$datapath, header=FALSE, sep = ",", stringsAsFactors = FALSE, colClasses = c("numeric", "character"))
+        dualSgRNAs_input <- read.table(input$dualSgRNAs_inputFile$datapath, header=FALSE, sep = ",", stringsAsFactors = FALSE) %>% as.data.frame()
         if(dualSgRNAs_input %>% ncol() != 2 | dualSgRNAs_input %>% nrow() == 0){
           return(NULL)
         }
@@ -1528,6 +1528,8 @@ function(input, output, session) {
     
     dualSgRNAs_input <- dualSgRNAs_input %>%
       arrange(entrezID)
+    
+    dualSgRNAs_input$entrezID <- dualSgRNAs_input$entrezID %>% as.integer()
   
     print(dualSgRNAs_input)
     
@@ -1541,7 +1543,7 @@ function(input, output, session) {
     for(i in 1:nrow(dualSgRNAs_input)){
       
       input_sequence <- dualSgRNAs_input$sequence[i] %>% as.character
-      input_entrez <- dualSgRNAs_input$entrez[i]
+      input_entrez <- dualSgRNAs_input$entrezID[i] %>% as.integer
 
       if(entrez_old!=input_entrez){
         if(input_entrez %in% entrez_list_human){

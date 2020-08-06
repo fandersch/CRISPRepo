@@ -1498,18 +1498,18 @@ function(input, output, session) {
   dualSgRNAsTable <- reactive({
     inFile <- input$dualSgRNAs_inputFile
     
-    if (is.null(inFile)){
+    if(is.null(inFile)){
       return(NULL)
     }else{
-      dualSgRNAs_input <- read.table(input$dualSgRNAs_inputFile$datapath, header=FALSE, sep = ";", stringsAsFactors = FALSE) %>% as.data.frame()
+      dualSgRNAs_input <- read_csv2(input$dualSgRNAs_inputFile$datapath, skip_empty_rows=TRUE)
       if(dualSgRNAs_input %>% ncol() != 2 | dualSgRNAs_input %>% nrow() == 0){
-        dualSgRNAs_input <- read.table(input$dualSgRNAs_inputFile$datapath, header=FALSE, sep = ",", stringsAsFactors = FALSE) %>% as.data.frame()
+        dualSgRNAs_input <- read_csv(input$dualSgRNAs_inputFile$datapath, skip_empty_rows=TRUE)
         if(dualSgRNAs_input %>% ncol() != 2 | dualSgRNAs_input %>% nrow() == 0){
           return(NULL)
         }
       } 
     }
-    print(class(dualSgRNAs_input))
+
     entrez_list_human <- con_sgRNAs %>%
       tbl("sgRNAs_human") %>%
       select(EntrezID) %>%
@@ -1531,8 +1531,6 @@ function(input, output, session) {
     
     dualSgRNAs_input$entrezID <- dualSgRNAs_input$entrezID %>% as.integer()
   
-    print(dualSgRNAs_input)
-    
     entrez_old<-0
     dualSgRNAs_output <- NULL
     position_not_found_counter<-0
@@ -1549,7 +1547,7 @@ function(input, output, session) {
         if(input_entrez %in% entrez_list_human){
           sgRNA_candidates <- con_sgRNAs %>%
             tbl("sgRNAs_human") %>%
-            filter(EntrezID == input_entrez) %>%
+            filter(EntrezID == local(input_entrez)) %>%
             collect() %>%
             mutate_at(c("Symbol", "sgRNA_23mer", "sgRNA_ID", "Position", "mature_sgRNA", "Off_target", "guide_origin"), as.character) %>%
           
@@ -1558,7 +1556,7 @@ function(input, output, session) {
           if(input_entrez %in% entrez_list_mouse){
             sgRNA_candidates <- con_sgRNAs %>%
               tbl("sgRNAs_mouse") %>%
-              filter(EntrezID == input_entrez) %>%
+              filter(EntrezID == local(input_entrez)) %>%
               collect() %>%
               mutate_at(c("Symbol", "sgRNA_23mer", "sgRNA_ID", "Position", "mature_sgRNA", "Off_target", "guide_origin"), as.character) %>%
               mutate(SNP_targeting = NA)
@@ -1586,12 +1584,12 @@ function(input, output, session) {
         if(is.na(input_position) | input_position == ""){
           position_not_found_counter<-position_not_found_counter + 1
         }
-        
+        print(input_position)
         input_exon <- sgRNA_candidates[sgRNA_candidates$sgRNA_23mer == input_sequence, "exon"] %>% as.character()
-        input_orientation <-  str_split(input_position, pattern = "[()]")[[1]][2]
-        input_chr <-  str_split(input_position, pattern = "[-:(]")[[1]][1]
-        input_start <-  ifelse(input_orientation=="+", str_split(input_position, pattern = "[-:(]")[[1]][2], str_split(input_position, pattern = "[-:(]")[[1]][3])
-        input_end <-  ifelse(input_orientation=="+", str_split(input_position, pattern = "[-:(]")[[1]][3], str_split(input_position, pattern = "[-:(]")[[1]][2])
+        input_orientation <-  stringr::str_split(input_position, pattern = "[()]")[[1]][2]
+        input_chr <-  stringr::str_split(input_position, pattern = "[-:(]")[[1]][1]
+        input_start <-  ifelse(input_orientation=="+", stringr::str_split(input_position, pattern = "[-:(]")[[1]][2], stringr::str_split(input_position, pattern = "[-:(]")[[1]][3])
+        input_end <-  ifelse(input_orientation=="+", stringr::str_split(input_position, pattern = "[-:(]")[[1]][3], stringr::str_split(input_position, pattern = "[-:(]")[[1]][2])
         
         
         # The 30nt include 4nt+23nt sgRNA + 3nt.
@@ -1599,12 +1597,12 @@ function(input, output, session) {
         input_genomic_cutting_position = ifelse(input_orientation=="+", as.numeric(input_end) - 3 - 3 - 3, as.numeric(input_end) + 3 + 3 + 3)
 
         sgRNAs_selected <- sgRNA_candidates %>%
-          filter(!is.na(Position) & Position != "") %>%
+          filter(!is.na(Position) | Position != "") %>%
           rowwise() %>%
-          mutate(orientation =  str_split(Position, pattern = "[()]")[[1]][2],
-                 chr = str_split(Position, pattern = "[-:(]")[[1]][1],
-                 start =  ifelse(orientation=="+", str_split(Position, pattern = "[-:(]")[[1]][2], str_split(Position, pattern = "[-:(]")[[1]][3]),
-                 end =  ifelse(orientation=="+", str_split(Position, pattern = "[-:(]")[[1]][3], str_split(Position, pattern = "[-:(]")[[1]][2])) %>%
+          mutate(orientation =  stringr::str_split("Position", pattern = "[()]")[[1]][2],
+                 chr = stringr::str_split("Position", pattern = "[-:(]")[[1]][1],
+                 start =  ifelse(orientation=="+", stringr::str_split("Position", pattern = "[-:(]")[[1]][2], stringr::str_split("Position", pattern = "[-:(]")[[1]][3]),
+                 end =  ifelse(orientation=="+", stringr::str_split("Position", pattern = "[-:(]")[[1]][3], stringr::str_split("Position", pattern = "[-:(]")[[1]][2])) %>%
           mutate(genomic_cutting_position = ifelse(orientation=="+", as.numeric(end) - 3 - 3 - 3, as.numeric(end) + 3 + 3 + 3)) %>%
           mutate(cutting_distance = input_genomic_cutting_position - genomic_cutting_position,
                  produces_frameshift = ifelse(cutting_distance %% 3 != 0, TRUE, FALSE),
@@ -1621,7 +1619,6 @@ function(input, output, session) {
           limit <- ifelse(nrow(sgRNAs_selected) > input$dualSgRNAs_nOutput, input$dualSgRNAs_nOutput, nrow(sgRNAs_selected))
           sgRNAs_selected <- sgRNAs_selected[1:limit,]
         }
-        
         
         if(i == 1){
           dualSgRNAs_output <- sgRNAs_selected
@@ -1668,9 +1665,9 @@ function(input, output, session) {
     if (is.null(inFile)){
       return(NULL)
     }else{
-      dualSgRNAs_input <- read.csv(input$dualSgRNAs_inputFile$datapath, header=FALSE, sep = ";")
+        dualSgRNAs_input <- read_csv2(input$dualSgRNAs_inputFile$datapath, skip_empty_rows=TRUE)
       if(dualSgRNAs_input %>% ncol() != 2 | dualSgRNAs_input %>% nrow() == 0){
-        dualSgRNAs_input <- read.csv(input$dualSgRNAs_inputFile$datapath, header=FALSE, sep = ",")
+        dualSgRNAs_input <- read_csv(input$dualSgRNAs_inputFile$datapath, skip_empty_rows=TRUE)
         if(dualSgRNAs_input %>% ncol() != 2 | dualSgRNAs_input %>% nrow() == 0){
           showModal(modalDialog(
             title = "WARNING!", 

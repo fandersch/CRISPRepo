@@ -1544,9 +1544,6 @@ function(input, output, session) {
       input_sequence <- dualSgRNAs_input[i,2] %>% as.character
       input_entrez <- dualSgRNAs_input[i,1] %>% as.integer
       
-      print(input_sequence)
-      print(input_entrez)
-
       if(entrez_old!=input_entrez){
         if(input_entrez %in% entrez_list_human){
           sgRNA_candidates <- con_sgRNAs %>%
@@ -1575,7 +1572,7 @@ function(input, output, session) {
           }
         }
       }
-      print(sgRNA_candidates)
+      
       if(!is.null(sgRNA_candidates)){
        
         #get position
@@ -1588,7 +1585,6 @@ function(input, output, session) {
         if(is.na(input_position) | input_position == ""){
           position_not_found_counter<-position_not_found_counter + 1
         }
-        print(input_position)
         input_exon <- sgRNA_candidates[sgRNA_candidates$sgRNA_23mer == input_sequence, "exon"] %>% as.character()
         input_orientation <-  stringr::str_split(input_position, pattern = "[()]")[[1]][2]
         input_chr <-  stringr::str_split(input_position, pattern = "[-:(]")[[1]][1]
@@ -1623,7 +1619,6 @@ function(input, output, session) {
           limit <- ifelse(nrow(sgRNAs_selected) > input$dualSgRNAs_nOutput, input$dualSgRNAs_nOutput, nrow(sgRNAs_selected))
           sgRNAs_selected <- sgRNAs_selected[1:limit,]
         }
-        print(sgRNAs_selected)
         if(i == 1){
           dualSgRNAs_output <- sgRNAs_selected
         }else{
@@ -1685,7 +1680,6 @@ function(input, output, session) {
       }
 
       dualSgRNAs_output <- dualSgRNAsTable()
-      print(dualSgRNAs_output)
       if (nrow(dualSgRNAs_output) > 0) {
         return(
           dualSgRNAs_output %>%

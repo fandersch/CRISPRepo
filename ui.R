@@ -270,9 +270,16 @@ body <- dashboardBody(
               ), 
               column(width = 3, 
                      box(width = NULL, solidHeader = TRUE, 
+                         radioButtons(
+                           "libSpeciesSelect",
+                           label = "Species:",
+                           choices = list("Human" = "human", "Mouse" = "mouse", "All"="all"),
+                           selected = "human",
+                           inline = T
+                         ),
                          selectInput(inputId = "libSelectLibrary",
                                      label = "Library:",
-                                     choices = libraries$library_id,
+                                     choices = NULL,
                                      selectize = TRUE)), 
                      infoBoxOutput(width = NULL, "libBoxGuidesTotal"),
                      infoBoxOutput(width = NULL, "libBoxGenesTotal"),
@@ -325,7 +332,7 @@ body <- dashboardBody(
               )
             )),
     
-    # sgRNAs
+    # dual sgRNAs
     tabItem(tabName = "dualSgRNAsSidebar", width = NULL,
             fluidRow(tags$head(tags$style(HTML('#dualSgRNAsInfo{color:tomato; font-weight: bold;}'))),
                      column(width = 12,

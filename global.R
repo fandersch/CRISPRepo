@@ -37,13 +37,11 @@ con_sgRNAs <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "sgRNAs.db")
 
 
 pheno <- con %>%
-  tbl("pheno") %>%
-  collect()
+  tbl("pheno")
 
 libraries <- pheno %>%
   select(library_id, species) %>%
-  distinct %>%
-  collect()
+  distinct 
 
 species <- pheno %>%
   select(species) %>%
@@ -59,45 +57,39 @@ features <- con %>%
   filter(gene_id != "SAFETARGETING") %>%
   filter(gene_id != "NONTARGETING") %>%
   filter(!is.na(gene_id)) %>%
-  distinct %>% collect()
+  distinct
 
 features_facs <- con_facs %>%
   tbl("features") %>%
   select(guide_id, gene_id, entrez_id, symbol, sequence, context) %>%
-  distinct %>% collect()
+  distinct
 
 contrasts <- con %>%
-  tbl("contrasts") %>%
-  collect()
+  tbl("contrasts")
 
 contrasts_facs <- con_facs %>%
-  tbl("contrasts") %>%
-  collect()
+  tbl("contrasts")
 
 gene_list_human <- con_sgRNAs %>%
   tbl("sgRNAs_human") %>%
   select(Symbol, EntrezID) %>%
   distinct %>%
-  arrange(Symbol) %>% 
-  collect()
+  arrange(Symbol)
 
 gene_list_mouse <- con_sgRNAs %>%
   tbl("sgRNAs_mouse") %>%
   select(Symbol, EntrezID) %>%
   distinct %>%
-  arrange(Symbol) %>%
-  collect()
+  arrange(Symbol)
 
 cellline_list_expressionData <- con_expression %>%
   tbl("expression_data_meta_info") %>%
   select(sample_id, cell_line_name, tissue_name, species, unit) %>%
   distinct() %>%
-  arrange(cell_line_name) %>%
-  collect()
+  arrange(cell_line_name)
 
 gene_list_expressionData <- con_expression %>%
-  tbl("expression_data_genes") %>%
-  collect()
+  tbl("expression_data_genes")
 
 #make dictionary
 dict_joined <- read_tsv("dict/dict_joined.txt") %>%

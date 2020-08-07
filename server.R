@@ -241,6 +241,27 @@ function(input, output, session) {
   ####################################
 
   gwsBrowseScreenTissueList <- reactive({
+    if(class(pheno)[1] == "tbl_SQLiteConnection"){
+      pheno <<- pheno %>%
+        collect()
+      
+      libraries <<- libraries %>%
+        collect()
+      
+      features <<- features %>%
+        collect()
+      
+      features_facs <<- features_facs %>%
+        collect()
+      
+      contrasts <<- contrasts %>%
+        collect()
+      
+      contrasts_facs <<- contrasts_facs %>%
+        collect()
+      
+    }
+    
     if(input$gwsBrowseScreenSpeciesSelect == "all"){
       speciesList <- c("human", "mouse")
     }else{
@@ -889,6 +910,27 @@ function(input, output, session) {
   ####################################
   
   gwsGeneTissueList <- reactive({
+    if(class(pheno)[1] == "tbl_SQLiteConnection"){
+      pheno <<- pheno %>%
+        collect()
+      
+      libraries <<- libraries %>%
+        collect()
+      
+      features <<- features %>%
+        collect()
+      
+      features_facs <<- features_facs %>%
+        collect()
+      
+      contrasts <<- contrasts %>%
+        collect()
+      
+      contrasts_facs <<- contrasts_facs %>%
+        collect()
+      
+    }
+    
     if(input$gwsGeneSpeciesSelect == "all"){
       speciesList <- c("human", "mouse")
     }else{
@@ -1311,6 +1353,29 @@ function(input, output, session) {
   # ----------------------------------------------------------------------------
   # Libraries
   # ----------------------------------------------------------------------------
+  libLibraryList <- reactive({
+    if(class(libraries)[1] == "tbl_SQLiteConnection"){
+      libraries <<- libraries %>%
+        collect()
+    }
+    
+    if(input$libSpeciesSelect == "all"){
+      speciesList <- c("human", "mouse")
+    }else{
+      speciesList <- input$libSpeciesSelect
+    }
+    
+    libraries %>%
+      filter(species %in% speciesList) %>%
+      select(library_id) %>%
+      arrange(library_id) %>%
+      .$library_id
+  })
+  
+  observeEvent(input$libSpeciesSelect, {
+    #update library selectbox
+    updateSelectizeInput(session, 'libSelectLibrary', choices = libLibraryList(), server = TRUE)
+  })
   
   libTable <- reactive({
     con %>% 
@@ -1451,6 +1516,13 @@ function(input, output, session) {
   })
   
   sgRNAsGeneList <- reactive({
+    if(class(gene_list_human)[1] == "tbl_SQLiteConnection" & class(gene_list_mouse)[1] == "tbl_SQLiteConnection"){
+      gene_list_human <<- gene_list_human %>%
+        collect()
+      
+      gene_list_mouse <<- gene_list_mouse %>%
+        collect()
+    }
     if(input$sgRNAsSpeciesSelect == "human"){
       gene_list <- gene_list_human %>%
       dplyr::mutate(gene = ifelse(is.na(Symbol), paste0("No symbol found (", EntrezID, ")"), paste0(Symbol , " (", EntrezID, ")"))) %>%
@@ -1944,6 +2016,14 @@ function(input, output, session) {
   ####################################
   
   expressionDataTissueList <- reactive({
+    if(class(cellline_list_expressionData)[1] == "tbl_SQLiteConnection"){
+      cellline_list_expressionData <<- cellline_list_expressionData %>%
+        collect()
+      
+      gene_list_expressionData <<- gene_list_expressionData %>%
+        collect()
+    }
+    
     if(input$expressionDataSpeciesSelect == "all"){
       speciesList <- c("human", "mouse")
     }else{
@@ -2186,10 +2266,9 @@ function(input, output, session) {
     }
   )
   
-  
-##################
-# Header callback
-##################
+  ##################
+  # Header callback
+  ##################
   
   #rotate vertical
   headerCallback <- c(

@@ -26,6 +26,7 @@ sidebar <- dashboardSidebar(
              tabName = "gwsSidebar",startExpanded=TRUE,
              menuSubItem(text = "Browse Screen", tabName = "gwsBrowseScreenTab", selected = TRUE), 
              menuSubItem(text = "Gene Search", tabName = "gwsGeneTab")),
+    menuItem(text = "SgRNA info", tabName = "sgRNAInfoSidebar"),
     menuItem(text = "Libraries", tabName = "libSidebar"),
     menuItem(text = "Genome-wide sgRNA predictions", tabName = "sgRNAsSidebar"),
     menuItem(text = "Dual sgRNA design", tabName = "dualSgRNAsSidebar"),
@@ -262,6 +263,64 @@ body <- dashboardBody(
             )), 
     
      
+    # sgRNA info
+    tabItem(tabName = "sgRNAInfoSidebar", width = NULL, 
+            fluidRow(tags$head(tags$style(HTML('#sgRNAInfoInfo{color:tomato; font-weight: bold;}'))),
+                     column(width = 12,
+                            box(width = NULL, solidHeader = TRUE, textOutput(outputId="sgRNAInfoInfo")))),
+            fluidRow(
+              column(width = 9, 
+                     h4("SgRNA values in all used screens:"),
+                     box(width = NULL, solidHeader = TRUE, withSpinner(dataTableOutput("sgRNAInfoTableOutputScreens"))),
+                     h4("SgRNA prediction scores:"),
+                     box(width = NULL, solidHeader = TRUE, withSpinner(dataTableOutput("sgRNAInfoTableOutputPredictions"))),
+                     h4("SgRNA validation scores:"),
+                     box(width = NULL, solidHeader = TRUE, withSpinner(dataTableOutput("sgRNAInfoTableOutputValidations")))
+              ), 
+              column(width = 3, 
+                     box(width = NULL, solidHeader = TRUE, 
+                         radioButtons(
+                           "sgRNAInfoSpeciesSelect",
+                           label = "Species:",
+                           choices = list("Human" = "human", "Mouse" = "mouse", "All"="all"),
+                           selected = "human",
+                           inline = T
+                         ),
+                         radioButtons(
+                           "sgRNAInfoIndexRadio",
+                           label = "Display:",
+                           choices = list("Log-fold change" = "lfc", "Effect" = "effect"),
+                           selected = "lfc",
+                           inline = T
+                         ),
+                         selectInput(inputId = "sgRNAInfoSelectGene",
+                                     label = "Gene:",
+                                     choices = NULL,
+                                     multiple = TRUE,
+                                     selected = NULL
+                                     ),
+                         selectInput(inputId = "sgRNAInfoSelectGuide",
+                                     label = "Guide:",
+                                     choices = NULL,
+                                     multiple = TRUE,
+                                     selected = NULL),
+                         checkboxInput(
+                           inputId = "sgRNAInfoCheckGuideAll",
+                           label = "Select all guides",
+                           value = FALSE
+                         ),
+                         disabled(
+                           actionButton(inputId = "sgRNAInfoLoadButton", 
+                                        label = "Load data!"
+                           )
+                         )),
+                     downloadButton(width = NULL, 
+                                    outputId = "sgRNAButtonDownload",
+                                    label = "Download")
+              )
+            )
+    ),
+    
     # Library
     tabItem(tabName = "libSidebar", width = NULL, 
             fluidRow(

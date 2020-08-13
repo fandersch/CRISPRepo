@@ -2424,7 +2424,7 @@ function(input, output, session) {
   expressionDataDataTable <- eventReactive(input$expressionDataLoadButton,{
     
     df <- expressionDataDataFrame() %>%
-      distinct()
+      dplyr::distinct()
     
         if (nrow(df) > 0) {
           
@@ -2450,7 +2450,6 @@ function(input, output, session) {
         
         dt <- df %>%
           select(sample_id, expression_value, Symbol_human, EntrezID_human, Symbol_mouse, EntrezID_mouse) %>%
-          dplyr::distinct() %>%
           spread(sample_id, expression_value) %>%
           arrange(Symbol_human, Symbol_mouse) %>%
           select(Symbol_human, EntrezID_human, Symbol_mouse, EntrezID_mouse, everything())
@@ -2459,7 +2458,6 @@ function(input, output, session) {
       }else{
         dt <- df %>%
           select(sample_id, gene_symbol, entrez_id, expression_value) %>%
-          dplyr::distinct() %>%
           spread(sample_id, expression_value) %>%
           arrange(gene_symbol)
       }

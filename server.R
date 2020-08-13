@@ -1124,7 +1124,7 @@ function(input, output, session) {
     updateSelectizeInput(session, 'sgRNAInfoSelectGene', choices = sgRNAInfoGeneList(), selected = gene, server = TRUE)
     delay(250, updateSelectizeInput(session, 'sgRNAInfoSelectGuide', choices = sgRNAInfoGuideList(), selected = guide_id, server = TRUE))
     enable("sgRNAInfoLoadButton")
-    delay(500,click("sgRNAInfoLoadButton"))
+    delay(1000,click("sgRNAInfoLoadButton"))
   })
   
   observeEvent(input$gwsGeneSpeciesSelect, {
@@ -2423,7 +2423,9 @@ function(input, output, session) {
   #create datatable out of dataframe
   expressionDataDataTable <- eventReactive(input$expressionDataLoadButton,{
     
-    df <- expressionDataDataFrame()
+    df <- expressionDataDataFrame() %>%
+      distinct()
+    
         if (nrow(df) > 0) {
           
       # # color codig for heatmap
@@ -2447,7 +2449,8 @@ function(input, output, session) {
       if(input$expressionDataSpeciesSelect == "all"){
         
         dt <- df %>%
-          select(sample_id, expression_value, Symbol_human, EntrezID_human, Symbol_mouse, EntrezID_mouse, unit) %>%
+          select(sample_id, expression_value, Symbol_human, EntrezID_human, Symbol_mouse, EntrezID_mouse) %>%
+          dplyr::distinct() %>%
           spread(sample_id, expression_value) %>%
           arrange(Symbol_human, Symbol_mouse) %>%
           select(Symbol_human, EntrezID_human, Symbol_mouse, EntrezID_mouse, everything())
@@ -2455,7 +2458,8 @@ function(input, output, session) {
         nfreezeColumns <- nfreezeColumns + 2
       }else{
         dt <- df %>%
-          select(sample_id, gene_symbol, entrez_id, expression_value, unit) %>%
+          select(sample_id, gene_symbol, entrez_id, expression_value) %>%
+          dplyr::distinct() %>%
           spread(sample_id, expression_value) %>%
           arrange(gene_symbol)
       }

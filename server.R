@@ -16,6 +16,15 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 function(input, output, session) {
+  #Disable menuitem when the app loads
+  if(view == "external"){
+    addCssClass(selector = "a[data-value='sgRNAInfoSidebar']", class = "inactiveLink")
+    addCssClass(selector = "a[data-value='sgRNAsSidebar']", class = "inactiveLink")
+    addCssClass(selector = "a[data-value='dualSgRNAsSidebar']", class = "inactiveLink")
+    addCssClass(selector = "a[data-value='expressionDataSidebar']", class = "inactiveLink")
+    addCssClass(selector = "a[data-value='dualSgRNAsSidebar']", class = "inactiveLink")
+  }
+
   ### Genome-wide Screens
   ####################
   # Browse Screen
@@ -357,9 +366,9 @@ function(input, output, session) {
 
   observeEvent(input$gwsBrowseScreenSpeciesSelect, {
     if(input$gwsBrowseScreenSpeciesSelect == "all"){
-      updateSelectizeInput(session, 'gwsBrowseScreenDatasetSelect', choices = list("dropout" = "dropout", "drug_modifier" = "synthetic"), selected = "dropout", server = TRUE)
+      updateSelectizeInput(session, 'gwsBrowseScreenDatasetSelect', choices = dataset_selection_dropout_drug, selected = "dropout", server = TRUE)
     }else{
-      updateSelectizeInput(session, 'gwsBrowseScreenDatasetSelect', choices = list("dropout" = "dropout", "drug_modifier" = "synthetic", "facs_based" = "facs"), selected = "dropout", server = TRUE)
+      updateSelectizeInput(session, 'gwsBrowseScreenDatasetSelect', choices = dataset_selection_all, selected = "dropout", server = TRUE)
     }
     #select checkbox tissue
     updateCheckboxInput(session, 'gwsBrowseScreenCheckTissueAll', value = FALSE)
@@ -783,7 +792,14 @@ function(input, output, session) {
         df <- df %>%
           cbind(Action_sgRNA)
       }
-      df
+      
+      #remove sensitive data for external view
+      if(view=="external"){
+        df %>%
+          select(-contains("rank_overall"), -contains("rank_validation"), -contains("Action_sgRNA"), -contains("Action_gene"))
+      }else{
+        df
+      }
     }
   })
   
@@ -1129,9 +1145,9 @@ function(input, output, session) {
   
   observeEvent(input$gwsGeneSpeciesSelect, {
     if(input$gwsGeneSpeciesSelect == "all"){
-      updateSelectizeInput(session, 'gwsGeneDatasetSelect', choices = list("dropout" = "dropout", "drug_modifier" = "synthetic"), selected = "dropout", server = TRUE)
+      updateSelectizeInput(session, 'gwsGeneDatasetSelect', choices = dataset_selection_dropout_drug, selected = "dropout", server = TRUE)
     }else{
-      updateSelectizeInput(session, 'gwsGeneDatasetSelect', choices = list("dropout" = "dropout", "drug_modifier" = "synthetic", "facs_based" = "facs"), selected = "dropout", server = TRUE)
+      updateSelectizeInput(session, 'gwsGeneDatasetSelect', choices = dataset_selection_all, selected = "dropout", server = TRUE)
     }
     #select checkbox tissue
     updateCheckboxInput(session, 'gwsGeneCheckTissueAll', value = FALSE)

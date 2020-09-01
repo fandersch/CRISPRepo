@@ -21,16 +21,22 @@ header <- dashboardHeader(
 )
 
 sidebar <- dashboardSidebar(
-  sidebarMenu(id="tabs",
-    menuItem(text = "Genome-wide Screens", 
-             tabName = "gwsSidebar",startExpanded=TRUE,
-             menuSubItem(text = "Browse Screen", tabName = "gwsBrowseScreenTab", selected = TRUE), 
-             menuSubItem(text = "Gene Search", tabName = "gwsGeneTab")),
-    menuItem(text = "SgRNA info", tabName = "sgRNAInfoSidebar"),
-    menuItem(text = "Libraries", tabName = "libSidebar"),
-    menuItem(text = "Genome-wide sgRNA predictions", tabName = "sgRNAsSidebar"),
-    menuItem(text = "Dual sgRNA design", tabName = "dualSgRNAsSidebar"),
-    menuItem(text = "Expression data", tabName = "expressionDataSidebar")
+  useShinyjs(),
+  sidebarMenu(id="tabs", 
+              tags$head(tags$style(".inactiveLink { 
+                                      pointer-events: none;
+                                      cursor: default;
+                                      visibility: hidden;
+                                      }")),
+              menuItem(text = "Genome-wide Screens", 
+                       tabName = "gwsSidebar",startExpanded=TRUE,
+                       menuSubItem(text = "Browse Screen", tabName = "gwsBrowseScreenTab", selected = TRUE), 
+                       menuSubItem(text = "Gene Search", tabName = "gwsGeneTab")),
+              menuItem(text = "Libraries", tabName = "libSidebar"),
+              menuItem(text = "SgRNA info", tabName = "sgRNAInfoSidebar"),
+              menuItem(text = "Genome-wide sgRNA predictions", tabName = "sgRNAsSidebar"),
+              menuItem(text = "Dual sgRNA design", tabName = "dualSgRNAsSidebar"),
+              menuItem(text = "Expression data", tabName = "expressionDataSidebar")
   )
 )
 
@@ -79,7 +85,7 @@ body <- dashboardBody(
                          selectizeInput(
                            inputId = "gwsBrowseScreenDatasetSelect",
                            label = "Dataset:",
-                           choices = list("dropout" = "dropout", "drug_modifier" = "synthetic", "facs_based" = "facs"),
+                           choices = dataset_selection_all,
                            multiple = FALSE,
                            selected = "dropout"
                          ),
@@ -186,7 +192,7 @@ body <- dashboardBody(
                          selectizeInput(
                            inputId = "gwsGeneDatasetSelect",
                            label = "Dataset:",
-                           choices = list("dropout" = "dropout", "drug_modifier" = "synthetic", "facs_based" = "facs"),
+                           choices = dataset_selection_all,
                            multiple = FALSE,
                            selected = "dropout"
                          ),

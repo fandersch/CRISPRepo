@@ -94,3 +94,16 @@ gene_list_expressionData <- con_expression %>%
 #make dictionary
 dict_joined <- read_tsv("dict/dict_joined.txt") %>%
   select(EntrezID_human=entrezID_human, Symbol_human, EntrezID_mouse=entrezID_mouse, Symbol_mouse)
+
+#distinguish between internal and external verson
+if("hs_gw_zuber_v2" %in% (libraries %>% collect %>% .$library_id)){
+  view <- "internal"
+  dataset_selection_all <- list("dropout" = "dropout", "drug_modifier" = "synthetic", "facs_based" = "facs")
+  dataset_selection_dropout_drug <- list("dropout" = "dropout", "drug_modifier" = "synthetic")
+}else{
+  view <- "external"
+  dataset_selection_all <- list("dropout" = "dropout")
+  dataset_selection_dropout_drug <- list("dropout" = "dropout")
+}
+
+

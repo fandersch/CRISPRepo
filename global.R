@@ -1,6 +1,6 @@
 # crisprepo-shiny
 
-# Copyright (c) 2018 Tobias Neumann, Jesse Lipp.
+# Copyright (c) 2018 Tobias Neumann, Jesse Lipp, Florian Andersch.
 # 
 # crisprepo-shiny is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as

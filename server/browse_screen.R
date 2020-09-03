@@ -525,7 +525,6 @@ observeEvent(input$gwsBrowseScreenCheckLibraryAll, {
 observeEvent(input$gwsBrowseScreenContrastSelect, {
   #unselect library checkbox
   if(!is.null(input$gwsBrowseScreenContrastSelect)){
-    loadGwScreenData(T)
     updateCheckboxInput(session, 'gwsBrowseScreenCheckContrastAll', value = FALSE)
   }
   if(isTRUE(input$gwsBrowseScreenCheckContrastAll) | (!is.null(input$gwsBrowseScreenContrastSelect))){
@@ -540,7 +539,6 @@ observeEvent(input$gwsBrowseScreenContrastSelect, {
 observeEvent(input$gwsBrowseScreenCheckContrastAll, {
   #unselect library selectbox
   if(isTRUE(input$gwsBrowseScreenCheckContrastAll)){
-    loadGwScreenData(T)
     contrastList <- gwsBrowseScreenContrastList()
     updateSelectizeInput(session, 'gwsBrowseScreenContrastSelect', choices = contrastList, server = TRUE)
     

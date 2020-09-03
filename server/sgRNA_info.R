@@ -2,7 +2,7 @@
 # sgRNA Info
 # ----------------------------------------------------------------------------
 
-sgRNAUpdateText <- function(){
+sgRNAInfoUpdateText <- function(){
   output$sgRNAInfoInfo <- renderText({
     if(is.null(input$sgRNAInfoSelectGene)){
       "INFO: Please select the gene(s) of considered sgRNAs in the right panel!"
@@ -464,7 +464,7 @@ observeEvent(input$sgRNAInfoSpeciesSelect, {
 observeEvent(input$sgRNAInfoSelectGene, {
   #update guide selectbox
   updateSelectizeInput(session, 'sgRNAInfoSelectGuide', choices = sgRNAInfoGuideList(), selected = input$sgRNAInfoSelectGuide, server = TRUE)
-  sgRNAUpdateText()
+  sgRNAInfoUpdateText()
 }, ignoreNULL = FALSE)
 
 observeEvent(input$sgRNAInfoSelectGuide, {
@@ -476,7 +476,7 @@ observeEvent(input$sgRNAInfoSelectGuide, {
       disable("sgRNAInfoLoadButton")
     }
   }
-  sgRNAUpdateText()
+  sgRNAInfoUpdateText()
 }, ignoreNULL = FALSE)
 
 observeEvent(input$sgRNAInfoCheckGuideAll, {
@@ -488,7 +488,7 @@ observeEvent(input$sgRNAInfoCheckGuideAll, {
       disable("sgRNAInfoLoadButton")
     }
   }
-  sgRNAUpdateText()
+  sgRNAInfoUpdateText()
 }, ignoreNULL = FALSE)
 
 # ----------------------------------------------------------------------------

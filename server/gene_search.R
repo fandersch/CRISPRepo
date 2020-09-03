@@ -533,7 +533,7 @@ observeEvent(input$select_button_sgRNA, {
   updateSelectizeInput(session, 'sgRNAInfoSelectGene', choices = sgRNAInfoGeneList(), selected = gene, server = TRUE)
   delay(250, updateSelectizeInput(session, 'sgRNAInfoSelectGuide', choices = sgRNAInfoGuideList(), selected = guide_id, server = TRUE))
   enable("sgRNAInfoLoadButton")
-  delay(1000, click("sgRNAInfoLoadButton"))
+  delay(2000, click("sgRNAInfoLoadButton"))
 })
 
 observeEvent(input$gwsGeneSpeciesSelect, {

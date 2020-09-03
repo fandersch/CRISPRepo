@@ -50,8 +50,8 @@ sgRNAInfoTableScreens <- reactive({
   df_screens <- con %>%
     tbl("guide_stats") %>%
     filter(guide_id %in% local(presel_guides)) %>%
-    collect() %>%
     left_join(features %>% select(-library_id) %>% distinct) %>%
+    collect() %>%
     mutate_at(c("lfc","effect"), funs(round(., 3)))
   
   if (nrow(df_screens) > 0) {
@@ -390,8 +390,9 @@ sgRNAInfoDataTableValidations <- eventReactive(input$sgRNAInfoLoadButton,{
 # Selectbox lists
 # ----------------------------------------------------------------------------
 sgRNAInfoGeneList <- reactive({
-  if(class(features)[1] == "tbl_SQLiteConnection"){
-    features <<- features %>%
+  
+  if(class(gene_list_screens)[1] == "tbl_SQLiteConnection" ){
+    gene_list_screens <<- gene_list_screens %>%
       collect()
   }
   
@@ -401,9 +402,12 @@ sgRNAInfoGeneList <- reactive({
     speciesList <- input$sgRNAInfoSpeciesSelect
   }
   
-  features %>%
-    left_join(libraries) %>%
-    filter(species %in% speciesList) %>%
+  libraries_selected <- libraries %>%
+      filter(species %in% speciesList) %>%
+      .$library_id
+    
+  gene_list_screens %>%
+    filter(library_id %in% libraries_selected) %>%
     select(symbol, entrez_id) %>%
     distinct() %>%
     dplyr::mutate(gene = ifelse(is.na(symbol), paste0("No symbol found (", entrez_id, ")"), paste0(symbol , " (", entrez_id, ")"))) %>%
@@ -428,6 +432,7 @@ sgRNAInfoGuideList <- reactive({
       filter(entrez_id %in% c(presel_entrez) | symbol %in% c(presel_genes)) %>%
       select(guide_id) %>%
       distinct() %>%
+      collect() %>%
       arrange(guide_id) %>%
       .$guide_id
   }

@@ -70,6 +70,18 @@ contrasts <- con %>%
 contrasts_facs <- con_facs %>%
   tbl("contrasts")
 
+gene_list_screens <- con %>%
+  tbl("features") %>%
+  filter(gene_id != "AMBIGUOUS") %>%
+  filter(gene_id != "UNMAPPED") %>%
+  filter(gene_id != "NOFEATURE") %>%
+  filter(gene_id != "SAFETARGETING") %>%
+  filter(gene_id != "NONTARGETING") %>%
+  filter(!is.na(gene_id)) %>%
+  select(symbol=hgnc_symbol, entrez_id, library_id) %>%
+  distinct %>%
+  arrange(symbol)
+
 gene_list_human <- con_sgRNAs %>%
   tbl("sgRNAs_human") %>%
   select(Symbol, EntrezID) %>%
@@ -82,6 +94,8 @@ gene_list_mouse <- con_sgRNAs %>%
   distinct %>%
   arrange(Symbol)
 
+loadSgRNAGeneList <- F
+
 cellline_list_expressionData <- con_expression %>%
   tbl("expression_data_meta_info") %>%
   select(sample_id, cell_line_name, tissue_name, species, unit) %>%
@@ -90,6 +104,8 @@ cellline_list_expressionData <- con_expression %>%
 
 gene_list_expressionData <- con_expression %>%
   tbl("expression_data_genes")
+
+loadExpressionDataTissueList <- F
 
 #make dictionary
 dict_joined <- read_tsv("dict/dict_joined.txt") %>%

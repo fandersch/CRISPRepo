@@ -6,9 +6,20 @@ output$sgRNAsInfo <- renderText({
   invisible("INFO: Please select the gene(s) you want to browse in the right panel!")
 })
 
+#upon load display nothing
+output$sgRNAsTableOutput <- renderDataTable({
+  print("init render load gne list")
+  if(class(gene_list_human)[1] == "tbl_SQLiteConnection" & class(gene_list_mouse)[1] == "tbl_SQLiteConnection" & loadSgRNAGeneList){
+    gene_list_human <<- gene_list_human %>%
+      collect()
+    gene_list_mouse <<- gene_list_mouse %>%
+      collect()
+  }
+})
+
 sgRNAsTable <- eventReactive(input$sgRNAsGeneSelect,{
   
-  presel_genes<- input$sgRNAsGeneSelect %>% strsplit(split="\\(|\\)")
+  presel_genes <- input$sgRNAsGeneSelect %>% strsplit(split="\\(|\\)")
   presel_gene_symbol <- unlist(presel_genes)[c(TRUE, FALSE)] %>% trimws()
   presel_gene_entrez <- unlist(presel_genes)[c(FALSE, TRUE)] %>% as.numeric
   
@@ -83,38 +94,47 @@ output$sgRNAsTableOutput <- renderDataTable({
 # ----------------------------------------------------------------------------
 
 sgRNAsGeneList <- reactive({
-  if(class(gene_list_human)[1] == "tbl_SQLiteConnection" & class(gene_list_mouse)[1] == "tbl_SQLiteConnection"){
+  if(class(gene_list_human)[1] == "tbl_SQLiteConnection" & class(gene_list_mouse)[1] == "tbl_SQLiteConnection" & loadSgRNAGeneList){
     gene_list_human <<- gene_list_human %>%
       collect()
-    
     gene_list_mouse <<- gene_list_mouse %>%
       collect()
   }
-  if(input$sgRNAsSpeciesSelect == "human"){
-    gene_list <- gene_list_human %>%
+  
+  if(input$sgRNAsSpeciesSelect == "all"){
+    gene_list <- gene_list_mouse %>%
+      rbind(gene_list_human)
+  }else{
+    if(input$sgRNAsSpeciesSelect == "human"){
+      gene_list <- gene_list_human 
+    }else{
+      gene_list <- gene_list_mouse 
+    }
+  }
+  
+  if(loadSgRNAGeneList){
+    gene_list %>%
       dplyr::mutate(gene = ifelse(is.na(Symbol), paste0("No symbol found (", EntrezID, ")"), paste0(Symbol , " (", EntrezID, ")"))) %>%
       arrange(gene) %>%
       .$gene
-  }else{
-    if(input$sgRNAsSpeciesSelect == "mouse"){
-      gene_list <- gene_list_mouse %>%
-        dplyr::mutate(gene = ifelse(is.na(Symbol), paste0("No symbol found (", EntrezID, ")"), paste0(Symbol , " (", EntrezID, ")"))) %>%
-        arrange(gene) %>%
-        .$gene
-    }else{
-      gene_list <- gene_list_mouse %>% 
-        rbind(gene_list_human) %>%
-        dplyr::mutate(gene = ifelse(is.na(Symbol), paste0("No symbol found (", EntrezID, ")"), paste0(Symbol , " (", EntrezID, ")"))) %>%
-        arrange(gene) %>%
-        .$gene
-    }
   }
-  gene_list
+  
 })
 
 # ----------------------------------------------------------------------------
 # Observers
 # ----------------------------------------------------------------------------
+observe(
+  if(input$tabs == "sgRNAsSidebar"){
+    loadSgRNAGeneList <<- T
+    if(input$sgRNAsSpeciesSelect == ""){
+      select = "human"
+    }else{
+      select = input$sgRNAsSpeciesSelect
+    }
+    updateRadioButtons(session, 'sgRNAsSpeciesSelect', choices = list("Human" = "human", "Mouse" = "mouse", "All"="all"), selected = select, inline = T)
+  }
+)
 
 observeEvent(input$sgRNAsSpeciesSelect, {
   #update gene selectbox

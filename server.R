@@ -25,7 +25,7 @@ function(input, output, session) {
     addCssClass(selector = "a[data-value='expressionDataSidebar']", class = "inactiveLink")
     addCssClass(selector = "a[data-value='dualSgRNAsSidebar']", class = "inactiveLink")
   }
-
+  
   # ----------------------------------------------------------------------------
   # Browse Screen
   # ----------------------------------------------------------------------------

@@ -220,7 +220,7 @@ expressionDataDataTable <- eventReactive(input$expressionDataLoadButton,{
 #----------------------------------------------------------------------------
 
 expressionDataTissueList <- reactive({
-  if(class(cellline_list_expressionData)[1] == "tbl_SQLiteConnection"){
+  if(class(cellline_list_expressionData)[1] == "tbl_SQLiteConnection" & loadExpressionDataTissueList){
     cellline_list_expressionData <<- cellline_list_expressionData %>%
       collect()
     
@@ -296,6 +296,17 @@ expressionDataGeneList <- reactive({
 #----------------------------------------------------------------------------
 #  Observers
 #----------------------------------------------------------------------------
+observe(
+  if(input$tabs == "expressionDataSidebar"){
+    loadExpressionDataTissueList <<- T
+    if(input$expressionDataSpeciesSelect == ""){
+      select = "human"
+    }else{
+      select = input$expressionDataSpeciesSelect
+    }
+    updateRadioButtons(session, 'expressionDataSpeciesSelect', choices = list("Human" = "human", "Mouse" = "mouse", "All"="all"), selected = select, inline = T)
+  }
+)
 
 observeEvent(input$expressionDataLoadButton, {
   output$expressionDataTable <- renderDataTable({

@@ -117,7 +117,7 @@ gwsGeneDataFrame <- reactive({
     
     #join guide ranks
     df <- df %>%
-      left_join(features_buff, copy=TRUE, by = c("gene_id", "guide_id")) %>%
+      left_join(features_buff, by = c("gene_id", "guide_id")) %>%
       select(contrast_id, contrast_id_QC, guide_id, gene_id, lfc, effect, symbol, entrez_id, sequence, context, species) %>%
       distinct() %>%
       collect() %>%
@@ -129,7 +129,7 @@ gwsGeneDataFrame <- reactive({
     
   }else{
     df <- df %>%
-      left_join(features_buff %>% select(-guide_id, -sequence) %>% distinct, copy=TRUE, by ="gene_id") %>%
+      left_join(features_buff %>% select(-guide_id, -sequence) %>% distinct, by ="gene_id") %>%
       select(contrast_id, contrast_id_QC, gene_id, lfc, effect, symbol, entrez_id, species) %>%
       distinct() %>%
       collect() %>%
@@ -328,18 +328,14 @@ gwsGeneTissueList <- reactive({
     libraries <<- libraries %>%
       collect()
     
-    features <<- features %>%
-      collect()
-    
-    features_facs <<- features_facs %>%
-      collect()
-    
     contrasts <<- contrasts %>%
       collect()
     
     contrasts_facs <<- contrasts_facs %>%
       collect()
     
+    gene_list_screens <<- gene_list_screens %>%
+        collect()
   }
   
   if(input$gwsGeneSpeciesSelect == "all"){
@@ -371,108 +367,112 @@ gwsGeneLibraryList <- reactive({
 })
 
 gwsGeneContrastList <- reactive({
-  if(input$gwsGeneSpeciesSelect == "all"){
-    speciesList <- c("human", "mouse")
-  }else{
-    speciesList <- input$gwsGeneSpeciesSelect
-  }
   
-  preselLibrary = libraries %>%
-    filter(species %in% speciesList) %>%
-    select(library_id) %>%
-    .$library_id
-  
-  if(!isTRUE(input$gwsGeneCheckLibraryAll) & !is.null(input$gwsGeneLibrarySelect)){
-    preselLibrary = libraries %>%
-      filter(species %in% speciesList) %>%
-      filter(library_id %in% input$gwsGeneLibrarySelect) %>%
-      .$library_id
-  }
-  
-  preselTissue = pheno %>%
-    filter(species %in%  speciesList) %>%
-    select(tissue_name) %>%
-    distinct() %>%
-    .$tissue_name
-  
-  if(!isTRUE(input$gwsGeneCheckTissueAll) & !is.null(input$gwsGeneTissueSelect)){
-    preselTissue = pheno %>%
-      filter(species %in%  speciesList) %>%
-      filter(tissue_name %in% input$gwsGeneTissueSelect) %>%
-      .$tissue_name
-  }
-  
-  if(input$gwsGeneDatasetSelect %in% c("facs")){
-    contrasts_buff <- contrasts_facs
-    if("human" %in%  speciesList){
-      preselLibrary <- "zuber_library_original"
+  if(!is.null(input$gwsGeneLibrarySelect) | isTRUE(input$gwsGeneCheckLibraryAll)){
+    if(input$gwsGeneSpeciesSelect == "all"){
+      speciesList <- c("human", "mouse")
     }else{
-      preselLibrary <- "zuber_library_mouse_original"
+      speciesList <- input$gwsGeneSpeciesSelect
     }
-  }else{
-    contrasts_buff <- contrasts
+    
+    preselLibrary <- libraries %>%
+      filter(species %in% speciesList) %>%
+      select(library_id) %>%
+      .$library_id
+    
+    if(!isTRUE(input$gwsGeneCheckLibraryAll) & !is.null(input$gwsGeneLibrarySelect)){
+      preselLibrary = libraries %>%
+        filter(species %in% speciesList) %>%
+        filter(library_id %in% input$gwsGeneLibrarySelect) %>%
+        .$library_id
+    }
+    
+    preselTissue <- pheno %>%
+      filter(species %in%  speciesList) %>%
+      select(tissue_name) %>%
+      distinct() %>%
+      .$tissue_name
+    
+    if(!isTRUE(input$gwsGeneCheckTissueAll) & !is.null(input$gwsGeneTissueSelect)){
+      preselTissue = pheno %>%
+        filter(species %in%  speciesList) %>%
+        filter(tissue_name %in% input$gwsGeneTissueSelect) %>%
+        .$tissue_name
+    }
+    
+    if(input$gwsGeneDatasetSelect %in% c("facs")){
+      contrasts_buff <- contrasts_facs
+      if("human" %in%  speciesList){
+        preselLibrary <- "zuber_library_original"
+      }else{
+        preselLibrary <- "zuber_library_mouse_original"
+      }
+    }else{
+      contrasts_buff <- contrasts
+    }
+    contrasts_buff %>%
+      filter(species %in%  speciesList) %>%
+      filter(library_id %in% preselLibrary) %>%
+      filter(tissue_name %in%  preselTissue) %>%
+      filter(type == input$gwsGeneDatasetSelect) %>%
+      select(contrast_id) %>%
+      distinct() %>%
+      .$contrast_id
   }
-  contrasts_buff %>%
-    filter(species %in%  speciesList) %>%
-    filter(library_id %in% preselLibrary) %>%
-    filter(tissue_name %in%  preselTissue) %>%
-    filter(type == input$gwsGeneDatasetSelect) %>%
-    select(contrast_id) %>%
-    distinct() %>%
-    .$contrast_id
   
 })
 
 gwsGeneGeneList <- reactive({
-  if(input$gwsGeneSpeciesSelect == "all"){
-    speciesList <- c("human", "mouse")
-  }else{
-    speciesList <- input$gwsGeneSpeciesSelect
-  }
   
-  if(input$gwsGeneDatasetSelect %in% c("facs")){
-    if(isTRUE(input$gwsGeneCheckContrastAll)){
-      presel_contrasts <- gwsGeneContrastList()
+  if(!is.null(input$gwsGeneContrastSelect) | isTRUE(input$gwsGeneCheckContrastAll)){
+    if(input$gwsGeneSpeciesSelect == "all"){
+      speciesList <- c("human", "mouse")
     }else{
-      presel_contrasts <- local(input$gwsGeneContrastSelect)
+      speciesList <- input$gwsGeneSpeciesSelect
     }
     
-    con_facs %>%
-      tbl("gene_stats") %>%
-      filter(contrast_id %in% presel_contrasts) %>%
-      select(gene_id) %>%
-      distinct() %>%
-      left_join(con_facs %>% tbl("features") %>% select(gene_id, symbol, entrez_id)) %>%
-      collect() %>%
-      dplyr::mutate(gene = ifelse(is.na(symbol), paste0("No symbol found (", entrez_id, ")"), paste0(symbol , " (", entrez_id, ")"))) %>%
-      arrange(gene) %>%
-      .$gene
-    
-  }else{
-    preselLibrary = libraries %>%
-      filter(species %in% speciesList) %>%
-      select(library_id) %>%
-      .$library_id
-    if(!isTRUE(input$gwsGeneCheckLibraryAll) & !is.null(input$gwsGeneLibrarySelect)){
-      preselLibrary = libraries %>%
-        filter(library_id %in% input$gwsGeneLibrarySelect) %>%
+    if(input$gwsGeneDatasetSelect %in% c("facs")){
+      if(isTRUE(input$gwsGeneCheckContrastAll)){
+        presel_contrasts <- gwsGeneContrastList()
+      }else{
+        presel_contrasts <- local(input$gwsGeneContrastSelect)
+      }
+      
+      con_facs %>%
+        tbl("gene_stats") %>%
+        filter(contrast_id %in% presel_contrasts) %>%
+        select(gene_id) %>%
+        distinct() %>%
+        left_join(con_facs %>% tbl("features") %>% select(gene_id, symbol, entrez_id)) %>%
         collect() %>%
+        dplyr::mutate(gene = ifelse(is.na(symbol), paste0("No symbol found (", entrez_id, ")"), paste0(symbol , " (", entrez_id, ")"))) %>%
+        arrange(gene) %>%
+        .$gene
+      
+    }else{
+      preselLibrary <-  libraries %>%
+        filter(species %in% speciesList) %>%
+        select(library_id) %>%
         .$library_id
+      
+      if(!isTRUE(input$gwsGeneCheckLibraryAll) & !is.null(input$gwsGeneLibrarySelect)){
+        preselLibrary = libraries %>%
+          filter(library_id %in% input$gwsGeneLibrarySelect) %>%
+          collect() %>%
+          .$library_id
+      }
+      gene_list_screens %>%
+        filter(library_id %in% preselLibrary) %>% 
+        dplyr::mutate(gene = ifelse(is.na(symbol), paste0("No symbol found (", entrez_id, ")"), paste0(symbol , " (", entrez_id, ")"))) %>%
+        arrange(gene) %>%
+        .$gene
     }
-    features %>%
-      filter(library_id %in% preselLibrary) %>% 
-      select(symbol, entrez_id) %>%
-      distinct() %>%
-      dplyr::mutate(gene = ifelse(is.na(symbol), paste0("No symbol found (", entrez_id, ")"), paste0(symbol , " (", entrez_id, ")"))) %>%
-      arrange(gene) %>%
-      .$gene
   }
 })
 
 # ----------------------------------------------------------------------------
-# Search Observers
+# Observers
 # ----------------------------------------------------------------------------
-
 observeEvent(input$gwsGeneLoadButton, {
   output$gwsGeneTable <- renderDataTable({
     gwsGeneDatatable <- gwsGeneDataTable()
@@ -481,6 +481,15 @@ observeEvent(input$gwsGeneLoadButton, {
 
 #actionButton handler for datatable buttons
 observeEvent(input$select_button_gene, {
+  loadSgRNAGeneList <<- T
+  if(input$sgRNAsSpeciesSelect == ""){
+    select = "human"
+  }else{
+    select = input$sgRNAsSpeciesSelect
+  }
+  updateRadioButtons(session, 'sgRNAsSpeciesSelect', choices = list("Human" = "human", "Mouse" = "mouse", "All"="all"), selected = select, inline = T)
+  
+  
   row <- as.numeric(strsplit(input$select_button_gene, "_")[[1]][3])
   if(input$gwsGeneSpeciesSelect == "all"){
     symbol_human <- gwsGeneDataFrame()[row,2]
@@ -495,8 +504,7 @@ observeEvent(input$select_button_gene, {
     gene = ifelse(is.na(symbol), paste0("No symbol found (", entrez_id, ")"), paste0(symbol , " (", entrez_id, ")"))
     
   }
-  
-  updateSelectizeInput(session, 'sgRNAsGeneSelect', choices = sgRNAsGeneList(), selected = gene, server = TRUE)
+  delay(250, updateSelectizeInput(session, 'sgRNAsGeneSelect', choices = sgRNAsGeneList(), selected = gene, server = TRUE))
   updateTabItems(session, "tabs", "sgRNAsSidebar")
 })
 
@@ -525,7 +533,7 @@ observeEvent(input$select_button_sgRNA, {
   updateSelectizeInput(session, 'sgRNAInfoSelectGene', choices = sgRNAInfoGeneList(), selected = gene, server = TRUE)
   delay(250, updateSelectizeInput(session, 'sgRNAInfoSelectGuide', choices = sgRNAInfoGuideList(), selected = guide_id, server = TRUE))
   enable("sgRNAInfoLoadButton")
-  delay(1000,click("sgRNAInfoLoadButton"))
+  delay(1000, click("sgRNAInfoLoadButton"))
 })
 
 observeEvent(input$gwsGeneSpeciesSelect, {

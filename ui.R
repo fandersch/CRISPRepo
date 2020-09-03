@@ -24,8 +24,6 @@ sidebar <- dashboardSidebar(
   useShinyjs(),
   sidebarMenu(id="tabs", 
               tags$head(tags$style(".inactiveLink { 
-                                      pointer-events: none;
-                                      cursor: default;
                                       visibility: hidden;
                                       }")),
               menuItem(text = "Genome-wide Screens", 
@@ -370,8 +368,8 @@ body <- dashboardBody(
                          radioButtons(
                            "sgRNAsSpeciesSelect",
                            label = "Species:",
-                           choices = list("Human" = "human", "Mouse" = "mouse", "All"="all"),
-                           selected = "human",
+                           choices = list(""),
+                           selected = "",
                            inline = T
                          )
                      ),
@@ -456,8 +454,8 @@ body <- dashboardBody(
                          radioButtons(
                            "expressionDataSpeciesSelect",
                            label = "Species:",
-                           choices = list("Human" = "human", "Mouse" = "mouse", "All" = "all"),
-                           selected = "human",
+                           choices = list(""),
+                           selected = "",
                            inline = T
                          )
                      ),

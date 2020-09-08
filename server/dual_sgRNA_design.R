@@ -3,7 +3,7 @@
 # ----------------------------------------------------------------------------
 
 output$dualSgRNAsInfo <- renderText({
-  invisible(paste("**************** TESTING MODE!!! THIS FEATURE IS STILL UNDER DEVELOPMENT, PLEASE DOUBLE CHECK YOUR RESULTS!!! **************", HTML('<br/>'), "INFO: Please upload a csv file with the provided file browser on the right side! ", HTML('<br/>'), " The file must have two columns: (1) the entrez-ID and (2) the 23 nucleotide long sgRNA sequence (no header)!"))
+  invisible(paste("INFO: Please upload a csv file with the provided file browser on the right side! ", HTML('<br/>'), " The file must have two columns: (1) the entrez-ID and (2) the 23 nucleotide long sgRNA sequence (no header)!"))
 })
 
 #upon loading do nothing

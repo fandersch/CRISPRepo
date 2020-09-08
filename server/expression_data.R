@@ -100,22 +100,10 @@ expressionDataDataTable <- eventReactive(input$expressionDataLoadButton,{
   
   if (nrow(df) > 0) {
     
-    # # color codig for heatmap
-    # values <- df %>%
-    #   select(input$gwsBrowseScreenIndexRadio) %>%
-    #   as.data.frame() %>% as.matrix() %>% as.vector()
-    # 
-    # brks_smaller <- seq(min(values), 0, .05)
-    # brks_bigger <- seq(0, max(values), .05)
-    # 
-    # clrs_smaller <- round(seq(40, 255, length.out = (length(brks_smaller) + 1)), 0) %>%
-    # {paste0("rgb(255,", ., ",", ., ")")}
-    # clrs_bigger <- round(seq(255, 40, length.out = (length(brks_bigger))), 0) %>%
-    # {paste0("rgb(", ., ",", ., ",255)")}
-    # 
-    # brks <- c(as.vector(brks_smaller), as.vector(brks_bigger))
-    # clrs <- c(as.vector(clrs_smaller), as.vector(clrs_bigger))
-    # 
+    brks <- seq(0, 20, length.out = 40)
+    clrs <- round(seq(255, 5, length.out = (length(brks) + 1)), 0) %>%
+    {paste0("rgb(255,", ., ",", ., ")")}
+
     nfreezeColumns <- 2
     
     if(input$expressionDataSpeciesSelect == "all"){
@@ -134,8 +122,9 @@ expressionDataDataTable <- eventReactive(input$expressionDataLoadButton,{
         arrange(gene_symbol)
     }
     
-    # #tooltips
-    # colnames_dt <- colnames(dt)
+    #tooltips
+    colnames_dt <- colnames(dt)
+    # 
     # contrast_ids <- df$contrast_id %>% unique
     # tooltip <- ''
     # 
@@ -193,19 +182,19 @@ expressionDataDataTable <- eventReactive(input$expressionDataLoadButton,{
                       #fixedHeader = TRUE
                     ),
                     filter = list(position = 'top', clear = FALSE),
-                    rownames= FALSE)
-    # formatStyle(seq(nfreezeColumns+1, length(colnames_dt),1),
-    #             backgroundColor = styleInterval(brks, clrs))
+                    rownames= FALSE) %>%
+    formatStyle(seq(nfreezeColumns+1, length(colnames_dt),1),
+                backgroundColor = styleInterval(brks, clrs))
     
-    if(!is.null(input$expressionDataGeneSelect)){
+    if(!is.null(input$expressionDataGeneSelect) | isTRUE(input$expressionDataCheckGeneAll)){
       output$expressionDataInfo <- renderText({
-        "Info: Loading completed!"
+        "Info: Loading completed! Table shows log2-transformed TPM values (+1 pseudocount)"
       })
     }
     #display datatable
     dt
   }else{
-    if(!is.null(input$expressionDataGeneSelect)){
+    if(!is.null(input$expressionDataGeneSelect) | isTRUE(input$expressionDataCheckGeneAll)){
       output$expressionDataInfo <- renderText({
         "WARNING: No data found!"
       })

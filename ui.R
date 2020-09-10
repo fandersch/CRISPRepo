@@ -368,7 +368,7 @@ body <- dashboardBody(
                          radioButtons(
                            "sgRNAsSpeciesSelect",
                            label = "Species:",
-                           choices = list(""),
+                           choices = list("Human" = "human", "Mouse" = "mouse", "All"="all"),
                            selected = "",
                            inline = T
                          )
@@ -381,6 +381,11 @@ body <- dashboardBody(
                              choices = NULL,
                              multiple = TRUE,
                              selected = NULL
+                           ), 
+                          disabled(
+                             actionButton(inputId = "sgRNAsLoadButton", 
+                                          label = "Load data!"
+                             )
                            )
                      ),
                      box(

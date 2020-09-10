@@ -94,8 +94,6 @@ gene_list_mouse <- con_sgRNAs %>%
   distinct %>%
   arrange(Symbol)
 
-loadSgRNAGeneList <- F
-
 cellline_list_expressionData <- con_expression %>%
   tbl("expression_data_meta_info") %>%
   select(sample_id, cell_line_name, tissue_name, species, unit) %>%

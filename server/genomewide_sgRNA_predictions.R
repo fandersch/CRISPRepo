@@ -1,24 +1,24 @@
 # ----------------------------------------------------------------------------
 # genome-wide sgRNA predictions
 # ----------------------------------------------------------------------------
-
+sgRNAsUpdateText <- function(){
+  output$sgRNAsInfo <- renderText({
+    if(is.null(input$sgRNAsGeneSelect)){
+      "INFO: Please select the gene(s) you want to browse in the right panel!"
+    }else{
+      "INFO: Click Load data!"
+    }
+  })
+}
 output$sgRNAsInfo <- renderText({
   invisible("INFO: Please select the gene(s) you want to browse in the right panel!")
 })
 
 #upon load display nothing
 output$sgRNAsTableOutput <- renderDataTable({
-  print("init render load gne list")
-  if(class(gene_list_human)[1] == "tbl_SQLiteConnection" & class(gene_list_mouse)[1] == "tbl_SQLiteConnection" & loadSgRNAGeneList){
-    gene_list_human <<- gene_list_human %>%
-      collect()
-    gene_list_mouse <<- gene_list_mouse %>%
-      collect()
-  }
 })
 
-sgRNAsTable <- eventReactive(input$sgRNAsGeneSelect,{
-  
+sgRNAsTable <- reactive({
   presel_genes <- input$sgRNAsGeneSelect %>% strsplit(split="\\(|\\)")
   presel_gene_symbol <- unlist(presel_genes)[c(TRUE, FALSE)] %>% trimws()
   presel_gene_entrez <- unlist(presel_genes)[c(FALSE, TRUE)] %>% as.numeric
@@ -70,22 +70,37 @@ sgRNAsTable <- eventReactive(input$sgRNAsGeneSelect,{
   sgRNAs
 })
 
-output$sgRNAsTableOutput <- renderDataTable({
+sgRNAsDataTableOutput <- eventReactive(input$sgRNAsLoadButton,{
   sgRNAs <- sgRNAsTable()
-  if (nrow(sgRNAs) > 0) {
-    sgRNAs %>% 
-      datatable(extensions = c('FixedColumns','FixedHeader'),
-                options = list(
-                  autoWidth = FALSE,
-                  headerCallback = JS(headerCallback),
-                  scrollX=TRUE,
-                  fixedColumns = list(leftColumns = 3),
-                  columnDefs = list(list(className = 'dt-center', targets = "_all")),
-                  pageLength = 25,
-                  lengthMenu = c(25, 50, 100, 200)
-                ),
-                filter = list(position = 'top', clear = FALSE),
-                rownames= FALSE)
+  
+    if (nrow(sgRNAs) > 0) {
+      if(!is.null(input$sgRNAsGeneSelect)){
+        output$sgRNAsInfo <- renderText({
+          "INFO: Loading completed!"
+        })
+      }
+      
+      sgRNAs %>% 
+        datatable(extensions = c('FixedColumns','FixedHeader'),
+                  options = list(
+                    autoWidth = FALSE,
+                    headerCallback = JS(headerCallback),
+                    scrollX=TRUE,
+                    fixedColumns = list(leftColumns = 3),
+                    columnDefs = list(list(className = 'dt-center', targets = "_all")),
+                    pageLength = 25,
+                    lengthMenu = c(25, 50, 100, 200)
+                  ),
+                  filter = list(position = 'top', clear = FALSE),
+                  rownames= FALSE)
+  }else{
+    if(!is.null(input$sgRNAsGeneSelect)){
+      output$sgRNAsInfo <- renderText({
+        "WARNING: No data found!"
+      })
+    }else{
+      sgRNAsUpdateText()
+    }
   }
 })
 
@@ -94,9 +109,12 @@ output$sgRNAsTableOutput <- renderDataTable({
 # ----------------------------------------------------------------------------
 
 sgRNAsGeneList <- reactive({
-  if(class(gene_list_human)[1] == "tbl_SQLiteConnection" & class(gene_list_mouse)[1] == "tbl_SQLiteConnection" & loadSgRNAGeneList){
+  if(class(gene_list_human)[1] == "tbl_SQLiteConnection" & (input$sgRNAsSpeciesSelect == "all" | input$sgRNAsSpeciesSelect == "human")){
     gene_list_human <<- gene_list_human %>%
       collect()
+  }
+  
+  if(class(gene_list_mouse)[1] == "tbl_SQLiteConnection" & (input$sgRNAsSpeciesSelect == "all" | input$sgRNAsSpeciesSelect == "mouse")){
     gene_list_mouse <<- gene_list_mouse %>%
       collect()
   }
@@ -112,29 +130,21 @@ sgRNAsGeneList <- reactive({
     }
   }
   
-  if(loadSgRNAGeneList){
-    gene_list %>%
-      dplyr::mutate(gene = ifelse(is.na(Symbol), paste0("No symbol found (", EntrezID, ")"), paste0(Symbol , " (", EntrezID, ")"))) %>%
-      arrange(gene) %>%
-      .$gene
-  }
+  gene_list %>%
+    dplyr::mutate(gene = ifelse(is.na(Symbol), paste0("No symbol found (", EntrezID, ")"), paste0(Symbol , " (", EntrezID, ")"))) %>%
+    arrange(gene) %>%
+    .$gene
   
 })
 
 # ----------------------------------------------------------------------------
 # Observers
 # ----------------------------------------------------------------------------
-observe(
-  if(input$tabs == "sgRNAsSidebar"){
-    loadSgRNAGeneList <<- T
-    if(input$sgRNAsSpeciesSelect == ""){
-      select = "human"
-    }else{
-      select = input$sgRNAsSpeciesSelect
-    }
-    updateRadioButtons(session, 'sgRNAsSpeciesSelect', choices = list("Human" = "human", "Mouse" = "mouse", "All"="all"), selected = select, inline = T)
-  }
-)
+observeEvent(input$sgRNAsLoadButton, {
+  output$sgRNAsTableOutput <- renderDataTable({
+    sgRNAsDatatableOutput <- sgRNAsDataTableOutput()
+  })
+})
 
 observeEvent(input$sgRNAsSpeciesSelect, {
   #update gene selectbox
@@ -144,6 +154,15 @@ observeEvent(input$sgRNAsSpeciesSelect, {
   updateSelectizeInput(session, 'sgRNAsGeneSelect', choices = sgRNAsGeneList(), server = TRUE)
 })
 
+observeEvent(input$sgRNAsGeneSelect, {
+  if((!is.null(input$sgRNAsGeneSelect))){
+    enable("sgRNAsLoadButton")
+  }else{
+    disable("sgRNAsLoadButton")
+  }
+  sgRNAsUpdateText()
+  
+}, ignoreNULL = FALSE)
 
 # ----------------------------------------------------------------------------
 # Download handler

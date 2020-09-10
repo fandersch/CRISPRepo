@@ -170,11 +170,11 @@ sgRNAInfoTableValidations <- reactive({
       tbl(tableSgRNAs[i]) %>%
       filter(EntrezID %in% c(presel_entrez)) %>%
       collect() %>%
-      mutate(dataset = unlist(strsplit(tableSgRNAs[i], split="_"))[3:4] %>% paste(collapse = "_")) %>%
+      mutate(Dataset = unlist(strsplit(tableSgRNAs[i], split="_"))[3:4] %>% paste(collapse = "_")) %>%
       separate(sgRNA_id, into =c("dummy", "seq_buff"), sep = "_", remove = FALSE) %>%
       filter(str_detect(seq_buff, paste(sgRNAs_23mer, collapse = "|"))) %>%
-      select(-seq_buff, -dummy) %>%
-      select(dataset, everything())
+      select(-seq_buff, -dummy, -legacy_sequence, Library_origin = source, Mature_sgRNA = mature_sgRNA) %>%
+      select(Dataset, everything())
     
     if(!"outlier_high_confident_all_total" %in% colnames(sgRNAs_buff)){
       sgRNAs_buff <- sgRNAs_buff %>%
@@ -258,7 +258,7 @@ sgRNAInfoDataTableScreens <- eventReactive(input$sgRNAInfoLoadButton,{
       
       colnames(sgRNAInfoDatatable) <- colnames_sgRNAInfoDatatable
       
-      headerCallback <- c(
+      headerCallbackScreens <- c(
         "function(thead, data, start, end, display){",
         "  var $ths = $(thead).find('th');",
         "  $ths.css({'vertical-align': 'bottom', 'white-space': 'nowrap'});",
@@ -289,7 +289,7 @@ sgRNAInfoDataTableScreens <- eventReactive(input$sgRNAInfoLoadButton,{
                                        selection = 'none', 
                                        extensions = c('FixedColumns','FixedHeader'),
                                        options = list(autoWidth = FALSE, 
-                                                      headerCallback = JS(headerCallback), 
+                                                      headerCallback = JS(headerCallbackScreens), 
                                                       scrollX=TRUE,
                                                       fixedColumns = list(leftColumns = nfreezeColumns), 
                                                       columnDefs = list(list(className = 'dt-center', targets = "_all")), 
@@ -360,12 +360,74 @@ sgRNAInfoDataTableValidations <- eventReactive(input$sgRNAInfoLoadButton,{
     
     sgRNAInfoDatatable <- df
     
+    colnames_sgRNAInfoDatatableValidation <- colnames(sgRNAInfoDatatable)
+    tooltip <- ''
+    
+    for(i in 1:length(colnames_sgRNAInfoDatatableValidation)){
+      if(colnames_sgRNAInfoDatatableValidation[i] == "gene_hits_total"){
+        tooltip <- paste0(tooltip, "'The number of screens where the gene was considered as a hit (depletion/enrichment)'",  ", " )
+      }else{
+        if(colnames_sgRNAInfoDatatableValidation[i] == "good_guide_total"){
+          tooltip <- paste0(tooltip, "'The number of screens where this sgRNA showed a stronger depletion/enrichment than the average of all sgRNAs that target this gene'",  ", " )
+        }else{
+          if(colnames_sgRNAInfoDatatableValidation[i] == "outlier_total"){
+            tooltip <- paste0(tooltip, "'The number of screens where this sgRNA was classified as outlier'",  ", " )
+          }else{
+            if(colnames_sgRNAInfoDatatableValidation[i] == "good_guides_ratio"){
+              tooltip <- paste0(tooltip, "'The number of good_guide_total divided by the number of gene_hits_total'",  ", " )
+            }else{
+              if(colnames_sgRNAInfoDatatableValidation[i] == "avgGuideLFCGeneHit"){
+                tooltip <- paste0(tooltip, "'The average LFC of this sgRNA in screens where the gene was considered as a hit (depletion/enrichment)'",  ", " )
+              }else{
+                if(colnames_sgRNAInfoDatatableValidation[i] == "ratio_avgLFC_rank"){
+                  tooltip <- paste0(tooltip, "'good_guides_ratio multiplied by avgGuideLFCGeneHit'",  ", " )
+                }else{
+                  if(colnames_sgRNAInfoDatatableValidation[i] == "outlier_high_confident_all_total"){
+                    tooltip <- paste0(tooltip, "'The number of screens where this sgRNA was classified as outlier high confident'")
+                  }else{
+                    tooltip <- paste0(tooltip, "'", colnames_sgRNAInfoDatatableValidation[i], "'",  ", " )
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    
+    headerCallbackValidation <- c(
+      "function(thead, data, start, end, display){",
+      "  var $ths = $(thead).find('th');",
+      "  $ths.css({'vertical-align': 'bottom', 'white-space': 'nowrap'});",
+      "  var betterCells = [];",
+      "  $ths.each(function(){",
+      "    var cell = $(this);",
+      "    var newDiv = $('<div>', {height: 'auto', width: 'auto'});",
+      "    var newInnerDiv = $('<div>', {text: cell.text()});",
+      "    newDiv.css({margin: 'auto'});",
+      "    newInnerDiv.css({",
+      "      transform: 'rotate(180deg)',",
+      "      'writing-mode': 'tb-rl',",
+      "      'white-space': 'nowrap'",
+      "    });",
+      "    newDiv.append(newInnerDiv);",
+      "    betterCells.push(newDiv);",
+      "  });",
+      "  $ths.each(function(i){",
+      "    $(this).html(betterCells[i]);",
+      "  });",
+      paste0("  var tooltips = [", tooltip, "];"),
+      paste0("  for(var i=0; i<", length(colnames_sgRNAInfoDatatableValidation), "; i++){"),
+      "    $('th:eq('+i+')',thead).attr('title', tooltips[i]);",
+      "  }",
+      "}"
+    )
     
     sgRNAInfoDatatable %>% datatable(escape = FALSE,
                                      selection = 'none', 
                                      extensions = c('FixedColumns','FixedHeader'),
                                      options = list(autoWidth = FALSE, 
-                                                    headerCallback = JS(headerCallback), 
+                                                    headerCallback = JS(headerCallbackValidation), 
                                                     scrollX=TRUE,
                                                     columnDefs = list(list(className = 'dt-center', targets = "_all")), 
                                                     pageLength = 25, 
@@ -377,7 +439,7 @@ sgRNAInfoDataTableValidations <- eventReactive(input$sgRNAInfoLoadButton,{
   }else{
     if(!is.null(input$sgRNAInfoSelectGuide)){
       output$sgRNAInfoInfo <- renderText({
-        "WARNING: No sgRNA prediction data found!"
+        "WARNING: No sgRNA validation data found!"
       })
     }else{
       gwsGeneUpdateText()

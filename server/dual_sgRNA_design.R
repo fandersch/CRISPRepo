@@ -66,7 +66,7 @@ dualSgRNAsTable <- reactive({
           tbl("sgRNAs_human") %>%
           filter(EntrezID == local(input_entrez)) %>%
           collect() %>%
-          mutate_at(c("Symbol", "sgRNA_23mer", "sgRNA_ID", "Position", "mature_sgRNA", "Off_target", "guide_origin"), as.character) %>%
+          mutate_at(c("Symbol", "sgRNA_23mer", "sgRNA_ID", "Position", "mature_sgRNA", "Off_target", "guide_origin"), as.character)
           
           entrez_old <- input_entrez
       }else{
@@ -122,14 +122,20 @@ dualSgRNAsTable <- reactive({
         mutate(genomic_cutting_position = ifelse(orientation=="+", as.numeric(end) - 3 - 3 - 3, as.numeric(end) + 3 + 3 + 3)) %>%
         mutate(cutting_distance = input_genomic_cutting_position - genomic_cutting_position,
                produces_frameshift = ifelse(cutting_distance %% 3 != 0, TRUE, FALSE),
-               proximity_100kb = ifelse(abs(cutting_distance)<=1000, TRUE, FALSE),
+               proximity_1kb = ifelse(abs(cutting_distance)<=1000, TRUE, FALSE),
                targets_same_exon = ifelse(input_exon==exon, TRUE, FALSE)) %>%
-        # filter(proximity_100kb == TRUE, produces_frameshift == TRUE, check == TRUE) %>%
+        filter(proximity_1kb == TRUE, produces_frameshift == TRUE) %>%
         mutate(original_sgRNA = input_sequence, original_sgRNA_position = input_position, original_sgRNA_exon_number = input_exon) %>%
         mutate(VBC.score = ifelse(VBC.score <= 0.001, NA, VBC.score)) %>%
-        arrange(final_rank) %>%
-        select(EntrezID, Symbol, original_sgRNA, original_sgRNA_position, original_sgRNA_exon_number,  matching_sgRNA=sgRNA_23mer, Position, VBC.score, Off_target, cutting_distance, exon, targets_same_exon, everything()) 
+        arrange(EntrezID, desc(proximity_1kb), desc(produces_frameshift), final_rank) %>%
+        select(EntrezID, Symbol, original_sgRNA, original_sgRNA_position, original_sgRNA_exon_number,  matching_sgRNA=sgRNA_23mer, Position, VBC.score, Off_target, cutting_distance, exon, targets_same_exon, everything()) %>%
+        rename(maps_to_genome = check)
       
+      if(length(sgRNAs_selected$maps_to_genome %>% unique)==1){
+        sgRNAs_selected <- sgRNAs_selected %>%
+          select(-maps_to_genome)
+      }
+
       #Limit number of reported dual-sgRNA-combinations per gene
       if(input$dualSgRNAs_LimitOutput == TRUE){
         limit <- ifelse(nrow(sgRNAs_selected) > input$dualSgRNAs_nOutput, input$dualSgRNAs_nOutput, nrow(sgRNAs_selected))

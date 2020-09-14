@@ -31,10 +31,10 @@ sidebar <- dashboardSidebar(
                        menuSubItem(text = "Browse Screen", tabName = "gwsBrowseScreenTab", selected = TRUE), 
                        menuSubItem(text = "Gene Search", tabName = "gwsGeneTab")),
               menuItem(text = "Libraries", tabName = "libSidebar"),
-              menuItem(text = "SgRNA info", tabName = "sgRNAInfoSidebar"),
-              menuItem(text = "Genome-wide sgRNA predictions", tabName = "sgRNAsSidebar"),
-              menuItem(text = "Dual sgRNA design", tabName = "dualSgRNAsSidebar"),
-              menuItem(text = "Expression data", tabName = "expressionDataSidebar")
+              menuItemOutput("sgRNAInfoSidebar"),
+              menuItemOutput("sgRNAsSidebar"),
+              menuItemOutput("dualSgRNAsSidebar"),
+              menuItemOutput("expressionDataSidebar")
   )
 )
 

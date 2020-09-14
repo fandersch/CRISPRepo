@@ -17,14 +17,25 @@
 
 function(input, output, session) {
   
-  #Disable menuitem when the app loads
-  if(view == "external"){
-    addCssClass(selector = "a[data-value='sgRNAInfoSidebar']", class = "inactiveLink")
-    addCssClass(selector = "a[data-value='sgRNAsSidebar']", class = "inactiveLink")
-    addCssClass(selector = "a[data-value='dualSgRNAsSidebar']", class = "inactiveLink")
-    addCssClass(selector = "a[data-value='expressionDataSidebar']", class = "inactiveLink")
-    addCssClass(selector = "a[data-value='dualSgRNAsSidebar']", class = "inactiveLink")
-  }
+  output$sgRNAInfoSidebar <- renderMenu({
+    if(view == "internal")
+      menuItem(text = "SgRNA info", tabName = "sgRNAInfoSidebar")
+  })
+  
+  output$sgRNAsSidebar <- renderMenu({
+    if(view == "internal")
+      menuItem(text = "Genome-wide sgRNA predictions", tabName = "sgRNAsSidebar")
+  })
+  
+  output$dualSgRNAsSidebar <- renderMenu({
+    if(view == "internal")
+      menuItem(text = "Dual sgRNA design", tabName = "dualSgRNAsSidebar")
+  })
+  
+  output$expressionDataSidebar <- renderMenu({
+    if(view == "internal")
+      menuItem(text = "Expression data", tabName = "expressionDataSidebar")
+  })
   
   # ----------------------------------------------------------------------------
   # Browse Screen

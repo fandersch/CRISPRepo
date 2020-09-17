@@ -130,11 +130,6 @@ dualSgRNAsTable <- reactive({
         arrange(EntrezID, desc(proximity_1kb), desc(produces_frameshift), final_rank) %>%
         select(EntrezID, Symbol, original_sgRNA, original_sgRNA_position, original_sgRNA_exon_number,  matching_sgRNA=sgRNA_23mer, Position, VBC.score, Off_target, cutting_distance, exon, targets_same_exon, everything()) %>%
         rename(maps_to_genome = check)
-      
-      if(length(sgRNAs_selected$maps_to_genome %>% unique)==1){
-        sgRNAs_selected <- sgRNAs_selected %>%
-          select(-maps_to_genome)
-      }
 
       #Limit number of reported dual-sgRNA-combinations per gene
       if(input$dualSgRNAs_LimitOutput == TRUE){
@@ -147,6 +142,11 @@ dualSgRNAsTable <- reactive({
         dualSgRNAs_output <- dualSgRNAs_output %>% rbind(sgRNAs_selected)
       }
     }
+  }
+  
+  if(length(sgRNAs_selected$maps_to_genome %>% unique)==1){
+    sgRNAs_selected <- sgRNAs_selected %>%
+      select(-maps_to_genome)
   }
   
   if(entrez_not_found_counter>0 | position_not_found_counter > 0){

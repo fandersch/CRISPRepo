@@ -558,10 +558,33 @@ observeEvent(input$sgRNAInfoCheckGuideAll, {
 # ----------------------------------------------------------------------------
 
 output$sgRNAInfoButtonDownload <- downloadHandler(
+  
   filename = function() {
-    paste0(local(input$sgRNAInfoSelectGene), ".txt")
+    table <- sgRNAInfoTableValidations()
+    paste0(paste(input$sgRNAInfoSelectGene %>% unique,collapse="_"), ".zip")
   },
-  content = function(file) {
-    sgRNAInfoTable() %>% write_tsv(file)
+  content = function(file){
+    #go to a temp dir to avoid permission issues
+    owd <- setwd(tempdir())
+    on.exit(setwd(owd))
+    files <- NULL;
+    #write each sheet to a csv file, save the name
+    table <- sgRNAInfoTableScreens()
+    fileName <- paste0(paste(input$sgRNAInfoSelectGene %>% unique,collapse="_"), "_screens.txt")
+    write.table(table,fileName, row.names = F, col.names = T)
+    files <- c(fileName,files)
+    
+    table <- sgRNAInfoTablePredictions()
+    fileName <- paste0(paste(input$sgRNAInfoSelectGene %>% unique,collapse="_"), "_predictions.txt")
+    write.table(table,fileName, row.names = F, col.names = T)
+    files <- c(fileName,files)
+    
+    table <- sgRNAInfoTableValidations()
+    fileName <- paste0(paste(input$sgRNAInfoSelectGene %>% unique,collapse="_"), "_validations.txt")
+    write.table(table,fileName, row.names = F, col.names = T)
+    files <- c(fileName,files)
+    #create the zip file
+    zip(file,files)
   }
+  
 )

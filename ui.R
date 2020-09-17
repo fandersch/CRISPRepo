@@ -319,7 +319,7 @@ body <- dashboardBody(
                            )
                          )),
                      downloadButton(width = NULL, 
-                                    outputId = "sgRNAButtonDownload",
+                                    outputId = "sgRNAInfoButtonDownload",
                                     label = "Download")
               )
             )

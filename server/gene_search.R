@@ -790,12 +790,12 @@ observeEvent(input$gwsGeneGeneSelect, {
 
 output$gwsGeneButtonDownload <- downloadHandler(
   filename = function() {
-    table <- gwsGeneDataTable()
+    table <- gwsGeneDataFrame()
     paste0(paste(table$symbol %>% unique,collapse="_"), ".txt")
   },
   content = function(file) {
-    table <- gwsGeneDataTable()
-    table %>% select(-Action) %>%
+    table <- gwsGeneDataFrame()
+    table %>% select(-contains("Action_sgRNA"), -contains("Action_gene")) %>%
       write_tsv(file)
   }
 )

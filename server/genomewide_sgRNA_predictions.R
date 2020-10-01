@@ -109,24 +109,6 @@ sgRNAsDataTableOutput <- eventReactive(input$sgRNAsLoadButton,{
 # ----------------------------------------------------------------------------
 
 sgRNAsGeneList <- reactive({
-  if(class(gene_list_human)[1] == "tbl_SQLiteConnection" & loadGenomewideSgRNAGeneList & (input$sgRNAsSpeciesSelect == "all" | input$sgRNAsSpeciesSelect == "human")){
-    print("load start human gwsP")
-    print(gene_list_human)
-    gene_list_human <<- gene_list_human %>%
-      collect()
-    print(gene_list_human)
-    print("load fin human gwsP")
-  }
-  
-  if(class(gene_list_mouse)[1] == "tbl_SQLiteConnection" & loadGenomewideSgRNAGeneList & (input$sgRNAsSpeciesSelect == "all" | input$sgRNAsSpeciesSelect == "mouse")){
-    print("load start mouse gwsP")
-    print(gene_list_mouse)
-    gene_list_mouse <<- gene_list_mouse %>%
-      collect()
-    print(gene_list_mouse)
-    print("load fin mouse gwsP")
-  }
-  
   if(input$sgRNAsSpeciesSelect == "all"){
     gene_list <- gene_list_mouse %>%
       rbind(gene_list_human)

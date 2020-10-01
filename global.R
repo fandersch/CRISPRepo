@@ -100,8 +100,6 @@ if("hs_gw_zuber_v2" %in% (libraries %>% collect %>% .$library_id)){
     collect
 }
 
-loadGenomewideSgRNAGeneList <- F
-
 cellline_list_expressionData <- con_expression %>%
   tbl("expression_data_meta_info") %>%
   select(sample_id, cell_line_name, tissue_name, species, unit) %>%

@@ -481,15 +481,6 @@ observeEvent(input$gwsGeneLoadButton, {
 
 #actionButton handler for datatable buttons
 observeEvent(input$select_button_gene, {
-  loadSgRNAGeneList <<- T
-  if(input$sgRNAsSpeciesSelect == ""){
-    select = "human"
-  }else{
-    select = input$sgRNAsSpeciesSelect
-  }
-  updateRadioButtons(session, 'sgRNAsSpeciesSelect', choices = list("Human" = "human", "Mouse" = "mouse", "All"="all"), selected = select, inline = T)
-  
-  
   row <- as.numeric(strsplit(input$select_button_gene, "_")[[1]][3])
   if(input$gwsGeneSpeciesSelect == "all"){
     symbol_human <- gwsGeneDataFrame()[row,2]
@@ -504,8 +495,11 @@ observeEvent(input$select_button_gene, {
     gene = ifelse(is.na(symbol), paste0("No symbol found (", entrez_id, ")"), paste0(symbol , " (", entrez_id, ")"))
     
   }
+
   delay(250, updateSelectizeInput(session, 'sgRNAsGeneSelect', choices = sgRNAsGeneList(), selected = gene, server = TRUE))
   updateTabItems(session, "tabs", "sgRNAsSidebar")
+  enable("sgRNAsLoadButton")
+  delay(500, click("sgRNAsLoadButton"))
 })
 
 #actionButton handler for datatable buttons
@@ -527,13 +521,12 @@ observeEvent(input$select_button_sgRNA, {
     sequence <- gwsGeneDataFrame()[row,3]
     guide_id<-paste0(entrez_id, "_", sequence)
   }
-  redirect_buff <- TRUE
-  updateTabItems(session, "tabs", "sgRNAInfoSidebar")
-  
+
   updateSelectizeInput(session, 'sgRNAInfoSelectGene', choices = sgRNAInfoGeneList(), selected = gene, server = TRUE)
   delay(250, updateSelectizeInput(session, 'sgRNAInfoSelectGuide', choices = sgRNAInfoGuideList(), selected = guide_id, server = TRUE))
+  updateTabItems(session, "tabs", "sgRNAInfoSidebar")
   enable("sgRNAInfoLoadButton")
-  delay(2000, click("sgRNAInfoLoadButton"))
+  delay(1500, click("sgRNAInfoLoadButton"))
 })
 
 observeEvent(input$gwsGeneSpeciesSelect, {

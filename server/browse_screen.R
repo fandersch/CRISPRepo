@@ -242,7 +242,8 @@ gwsBrowseScreenTissueList <- reactive({
     
     gene_list_screens <<- gene_list_screens %>%
       collect()
-    }
+    
+  }
   
   if(input$gwsBrowseScreenSpeciesSelect == "all"){
     speciesList <- c("human", "mouse")

@@ -209,10 +209,10 @@ expressionDataDataTable <- eventReactive(input$expressionDataLoadButton,{
 #----------------------------------------------------------------------------
 
 expressionDataTissueList <- reactive({
+  
   if(class(cellline_list_expressionData)[1] == "tbl_SQLiteConnection" & loadExpressionDataTissueList){
     cellline_list_expressionData <<- cellline_list_expressionData %>%
       collect()
-    
     gene_list_expressionData <<- gene_list_expressionData %>%
       collect()
   }

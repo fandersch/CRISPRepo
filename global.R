@@ -65,10 +65,12 @@ features_facs <- con_facs %>%
   distinct
 
 contrasts <- con %>%
-  tbl("contrasts")
+  tbl("contrasts") %>%
+  select(contrast_id, contrast_id_QC, library_id, tissue_name, species, type)
 
 contrasts_facs <- con_facs %>%
-  tbl("contrasts")
+  tbl("contrasts") %>%
+  select(contrast_id, contrast_id_QC, library_id, tissue_name, species, type)
 
 gene_list_screens <- con %>%
   tbl("features") %>%
@@ -82,17 +84,23 @@ gene_list_screens <- con %>%
   distinct %>%
   arrange(symbol)
 
-gene_list_human <- con_sgRNAs %>%
-  tbl("sgRNAs_human") %>%
-  select(Symbol, EntrezID) %>%
-  distinct %>%
-  arrange(Symbol)
+if("hs_gw_zuber_v2" %in% (libraries %>% collect %>% .$library_id)){
+  gene_list_human <- con_sgRNAs %>%
+    tbl("genes_human") %>%
+    select(Symbol, EntrezID) %>%
+    distinct %>%
+    arrange(Symbol) %>%
+    collect
+  
+  gene_list_mouse <- con_sgRNAs %>%
+    tbl("genes_mouse") %>%
+    select(Symbol, EntrezID) %>%
+    distinct %>%
+    arrange(Symbol) %>%
+    collect
+}
 
-gene_list_mouse <- con_sgRNAs %>%
-  tbl("sgRNAs_mouse") %>%
-  select(Symbol, EntrezID) %>%
-  distinct %>%
-  arrange(Symbol)
+loadGenomewideSgRNAGeneList <- F
 
 cellline_list_expressionData <- con_expression %>%
   tbl("expression_data_meta_info") %>%

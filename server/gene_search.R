@@ -228,9 +228,11 @@ gwsGeneDataTable <- eventReactive(input$gwsGeneLoadButton,{
       if(!is.null(gwsGeneDatatable$sequence)){
         nfreezeColumns <- 3
         nColorizeTableColumns <- 9
+        nActionButtons <- 2
       }else{
         nfreezeColumns <- 2
         nColorizeTableColumns <- 3
+        nActionButtons <- 1
       }
       
       if(input$gwsGeneSpeciesSelect == "all"){
@@ -299,7 +301,8 @@ gwsGeneDataTable <- eventReactive(input$gwsGeneLoadButton,{
                                                     fixedColumns = list(leftColumns = nfreezeColumns), 
                                                     columnDefs = list(list(className = 'dt-center', targets = "_all")), 
                                                     pageLength = 25, 
-                                                    lengthMenu = c(25, 50, 100, 200)),
+                                                    lengthMenu = c(25, 50, 100, 200),
+                                                    searchHighlight = TRUE),
                                      filter = list(position = 'top', clear = FALSE),
                                      rownames= FALSE) %>%
         formatStyle(seq(nColorizeTableColumns, length(colnames_gwsGeneDatatable),1), backgroundColor = styleInterval(brks, clrs))

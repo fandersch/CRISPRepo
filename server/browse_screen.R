@@ -195,7 +195,8 @@ gwsBrowseScreenDataTable <- eventReactive(input$gwsBrowseScreenLoadButton,{
                       fixedColumns = list(leftColumns = nfreezeColumns),
                       columnDefs = list(list(className = 'dt-center', targets = "_all")),
                       pageLength = 25,
-                      lengthMenu = c(25, 50, 100, 200)
+                      lengthMenu = c(25, 50, 100, 200),
+                      searchHighlight = TRUE
                       #fixedHeader = TRUE
                     ),
                     filter = list(position = 'top', clear = FALSE),

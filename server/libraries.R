@@ -23,7 +23,6 @@ libTable <- reactive({
 output$libTableOutput <- renderDataTable({
   libTable()
 }, 
-filter = "bottom", 
 rownames= FALSE,
 extensions = c('FixedColumns','FixedHeader'),
 options = list(autoWidth = FALSE,
@@ -32,8 +31,11 @@ options = list(autoWidth = FALSE,
                scrollX=TRUE,
                columnDefs = list(list(className = 'dt-center', targets = "_all")),
                pageLength = 25,
-               lengthMenu = c(25, 50, 100, 200)
-))
+               lengthMenu = c(25, 50, 100, 200),
+               searchHighlight = TRUE
+               ),
+               filter = list(position = 'top', clear = FALSE)
+)
 
 output$libBoxGuidesTotal <- renderInfoBox({
   infoBox(title = "Guides", value = libTable() %>% nrow())

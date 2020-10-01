@@ -211,7 +211,8 @@ dualSgRNAsDataTable <- eventReactive(input$dualSgRNALoadButton,{
             scrollX=TRUE,
             columnDefs = list(list(className = 'dt-center', targets = "_all")),
             pageLength = 25,
-            lengthMenu = c(25, 50, 100, 200)
+            lengthMenu = c(25, 50, 100, 200),
+            searchHighlight = TRUE
           ),
           filter = list(position = 'top', clear = FALSE),
           rownames= FALSE)

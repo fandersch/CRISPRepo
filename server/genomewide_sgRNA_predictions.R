@@ -89,7 +89,8 @@ sgRNAsDataTableOutput <- eventReactive(input$sgRNAsLoadButton,{
                     fixedColumns = list(leftColumns = 3),
                     columnDefs = list(list(className = 'dt-center', targets = "_all")),
                     pageLength = 25,
-                    lengthMenu = c(25, 50, 100, 200)
+                    lengthMenu = c(25, 50, 100, 200),
+                    searchHighlight = TRUE
                   ),
                   filter = list(position = 'top', clear = FALSE),
                   rownames= FALSE)

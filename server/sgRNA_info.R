@@ -294,7 +294,8 @@ sgRNAInfoDataTableScreens <- eventReactive(input$sgRNAInfoLoadButton,{
                                                       fixedColumns = list(leftColumns = nfreezeColumns), 
                                                       columnDefs = list(list(className = 'dt-center', targets = "_all")), 
                                                       pageLength = 25, 
-                                                      lengthMenu = c(25, 50, 100, 200)),
+                                                      lengthMenu = c(25, 50, 100, 200),
+                                                      searchHighlight = TRUE),
                                        filter = list(position = 'top', clear = FALSE),
                                        rownames= FALSE) %>%
         formatStyle(seq(nColorizeTableColumns, length(colnames_sgRNAInfoDatatable),1), backgroundColor = styleInterval(brks, clrs))
@@ -332,7 +333,8 @@ sgRNAInfoDataTablePredictions <- eventReactive(input$sgRNAInfoLoadButton,{
                                                     scrollX=TRUE,
                                                     columnDefs = list(list(className = 'dt-center', targets = "_all")), 
                                                     pageLength = 25, 
-                                                    lengthMenu = c(25, 50, 100, 200)),
+                                                    lengthMenu = c(25, 50, 100, 200),
+                                                    searchHighlight = TRUE),
                                      filter = list(position = 'top', clear = FALSE),
                                      rownames= FALSE)
     
@@ -431,7 +433,8 @@ sgRNAInfoDataTableValidations <- eventReactive(input$sgRNAInfoLoadButton,{
                                                     scrollX=TRUE,
                                                     columnDefs = list(list(className = 'dt-center', targets = "_all")), 
                                                     pageLength = 25, 
-                                                    lengthMenu = c(25, 50, 100, 200)),
+                                                    lengthMenu = c(25, 50, 100, 200),
+                                                    searchHighlight = TRUE),
                                      filter = list(position = 'top', clear = FALSE),
                                      rownames= FALSE)
     

@@ -585,11 +585,30 @@ output$gwsBrowseScreenButtonDownload <- downloadHandler(
     df <- gwsBrowseScreenDataFrame()
     
     if (nrow(df) > 0) {
-      df %>%
-        select(contrast_id, local(input$gwsBrowseScreenSearchRadio), entrez_id, symbol, local(input$gwsBrowseScreenIndexRadio)) %>%
-        spread(contrast_id, local(input$gwsBrowseScreenIndexRadio)) %>%
-        #use function arrange_at() instead of arrange() because input$gwsBrowseScreenSearchRadio needs to be parsed toquosure, then unquoted it  !!
-        arrange_at(local(input$gwsBrowseScreenSearchRadio)) %>% write_tsv(file)
+      # df %>%
+      #   select(contrast_id, local(input$gwsBrowseScreenSearchRadio), entrez_id, symbol, local(input$gwsBrowseScreenIndexRadio)) %>%
+      #   spread(contrast_id, local(input$gwsBrowseScreenIndexRadio)) %>%
+      #   #use function arrange_at() instead of arrange() because input$gwsBrowseScreenSearchRadio needs to be parsed toquosure, then unquoted it  !!
+      #   arrange_at(local(input$gwsBrowseScreenSearchRadio)) %>% write_tsv(file)
+      
+      
+      if(input$gwsBrowseScreenSpeciesSelect == "all"){
+        
+        dt <- df %>%
+          select(contrast_id, local(input$gwsBrowseScreenSearchRadio), Symbol_human, EntrezID_human, Symbol_mouse, EntrezID_mouse, input$gwsBrowseScreenIndexRadio) %>%
+          select(-contains("gene_id")) %>%
+          spread(contrast_id, input$gwsBrowseScreenIndexRadio) %>%
+          arrange(Symbol_human, Symbol_mouse) %>%
+          select(Symbol_human, EntrezID_human, Symbol_mouse, EntrezID_mouse=EntrezID_mouse, everything())
+        
+      }else{
+        dt <- df %>%
+          select(contrast_id, local(input$gwsBrowseScreenSearchRadio), entrez_id, symbol, input$gwsBrowseScreenIndexRadio) %>%
+          spread(contrast_id, input$gwsBrowseScreenIndexRadio) %>%
+          select(-contains("gene_id")) %>%
+          arrange(symbol)
+      }
+      dt %>% write_tsv(file)
     }
   }
 )

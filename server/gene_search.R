@@ -787,7 +787,11 @@ observeEvent(input$gwsGeneGeneSelect, {
 output$gwsGeneButtonDownload <- downloadHandler(
   filename = function() {
     table <- gwsGeneDataFrame()
-    paste0(paste(table$symbol %>% unique,collapse="_"), ".txt")
+    if(input$gwsGeneSpeciesSelect == "all"){
+      paste0(paste(c(table$Symbol_human %>% unique, table$Symbol_mouse %>% unique),collapse="_"), ".txt")
+    }else{
+      paste0(paste(table$symbol %>% unique,collapse="_"), ".txt")
+    }
   },
   content = function(file) {
     table <- gwsGeneDataFrame()

@@ -65,29 +65,14 @@ gwsGeneDataFrame <- reactive({
     presel_contrasts <- local(input$gwsGeneContrastSelect)
   }
   
-  #query database
-  if(input$gwsGeneDatasetSelect %in% c("facs")){
-    database_con <- con_facs
-    if(input$gwsGeneSpeciesSelect == "human"){
-      gene_select <- presel_genes
-    }else{
-      gene_select <- presel_entrez
-    }
-    features_buff <- features_facs
-    contrasts_buff <- contrasts_facs
-    
-  }else{
-    database_con <- con
-    gene_select <- presel_entrez
-    features_buff <- features
-    contrasts_buff <- contrasts
-  }
+  database_con <- con
+  gene_select <- presel_entrez
   
   #get gene_stats/guide_stats
-  df <- database_con %>%
+  df <- con %>%
     tbl(tableSelect) %>%
     filter(gene_id %in% gene_select, contrast_id %in% presel_contrasts) %>%
-    left_join(contrasts_buff, copy=TRUE, by = "contrast_id")
+    left_join(contrasts, copy=TRUE, by = "contrast_id")
   
   if(input$gwsGeneSearchRadio == "guide_id"){
     if(input$gwsGeneSpeciesSelect == "all"){
@@ -117,19 +102,19 @@ gwsGeneDataFrame <- reactive({
     
     #join guide ranks
     df <- df %>%
-      left_join(features_buff, by = c("gene_id", "guide_id")) %>%
-      select(contrast_id, contrast_id_QC, guide_id, gene_id, lfc, effect, symbol, entrez_id, sequence, context, species) %>%
+      left_join(features, by = c("gene_id", "guide_id")) %>%
+      select(contrast_id, contrast_id_QC, guide_id, gene_id, lfc, effect, symbol, entrez_id, sequence, guide_id, context, species) %>%
       distinct() %>%
       collect() %>%
-      dplyr::mutate(sgRNA_23mer = substr(context, 5, nchar(context)-3)) %>%
-      left_join(sgRNAs, copy=TRUE, by=c("sgRNA_23mer" = "sgRNA_23mer", "entrez_id" = "entrez_id")) %>%
+      # dplyr::mutate(sgRNA_23mer = substr(context, 5, nchar(context)-3)) %>%
+      left_join(sgRNAs, copy=TRUE, by=c("guide_id" = "sgRNA_23mer", "entrez_id" = "entrez_id")) %>%
       distinct() %>%
       mutate_at(c("lfc","effect"), funs(round(., 3))) %>%
       arrange(symbol)
     
   }else{
     df <- df %>%
-      left_join(features_buff %>% select(-guide_id, -sequence) %>% distinct, by ="gene_id") %>%
+      left_join(features %>% select(-guide_id, -sequence) %>% distinct, by ="gene_id") %>%
       select(contrast_id, contrast_id_QC, gene_id, lfc, effect, symbol, entrez_id, species) %>%
       distinct() %>%
       collect() %>%
@@ -334,9 +319,6 @@ gwsGeneTissueList <- reactive({
     contrasts <<- contrasts %>%
       collect()
     
-    contrasts_facs <<- contrasts_facs %>%
-      collect()
-    
     gene_list_screens <<- gene_list_screens %>%
         collect()
   }
@@ -348,7 +330,7 @@ gwsGeneTissueList <- reactive({
   }
   
   pheno %>%
-    filter(species %in% speciesList) %>%
+    filter(species %in% speciesList, type %in% input$gwsGeneDatasetSelect) %>%
     select(tissue_name) %>%
     distinct() %>%
     arrange(tissue_name) %>%
@@ -362,11 +344,19 @@ gwsGeneLibraryList <- reactive({
     speciesList <- input$gwsGeneSpeciesSelect
   }
   
-  libraries %>%
-    filter(species %in% speciesList) %>%
-    select(library_id) %>%
-    arrange(library_id) %>%
-    .$library_id
+  if(input$gwsGeneCheckTissueAll == T){
+    libraries %>%
+      filter(species %in% speciesList, type %in% input$gwsGeneDatasetSelect) %>%
+      select(library_id) %>%
+      arrange(library_id) %>%
+      .$library_id
+  }else{
+    libraries %>%
+      filter(species %in% speciesList, tissue_name %in% input$gwsGeneTissueSelect, type %in% input$gwsGeneDatasetSelect) %>%
+      select(library_id) %>%
+      arrange(library_id) %>%
+      .$library_id
+  }
 })
 
 gwsGeneContrastList <- reactive({
@@ -378,46 +368,40 @@ gwsGeneContrastList <- reactive({
       speciesList <- input$gwsGeneSpeciesSelect
     }
     
-    preselLibrary <- libraries %>%
-      filter(species %in% speciesList) %>%
-      select(library_id) %>%
-      .$library_id
-    
-    if(!isTRUE(input$gwsGeneCheckLibraryAll) & !is.null(input$gwsGeneLibrarySelect)){
-      preselLibrary = libraries %>%
-        filter(species %in% speciesList) %>%
-        filter(library_id %in% input$gwsGeneLibrarySelect) %>%
-        .$library_id
-    }
-    
-    preselTissue <- pheno %>%
-      filter(species %in%  speciesList) %>%
-      select(tissue_name) %>%
-      distinct() %>%
-      .$tissue_name
-    
-    if(!isTRUE(input$gwsGeneCheckTissueAll) & !is.null(input$gwsGeneTissueSelect)){
-      preselTissue = pheno %>%
-        filter(species %in%  speciesList) %>%
-        filter(tissue_name %in% input$gwsGeneTissueSelect) %>%
+    #get selected tissue
+    if(isTRUE(input$gwsGeneCheckTissueAll) & is.null(input$gwsGeneTissueSelect)){
+      preselTissue <- pheno %>%
+        filter(species %in%  speciesList, type %in% input$gwsGeneDatasetSelect) %>%
+        select(tissue_name) %>%
+        distinct() %>%
         .$tissue_name
+    }else{
+      if(!isTRUE(input$gwsGeneCheckTissueAll) & !is.null(input$gwsGeneTissueSelect)){
+        preselTissue <- pheno %>%
+          filter(species %in%  speciesList, type %in% input$gwsGeneDatasetSelect, tissue_name %in% input$gwsGeneTissueSelect) %>%
+          select(tissue_name) %>%
+          distinct() %>%
+          .$tissue_name
+      }
     }
     
-    if(input$gwsGeneDatasetSelect %in% c("facs")){
-      contrasts_buff <- contrasts_facs
-      if("human" %in%  speciesList){
-        preselLibrary <- "zuber_library_original"
-      }else{
-        preselLibrary <- "zuber_library_mouse_original"
-      }
+    #get selected library
+    if(isTRUE(input$gwsGeneCheckLibraryAll) & is.null(input$gwsGeneLibrarySelect)){
+      preselLibrary <- libraries %>%
+        filter(species %in% speciesList, type %in% input$gwsGeneDatasetSelect, tissue_name %in% preselTissue) %>%
+        select(library_id) %>%
+        .$library_id
     }else{
-      contrasts_buff <- contrasts
+      if(!isTRUE(input$gwsGeneCheckLibraryAll) & !is.null(input$gwsGeneLibrarySelect)){
+        preselLibrary <- libraries %>%
+          filter(species %in% speciesList, type %in% input$gwsGeneDatasetSelect, tissue_name %in% preselTissue, library_id %in% input$gwsGeneLibrarySelect) %>%
+          select(library_id) %>%
+          .$library_id
+      }
     }
-    contrasts_buff %>%
-      filter(species %in%  speciesList) %>%
-      filter(library_id %in% preselLibrary) %>%
-      filter(tissue_name %in%  preselTissue) %>%
-      filter(type == input$gwsGeneDatasetSelect) %>%
+
+    contrasts %>%
+      filter(species %in%  speciesList, library_id %in% preselLibrary, tissue_name %in%  preselTissue, type == input$gwsGeneDatasetSelect) %>%
       select(contrast_id) %>%
       distinct() %>%
       .$contrast_id
@@ -434,42 +418,32 @@ gwsGeneGeneList <- reactive({
       speciesList <- input$gwsGeneSpeciesSelect
     }
     
-    if(input$gwsGeneDatasetSelect %in% c("facs")){
-      if(isTRUE(input$gwsGeneCheckContrastAll)){
-        presel_contrasts <- gwsGeneContrastList()
-      }else{
-        presel_contrasts <- local(input$gwsGeneContrastSelect)
-      }
-      
-      con_facs %>%
-        tbl("gene_stats") %>%
-        filter(contrast_id %in% presel_contrasts) %>%
-        select(gene_id) %>%
-        distinct() %>%
-        left_join(con_facs %>% tbl("features") %>% select(gene_id, symbol, entrez_id)) %>%
-        collect() %>%
-        dplyr::mutate(gene = ifelse(is.na(symbol), paste0("No symbol found (", entrez_id, ")"), paste0(symbol , " (", entrez_id, ")"))) %>%
-        arrange(gene) %>%
-        .$gene
-      
+    if(isTRUE(input$gwsGeneCheckContrastAll)){
+      presel_contrasts <- gwsGeneContrastList()
     }else{
-      preselLibrary <-  libraries %>%
-        filter(species %in% speciesList) %>%
+      presel_contrasts <- local(input$gwsGeneContrastSelect)
+    }
+   
+    #get selected library
+    if(isTRUE(input$gwsGeneCheckLibraryAll) & is.null(input$gwsGeneLibrarySelect)){
+      preselLibrary <- libraries %>%
+        filter(species %in% speciesList, type %in% input$gwsGeneDatasetSelect, tissue_name %in% preselTissue) %>%
         select(library_id) %>%
         .$library_id
-      
+    }else{
       if(!isTRUE(input$gwsGeneCheckLibraryAll) & !is.null(input$gwsGeneLibrarySelect)){
-        preselLibrary = libraries %>%
-          filter(library_id %in% input$gwsGeneLibrarySelect) %>%
-          collect() %>%
+        preselLibrary <- libraries %>%
+          filter(species %in% speciesList, type %in% input$gwsGeneDatasetSelect, tissue_name %in% preselTissue, library_id %in% input$gwsGeneLibrarySelect) %>%
+          select(library_id) %>%
           .$library_id
       }
-      gene_list_screens %>%
-        filter(library_id %in% preselLibrary) %>% 
-        dplyr::mutate(gene = ifelse(is.na(symbol), paste0("No symbol found (", entrez_id, ")"), paste0(symbol , " (", entrez_id, ")"))) %>%
-        arrange(gene) %>%
-        .$gene
     }
+    
+    gene_list_screens %>%
+      filter(library_id %in% preselLibrary) %>% 
+      dplyr::mutate(gene = ifelse(is.na(symbol), paste0("No symbol found (", entrez_id, ")"), paste0(symbol , " (", entrez_id, ")"))) %>%
+      arrange(gene) %>%
+      .$gene
   }
 })
 
@@ -533,11 +507,7 @@ observeEvent(input$select_button_sgRNA, {
 })
 
 observeEvent(input$gwsGeneSpeciesSelect, {
-  if(input$gwsGeneSpeciesSelect == "all"){
-    updateSelectizeInput(session, 'gwsGeneDatasetSelect', choices = dataset_selection_dropout_drug, selected = "dropout", server = TRUE)
-  }else{
-    updateSelectizeInput(session, 'gwsGeneDatasetSelect', choices = dataset_selection_all, selected = "dropout", server = TRUE)
-  }
+  updateSelectizeInput(session, 'gwsGeneDatasetSelect', choices = dataset_selection_all, selected = "dropout", server = TRUE)
   #select checkbox tissue
   updateCheckboxInput(session, 'gwsGeneCheckTissueAll', value = FALSE)
   #update tissue selectbox
@@ -564,30 +534,17 @@ observeEvent(input$gwsGeneDatasetSelect, {
   #select checkbox tissue
   updateCheckboxInput(session, 'gwsGeneCheckTissueAll', value = FALSE)
   #update tissue selectbox
-  #update tissue selectbox
   updateSelectizeInput(session, 'gwsGeneTissueSelect', choices = gwsGeneTissueList(), server = TRUE)
-  if(input$gwsGeneDatasetSelect %in% c("synthetic", "facs")){
-    if("human" ==  input$gwsGeneSpeciesSelect){
-      #update library selectbox
-      updateSelectizeInput(session, 'gwsGeneLibrarySelect', choices = gwsGeneLibraryList(), selected = "hs_gw_zuber_v2", server = TRUE)
-    }else{
-      #update library selectbox
-      updateSelectizeInput(session, 'gwsGeneLibrarySelect', choices = gwsGeneLibraryList(), selected = "mm_gw_zuber_v1", server = TRUE)
-    }
-    #unselect checkbox tissue
-    updateCheckboxInput(session, 'gwsGeneCheckLibraryAll', value = FALSE)
-    disable("gwsGeneLibrarySelect")
-    disable("gwsGeneCheckLibraryAll")
-    #disable index
+  if(input$gwsGeneDatasetSelect %in% c("drug_modifier", "facs_based")){
     updateRadioButtons(session, 'gwsGeneIndexRadio',selected = "lfc")
     disable("gwsGeneIndexRadio")
   }else{
-    #update library selectbox
-    updateSelectizeInput(session, 'gwsGeneLibrarySelect', choices = gwsGeneLibraryList(), server = TRUE)
-    #select library checkbox
-    updateCheckboxInput(session, 'gwsGeneCheckLibraryAll', value = FALSE)
     enable("gwsGeneIndexRadio")
   }
+  #update library selectbox
+  updateSelectizeInput(session, 'gwsGeneLibrarySelect', choices = gwsGeneLibraryList(), server = TRUE)
+  #select library checkbox
+  updateCheckboxInput(session, 'gwsGeneCheckLibraryAll', value = FALSE)
   #update contrasts select
   updateSelectizeInput(session, 'gwsGeneContrastSelect', choices = gwsGeneContrastList(), server = TRUE)
   #unselect checkbox contrasts
@@ -602,26 +559,16 @@ observeEvent(input$gwsGeneTissueSelect, {
     #reset tissue selectbox
     updateCheckboxInput(session, 'gwsGeneCheckTissueAll', value = FALSE)
   }
-  if(input$gwsGeneDatasetSelect %in% c("synthetic", "facs")){
-    if(isTRUE(input$gwsGeneCheckTissueAll) | (!is.null(input$gwsGeneTissueSelect))){
-      enable("gwsGeneContrastSelect")
-      enable("gwsGeneCheckContrastAll")
-    }else{
-      disable("gwsGeneContrastSelect")
-      disable("gwsGeneCheckContrastAll")
-    }
+  #select library checkbox
+  updateCheckboxInput(session, 'gwsGeneCheckLibraryAll', value = FALSE)
+  #update library selectbox
+  updateSelectizeInput(session, 'gwsGeneLibrarySelect', choices = gwsGeneLibraryList(), server = TRUE)
+  if(isTRUE(input$gwsGeneCheckTissueAll) | (!is.null(input$gwsGeneTissueSelect))){
+    enable("gwsGeneLibrarySelect")
+    enable("gwsGeneCheckLibraryAll")
   }else{
-    #select library checkbox
-    updateCheckboxInput(session, 'gwsGeneCheckLibraryAll', value = FALSE)
-    #update library selectbox
-    updateSelectizeInput(session, 'gwsGeneLibrarySelect', choices = gwsGeneLibraryList(), server = TRUE)
-    if(isTRUE(input$gwsGeneCheckTissueAll) | (!is.null(input$gwsGeneTissueSelect))){
-      enable("gwsGeneLibrarySelect")
-      enable("gwsGeneCheckLibraryAll")
-    }else{
-      disable("gwsGeneLibrarySelect")
-      disable("gwsGeneCheckLibraryAll")
-    }
+    disable("gwsGeneLibrarySelect")
+    disable("gwsGeneCheckLibraryAll")
   }
   #unselect checkbox contrasts
   updateCheckboxInput(session, 'gwsGeneCheckContrastAll', value = FALSE)
@@ -638,26 +585,16 @@ observeEvent(input$gwsGeneCheckTissueAll, {
     #reset tissue selectbox
     updateSelectizeInput(session, 'gwsGeneTissueSelect', choices = gwsGeneTissueList(), server = TRUE)
   }
-  if(input$gwsGeneDatasetSelect %in% c("synthetic", "facs")){
-    if(isTRUE(input$gwsGeneCheckTissueAll) | (!is.null(input$gwsGeneTissueSelect))){
-      enable("gwsGeneContrastSelect")
-      enable("gwsGeneCheckContrastAll")
-    }else{
-      disable("gwsGeneContrastSelect")
-      disable("gwsGeneCheckContrastAll")
-    }
+  #select library checkbox
+  updateCheckboxInput(session, 'gwsGeneCheckLibraryAll', value = FALSE)
+  #update library selectbox
+  updateSelectizeInput(session, 'gwsGeneLibrarySelect', choices = gwsGeneLibraryList(), server = TRUE)
+  if(isTRUE(input$gwsGeneCheckTissueAll) | (!is.null(input$gwsGeneTissueSelect))){
+    enable("gwsGeneLibrarySelect")
+    enable("gwsGeneCheckLibraryAll")
   }else{
-    #select library checkbox
-    updateCheckboxInput(session, 'gwsGeneCheckLibraryAll', value = FALSE)
-    #update library selectbox
-    updateSelectizeInput(session, 'gwsGeneLibrarySelect', choices = gwsGeneLibraryList(), server = TRUE)
-    if(isTRUE(input$gwsGeneCheckTissueAll) | (!is.null(input$gwsGeneTissueSelect))){
-      enable("gwsGeneLibrarySelect")
-      enable("gwsGeneCheckLibraryAll")
-    }else{
-      disable("gwsGeneLibrarySelect")
-      disable("gwsGeneCheckLibraryAll")
-    }
+    disable("gwsGeneLibrarySelect")
+    disable("gwsGeneCheckLibraryAll")
   }
   #unselect checkbox contrasts
   updateCheckboxInput(session, 'gwsGeneCheckContrastAll', value = FALSE)

@@ -29,7 +29,7 @@ library(readxl)
 
 con <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "screen.db")
 
-con_facs <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "screen_facs.db")
+# con_facs <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "screen_facs.db")
 
 con_expression <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "expression_data.db")
 
@@ -40,7 +40,7 @@ pheno <- con %>%
   tbl("pheno")
 
 libraries <- pheno %>%
-  select(library_id, species) %>%
+  select(library_id, tissue_name, species, type) %>%
   distinct 
 
 species <- pheno %>%
@@ -50,7 +50,7 @@ species <- pheno %>%
 
 features <- con %>%
   tbl("features") %>%
-  select(guide_id, gene_id, symbol=hgnc_symbol, entrez_id, sequence, context, library_id) %>%
+  select(guide_id, gene_id, symbol=hgnc_symbol, entrez_id, sequence, guide_id, context, library_id) %>%
   filter(gene_id != "AMBIGUOUS") %>%
   filter(gene_id != "UNMAPPED") %>%
   filter(gene_id != "NOFEATURE") %>%
@@ -59,16 +59,7 @@ features <- con %>%
   filter(!is.na(gene_id)) %>%
   distinct
 
-features_facs <- con_facs %>%
-  tbl("features") %>%
-  select(guide_id, gene_id, entrez_id, symbol, sequence, context) %>%
-  distinct
-
 contrasts <- con %>%
-  tbl("contrasts") %>%
-  select(contrast_id, contrast_id_QC, library_id, tissue_name, species, type)
-
-contrasts_facs <- con_facs %>%
   tbl("contrasts") %>%
   select(contrast_id, contrast_id_QC, library_id, tissue_name, species, type)
 
@@ -118,12 +109,10 @@ dict_joined <- read_tsv("dict/dict_joined.txt") %>%
 #distinguish between internal and external verson
 if("hs_gw_zuber_v2" %in% (libraries %>% collect %>% .$library_id)){
   view <- "internal"
-  dataset_selection_all <- list("dropout" = "dropout", "drug_modifier" = "synthetic", "facs_based" = "facs")
-  dataset_selection_dropout_drug <- list("dropout" = "dropout", "drug_modifier" = "synthetic")
+  dataset_selection_all <- list("dropout" = "dropout", "drug_modifier" = "drug_modifier", "facs_based" = "facs_based")
 }else{
   view <- "external"
   dataset_selection_all <- list("dropout" = "dropout")
-  dataset_selection_dropout_drug <- list("dropout" = "dropout")
 }
 
 

@@ -369,7 +369,7 @@ gwsGeneContrastList <- reactive({
     }
     
     #get selected tissue
-    if(isTRUE(input$gwsGeneCheckTissueAll) & is.null(input$gwsGeneTissueSelect)){
+    if(isTRUE(input$gwsGeneCheckTissueAll)){
       preselTissue <- pheno %>%
         filter(species %in%  speciesList, type %in% input$gwsGeneDatasetSelect) %>%
         select(tissue_name) %>%
@@ -386,7 +386,7 @@ gwsGeneContrastList <- reactive({
     }
     
     #get selected library
-    if(isTRUE(input$gwsGeneCheckLibraryAll) & is.null(input$gwsGeneLibrarySelect)){
+    if(isTRUE(input$gwsGeneCheckLibraryAll)){
       preselLibrary <- libraries %>%
         filter(species %in% speciesList, type %in% input$gwsGeneDatasetSelect, tissue_name %in% preselTissue) %>%
         select(library_id) %>%
@@ -423,9 +423,26 @@ gwsGeneGeneList <- reactive({
     }else{
       presel_contrasts <- local(input$gwsGeneContrastSelect)
     }
+    
+    #get selected tissue
+    if(isTRUE(input$gwsGeneCheckTissueAll)){
+      preselTissue <- pheno %>%
+        filter(species %in%  speciesList, type %in% input$gwsGeneDatasetSelect) %>%
+        select(tissue_name) %>%
+        distinct() %>%
+        .$tissue_name
+    }else{
+      if(!isTRUE(input$gwsGeneCheckTissueAll) & !is.null(input$gwsGeneTissueSelect)){
+        preselTissue <- pheno %>%
+          filter(species %in%  speciesList, type %in% input$gwsGeneDatasetSelect, tissue_name %in% input$gwsGeneTissueSelect) %>%
+          select(tissue_name) %>%
+          distinct() %>%
+          .$tissue_name
+      }
+    }
    
     #get selected library
-    if(isTRUE(input$gwsGeneCheckLibraryAll) & is.null(input$gwsGeneLibrarySelect)){
+    if(isTRUE(input$gwsGeneCheckLibraryAll)){
       preselLibrary <- libraries %>%
         filter(species %in% speciesList, type %in% input$gwsGeneDatasetSelect, tissue_name %in% preselTissue) %>%
         select(library_id) %>%

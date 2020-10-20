@@ -77,6 +77,14 @@ body <- dashboardBody(
                            choices = list("Log-fold change" = "lfc", "Effect" = "effect"),
                            selected = "lfc",
                            inline = T
+                         ),
+                         
+                         checkboxGroupInput(
+                           "gwsBrowseScreenInclude",
+                           label = "Include gene-level statistics:",
+                           choices = list("P-value" = "p", "FDR" = "fdr", "Guides-good" = "guides_good", "Guides-total" = "guides"),
+                           selected = NULL,
+                           inline = F
                          )
                      ),
                      box(width = NULL, solidHeader = TRUE,
@@ -184,6 +192,14 @@ body <- dashboardBody(
                            choices = list("Log-fold change" = "lfc", "Effect" = "effect"),
                            selected = "lfc",
                            inline = T
+                         ),
+                         
+                         checkboxGroupInput(
+                           "gwsGeneInclude",
+                           label = "Include:",
+                           choices = list("P-value" = "p", "FDR" = "fdr", "Guides-good" = "guides_good", "Guides-total" = "guides"),
+                           selected = NULL,
+                           inline = F
                          )
                      ),
                      box(width = NULL, solidHeader = TRUE,

@@ -65,6 +65,9 @@ gwsGeneDataFrame <- reactive({
     presel_contrasts <- local(input$gwsGeneContrastSelect)
   }
   
+  statistics_columns_negative <- paste0(local(input$gwsGeneInclude), "_negative")
+  statistics_columns_positive <- paste0(local(input$gwsGeneInclude), "_positive")
+  
   database_con <- con
   gene_select <- presel_entrez
   
@@ -113,13 +116,15 @@ gwsGeneDataFrame <- reactive({
       arrange(symbol)
     
   }else{
+    
     df <- df %>%
       left_join(features %>% select(-guide_id, -sequence) %>% distinct, by ="gene_id") %>%
-      select(contrast_id, contrast_id_QC, gene_id, lfc, effect, symbol, entrez_id, species) %>%
+      select(contrast_id, contrast_id_QC, gene_id, lfc, effect, symbol, entrez_id, species, dplyr::one_of(statistics_columns_negative), dplyr::one_of(statistics_columns_positive)) %>%
       distinct() %>%
       collect() %>%
       mutate_at(c("lfc","effect"), funs(round(., 3))) %>%
       arrange(symbol)
+    
   }
   
   if(input$gwsGeneSpeciesSelect == "all"){
@@ -148,27 +153,83 @@ gwsGeneDataFrame <- reactive({
   if (nrow(df) > 0) {
     presel_contrasts <- df$contrast_id %>% unique
     
-    df <- df %>%
-      select(contrast_id, contains("entrez_id"), contains("symbol"), contains("Symbol_human"), contains("EntrezID_human"), contains("Symbol_mouse"), contains("EntrezID_mouse"), local(input$gwsGeneIndexRadio), matches("sequence"), matches("Length"), matches("sgRNA_23mer"), matches("VBC-score"), matches("rank_overall"), matches("rank_validation")) %>%
+    dt <- df %>%
+      select(contrast_id, contains("entrez_id"), contains("symbol"), contains("Symbol_human"), contains("EntrezID_human"), 
+             contains("Symbol_mouse"), contains("EntrezID_mouse"), local(input$gwsGeneIndexRadio), matches("sequence"), 
+             matches("Length"), matches("sgRNA_23mer"), matches("VBC-score"), matches("rank_overall"), matches("rank_validation")) %>%
       spread(contrast_id, input$gwsGeneIndexRadio) %>%
       distinct() %>%
       select(contains("EntrezID_human"), contains("Symbol_human"), contains("EntrezID_mouse"), contains("Symbol_mouse"), everything())
     
+    if(input$gwsGeneSearchRadio == "gene_id" & !is.null(local(input$gwsGeneInclude)) & length(local(input$gwsGeneInclude))!=0){
+      column <- local(input$gwsGeneInclude)
+      if("p"  %in% local(input$gwsGeneInclude)){
+        dt <- dt %>%
+          left_join(
+            df %>%
+              mutate(p = ifelse(p_positive < p_negative, p_positive, p_negative)) %>%
+              select(contrast_id, contains("entrez_id"), contains("symbol"), contains("Symbol_human"), contains("EntrezID_human"), contains("Symbol_mouse"), contains("EntrezID_mouse"), p) %>%
+              distinct %>%
+              pivot_wider(names_from="contrast_id", values_from="p") %>%
+              mutate_if(is.numeric, round, 3) %>%
+              rename_at(vars(-contains("entrez_id"), -contains("symbol"), -contains("Symbol_human"), -contains("EntrezID_human"), -contains("Symbol_mouse"), -contains("EntrezID_mouse")), ~ paste0(., '_P'))
+          )
+      }
+      if("fdr" %in% local(input$gwsGeneInclude)){
+        dt <- dt %>%
+          left_join(
+            df %>%
+              mutate(fdr = ifelse(fdr_positive < fdr_negative, fdr_positive, fdr_negative)) %>%
+              select(contrast_id, contains("entrez_id"), contains("symbol"), contains("Symbol_human"), contains("EntrezID_human"), contains("Symbol_mouse"), contains("EntrezID_mouse"), fdr) %>%
+              distinct %>%
+              pivot_wider(names_from="contrast_id", values_from="fdr") %>%
+              mutate_if(is.numeric, round, 3) %>%
+              rename_at(vars(-contains("entrez_id"), -contains("symbol"), -contains("Symbol_human"), -contains("EntrezID_human"), -contains("Symbol_mouse"), -contains("EntrezID_mouse")), ~ paste0(., '_FDR'))
+          )
+      }
+      if("guides" %in% local(input$gwsGeneInclude)){
+        dt <- dt %>%
+          left_join(
+            df %>%
+              mutate(guides = ifelse(guides_positive > guides_negative, guides_positive, guides_negative)) %>%
+              select(contrast_id, contains("entrez_id"), contains("symbol"), contains("Symbol_human"), contains("EntrezID_human"), contains("Symbol_mouse"), contains("EntrezID_mouse"), guides) %>%
+              distinct %>%
+              pivot_wider(names_from="contrast_id", values_from="guides") %>%
+              rename_at(vars(-contains("entrez_id"), -contains("symbol"), -contains("Symbol_human"), -contains("EntrezID_human"), -contains("Symbol_mouse"), -contains("EntrezID_mouse")), ~ paste0(., '_GUIDES'))
+          )
+      }
+      if("guides_good" %in% local(input$gwsGeneInclude)){
+        dt <- dt %>%
+          left_join(
+            df %>%
+              mutate(guides_good = ifelse(guides_good_positive > guides_good_negative, guides_good_positive, guides_good_negative)) %>%
+              select(contrast_id, contains("entrez_id"), contains("symbol"), contains("Symbol_human"), contains("EntrezID_human"), contains("Symbol_mouse"), contains("EntrezID_mouse"), guides_good) %>%
+              distinct %>%
+              pivot_wider(names_from="contrast_id", values_from="guides_good") %>%
+              rename_at(vars(-contains("entrez_id"), -contains("symbol"), -contains("Symbol_human"), -contains("EntrezID_human"), -contains("Symbol_mouse"), -contains("EntrezID_mouse")), ~ paste0(., '_GUIDES_GOOD'))
+          )
+      }
+    }
+    
+    dt <- dt %>%
+      select(sort(current_vars())) %>%
+      select(contains(local(input$gwsGeneSearchRadio)), contains("entrez_id"), contains("symbol"), contains("Symbol_human"), contains("EntrezID_human"), contains("Symbol_mouse"), contains("EntrezID_mouse"), everything())
+    
     #create actionButtons for each rows
-    Action_gene <- shinyInput(actionButton, nrow(df), 'button_gene_', label = HTML("gene <br/> predictions"), onclick = 'Shiny.onInputChange(\"select_button_gene\",  this.id)' )
-    df <- df %>% cbind(Action_gene)
+    Action_gene <- shinyInput(actionButton, nrow(dt), 'button_gene_', label = HTML("gene <br/> predictions"), onclick = 'Shiny.onInputChange(\"select_button_gene\",  this.id)' )
+    dt <- dt %>% cbind(Action_gene)
     if(input$gwsGeneSearchRadio == "guide_id"){
-      Action_sgRNA <- shinyInput(actionButton, nrow(df), 'button_sgRNA_', label = HTML("sgRNA <br/> info"), onclick = 'Shiny.onInputChange(\"select_button_sgRNA\",  this.id)' )
-      df <- df %>%
+      Action_sgRNA <- shinyInput(actionButton, nrow(dt), 'button_sgRNA_', label = HTML("sgRNA <br/> info"), onclick = 'Shiny.onInputChange(\"select_button_sgRNA\",  this.id)' )
+      dt <- dt %>%
         cbind(Action_sgRNA)
     }
     
     #remove sensitive data for external view
     if(view=="external"){
-      df %>%
+      dt %>%
         select(-contains("rank_overall"), -contains("rank_validation"), -contains("Action_sgRNA"), -contains("Action_gene"))
     }else{
-      df
+      dt
     }
   }
 })
@@ -176,7 +237,6 @@ gwsGeneDataFrame <- reactive({
 #make 
 gwsGeneDataTable <- eventReactive(input$gwsGeneLoadButton,{
   df <- gwsGeneDataFrame()
-  
   if (nrow(df) > 0) {
     if(!is.null(input$gwsGeneGeneSelect)){
       output$gwsGeneInfo <- renderText({
@@ -190,7 +250,7 @@ gwsGeneDataTable <- eventReactive(input$gwsGeneLoadButton,{
     }
     
     gwsGeneDatatable <- df
-    
+  
     if (!is.null(gwsGeneDatatable) & nrow(gwsGeneDatatable) > 0) {
       #make color interval for heatmap
       if(effect){
@@ -219,18 +279,16 @@ gwsGeneDataTable <- eventReactive(input$gwsGeneLoadButton,{
         nColorizeTableColumns <- 3
         nActionButtons <- 1
       }
-      
+      #set colorized column, depending on shown gene-level statistics
+      colorInterval <- length(local(input$gwsGeneInclude))
+      #set frozen/colourized columns
       if(input$gwsGeneSpeciesSelect == "all"){
         nfreezeColumns <- nfreezeColumns + 2
         nColorizeTableColumns <- nColorizeTableColumns + 2
       }
       
-      if(input$gwsGeneSearchRadio == "guide_id"){
-        presel_contrasts <- colnames(gwsGeneDatatable)[nColorizeTableColumns:(length(colnames(gwsGeneDatatable))-2)]
-      }else{
-        presel_contrasts <- colnames(gwsGeneDatatable)[nColorizeTableColumns:(length(colnames(gwsGeneDatatable))-1)]
-      }
-      
+      #change to contrast_id_QC for selected columns when type is dropout
+      presel_contrasts <- gwsGeneContrastList()
       colnames_gwsGeneDatatable <- colnames(gwsGeneDatatable)
       tooltip <- ''
       if(input$gwsGeneDatasetSelect %in% c("dropout")){
@@ -240,10 +298,8 @@ gwsGeneDataTable <- eventReactive(input$gwsGeneLoadButton,{
           }else{
             tooltip <- paste0(tooltip, "'", colnames_gwsGeneDatatable[i], "'")
           }
-          
           if(colnames_gwsGeneDatatable[i] %in% presel_contrasts){
             colnames_gwsGeneDatatable[i] <- contrasts %>% select(contrast_id, contrast_id_QC) %>% filter(contrast_id == colnames_gwsGeneDatatable[i]) %>% .$contrast_id_QC
-            
           }
         }
         
@@ -290,7 +346,7 @@ gwsGeneDataTable <- eventReactive(input$gwsGeneLoadButton,{
                                                     searchHighlight = TRUE),
                                      filter = list(position = 'top', clear = FALSE),
                                      rownames= FALSE) %>%
-        formatStyle(seq(nColorizeTableColumns, length(colnames_gwsGeneDatatable),1), backgroundColor = styleInterval(brks, clrs))
+        formatStyle(seq(nColorizeTableColumns, length(colnames_gwsGeneDatatable),1+colorInterval), backgroundColor = styleInterval(brks, clrs))
     }
     
   }else{
@@ -521,6 +577,14 @@ observeEvent(input$select_button_sgRNA, {
   updateTabItems(session, "tabs", "sgRNAInfoSidebar")
   enable("sgRNAInfoLoadButton")
   delay(1500, click("sgRNAInfoLoadButton"))
+})
+
+observeEvent(input$gwsGeneSearchRadio, {
+  if(input$gwsGeneSearchRadio == "guide_id"){
+    disable("gwsGeneInclude")
+  }else{
+    enable("gwsGeneInclude")
+  }
 })
 
 observeEvent(input$gwsGeneSpeciesSelect, {

@@ -51,8 +51,8 @@ gwsBrowseScreenDataFrame <- reactive({
     filter(gene_id != "SAFETARGETING") %>%
     filter(gene_id != "NONTARGETING") %>%
     filter(!is.na(gene_id)) %>%
-    left_join(con %>% tbl("contrasts") %>% select(contrast_id, contrast_id_QC, species), by = "contrast_id") %>%
-    left_join(con %>% tbl("features") %>% select(local(input$gwsBrowseScreenSearchRadio), hgnc_symbol, entrez_id) %>% distinct %>% rename(symbol=hgnc_symbol), by = local(input$gwsBrowseScreenSearchRadio)) %>%
+    left_join(con %>% tbl("contrasts") %>% select(contrast_id, contrast_id_QC, species, library_id), by = "contrast_id") %>%
+    left_join(con %>% tbl("features") %>% select(local(input$gwsBrowseScreenSearchRadio), hgnc_symbol, entrez_id, library_id) %>% distinct %>% rename(symbol=hgnc_symbol), by = c(local(input$gwsBrowseScreenSearchRadio), "library_id")) %>%
     select(contrast_id, contrast_id_QC, local(input$gwsBrowseScreenSearchRadio), lfc, effect, symbol, entrez_id, species, dplyr::one_of(statistics_columns_negative), dplyr::one_of(statistics_columns_positive)) %>%
     distinct() %>%
     collect()

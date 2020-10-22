@@ -417,7 +417,7 @@ gwsGeneLibraryList <- reactive({
 
 gwsGeneContrastList <- reactive({
   
-  if(!is.null(input$gwsGeneLibrarySelect) | isTRUE(input$gwsGeneCheckLibraryAll)){
+  if((!is.null(input$gwsGeneLibrarySelect) | isTRUE(input$gwsGeneCheckLibraryAll)) & (!is.null(input$gwsGeneTissueSelect) | isTRUE(input$gwsGeneCheckTissueAll))){
     if(input$gwsGeneSpeciesSelect == "all"){
       speciesList <- c("human", "mouse")
     }else{
@@ -467,7 +467,9 @@ gwsGeneContrastList <- reactive({
 
 gwsGeneGeneList <- reactive({
   
-  if(!is.null(input$gwsGeneContrastSelect) | isTRUE(input$gwsGeneCheckContrastAll)){
+  if((!is.null(input$gwsGeneContrastSelect) | isTRUE(input$gwsGeneCheckContrastAll)) & 
+     (!is.null(input$gwsGeneLibrarySelect) | isTRUE(input$gwsGeneCheckLibraryAll)) & 
+     (!is.null(input$gwsGeneTissueSelect) | isTRUE(input$gwsGeneCheckTissueAll))){
     if(input$gwsGeneSpeciesSelect == "all"){
       speciesList <- c("human", "mouse")
     }else{

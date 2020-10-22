@@ -319,7 +319,7 @@ gwsBrowseScreenLibraryList <- reactive({
 })
 
 gwsBrowseScreenContrastList <- reactive({
-  if(!is.null(input$gwsBrowseScreenLibrarySelect) | isTRUE(input$gwsBrowseScreenCheckLibraryAll)){
+  if((!is.null(input$gwsBrowseScreenLibrarySelect) | isTRUE(input$gwsBrowseScreenCheckLibraryAll)) & (!is.null(input$gwsBrowseScreenTissueSelect) | isTRUE(input$gwsBrowseScreenCheckTissueAll))){
     if(input$gwsBrowseScreenSpeciesSelect == "all"){
       speciesList <- c("human", "mouse")
     }else{

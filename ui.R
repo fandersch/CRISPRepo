@@ -52,7 +52,9 @@ body <- dashboardBody(
             fluidRow(
               useShinyjs(),
               column(width = 9,
-                     box(width = NULL, solidHeader = TRUE, withSpinner(dataTableOutput(outputId="gwsBrowseScreenTable")))),
+                     box(title = "Screen Table", status = "primary", width = NULL, solidHeader = TRUE, collapsible = TRUE, withSpinner(dataTableOutput(outputId="gwsBrowseScreenTable"))),
+                     box(title = "Contrast Table", status = "primary", width = NULL, solidHeader = TRUE, collapsible = TRUE, withSpinner(dataTableOutput(outputId="gwsBrowseScreenContrastTable"))),
+                     box(title = "Sample Table", status = "primary", width = NULL, solidHeader = TRUE, collapsible = TRUE, withSpinner(dataTableOutput(outputId="gwsBrowseScreenSampleTable")))),
               column(width = 3,
                      box(width = NULL, solidHeader = TRUE,
                          radioButtons(
@@ -73,9 +75,17 @@ body <- dashboardBody(
 
                          radioButtons(
                            "gwsBrowseScreenIndexRadio",
-                           label = "Display:",
+                           label = "Display data as:",
                            choices = list("Log-fold change" = "lfc", "Effect" = "effect"),
                            selected = "lfc",
+                           inline = T
+                         ),
+                         
+                         radioButtons(
+                           "gwsBrowseScreenDisplayName",
+                           label = "Display screen IDs as:",
+                           choices = list("Short quality-control ID" = "short", "Unique ID" = "long"),
+                           selected = "short",
                            inline = T
                          ),
                          
@@ -85,6 +95,13 @@ body <- dashboardBody(
                            choices = list("P-value" = "p", "FDR" = "fdr", "Guides-good" = "guides_good", "Guides-total" = "guides"),
                            selected = NULL,
                            inline = F
+                         )
+                         ,
+                         sliderInput("gwsBrowseScreenQuality", "Minimal dynamic range of screens (quality filtering):",
+                                     min = 0, 
+                                     max = 8, 
+                                     value = 1.5,
+                                     step = 0.1
                          )
                      ),
                      box(width = NULL, solidHeader = TRUE,
@@ -105,6 +122,18 @@ body <- dashboardBody(
                          checkboxInput(
                            inputId = "gwsBrowseScreenCheckTissueAll",
                            label = "Browse all tissues",
+                           value = FALSE
+                         ),
+                         selectizeInput(
+                           inputId = "gwsBrowseScreenCellLineSelect",
+                           label = "Cell line:",
+                           choices = NULL,
+                           multiple = TRUE,
+                           selected = NULL
+                         ),
+                         checkboxInput(
+                           inputId = "gwsBrowseScreenCheckCellLineAll",
+                           label = "Browse all cell lines",
                            value = FALSE
                          ),
                          disabled(
@@ -166,7 +195,9 @@ body <- dashboardBody(
                             box(width = NULL, solidHeader = TRUE, textOutput(outputId="gwsGeneInfo")))),
             fluidRow(
               column(width = 9,
-                     box(width = NULL, solidHeader = TRUE, withSpinner(dataTableOutput("gwsGeneTable")))),
+                     box(title = "Screen Table", status = "primary",width = NULL, solidHeader = TRUE, collapsible = TRUE, withSpinner(dataTableOutput("gwsGeneTable"))),
+                     box(title = "Contrast Table", status = "primary", width = NULL, solidHeader = TRUE, collapsible = TRUE, withSpinner(dataTableOutput(outputId="gwsGeneContrastTable"))),
+                     box(title = "Sample Table", status = "primary", width = NULL, solidHeader = TRUE, collapsible = TRUE, withSpinner(dataTableOutput(outputId="gwsGeneSampleTable")))),
               column(width = 3,
                      box(width = NULL, solidHeader = TRUE,
                          
@@ -194,12 +225,26 @@ body <- dashboardBody(
                            inline = T
                          ),
                          
+                         radioButtons(
+                           "gwsGeneDisplayName",
+                           label = "Display screen IDs as:",
+                           choices = list("Short quality-control ID" = "short", "Unique ID" = "long"),
+                           selected = "short",
+                           inline = T
+                         ),
+                         
                          checkboxGroupInput(
                            "gwsGeneInclude",
                            label = "Include:",
                            choices = list("P-value" = "p", "FDR" = "fdr", "Guides-good" = "guides_good", "Guides-total" = "guides"),
                            selected = NULL,
                            inline = F
+                         ),
+                         sliderInput("gwsGeneQuality", "Minimal dynamic range of screens (quality filtering):",
+                                     min = 0, 
+                                     max = 8, 
+                                     value = 1.5,
+                                     step = 0.1
                          )
                      ),
                      box(width = NULL, solidHeader = TRUE,
@@ -220,6 +265,18 @@ body <- dashboardBody(
                          checkboxInput(
                            inputId = "gwsGeneCheckTissueAll",
                            label = "Search All Tissues",
+                           value = FALSE
+                         ),
+                         selectizeInput(
+                           inputId = "gwsGeneCellLineSelect",
+                           label = "Cell line:",
+                           choices = NULL,
+                           multiple = TRUE,
+                           selected = NULL
+                         ),
+                         checkboxInput(
+                           inputId = "gwsGeneCheckCellLineAll",
+                           label = "Browse all cell lines",
                            value = FALSE
                          ),
                          disabled(

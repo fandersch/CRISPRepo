@@ -40,7 +40,7 @@ pheno <- con %>%
   tbl("pheno")
 
 libraries <- pheno %>%
-  select(library_id, tissue_name, species, type) %>%
+  select(library_id, cellline_name, tissue_name, species, type) %>%
   distinct 
 
 species <- pheno %>%
@@ -61,7 +61,7 @@ features <- con %>%
 
 contrasts <- con %>%
   tbl("contrasts") %>%
-  select(contrast_id, contrast_id_QC, library_id, tissue_name, species, type)
+  select(contrast_id, contrast_id_QC, library_id, cellline_name, tissue_name, species, type, dynamic_range)
 
 gene_list_screens <- con %>%
   tbl("features") %>%

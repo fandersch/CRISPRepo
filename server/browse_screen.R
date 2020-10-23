@@ -7,13 +7,17 @@ gwsBrowseScreenUpdateText <- function(){
     if(is.null(input$gwsBrowseScreenTissueSelect) & !isTRUE(input$gwsBrowseScreenCheckTissueAll)){
       invisible("INFO: Please select the tissue(s) of considered screens in the right panel!")
     }else{
-      if(is.null(input$gwsBrowseScreenLibrarySelect) & !isTRUE(input$gwsBrowseScreenCheckLibraryAll)){
-        invisible("INFO: Please select the librarie(s) of considered screens in the right panel!")
+      if(is.null(input$gwsBrowseScreenCellLineSelect) & !isTRUE(input$gwsBrowseScreenCheckCellLineAll)){
+        invisible("INFO: Please select the cell lines(s) of considered screens in the right panel!")
       }else{
-        if(is.null(input$gwsBrowseScreenContrastSelect) & !isTRUE(input$gwsBrowseScreenCheckContrastAll)){
-          invisible("INFO: Please select the contrasts(s) you want to browse in the right panel!")
+        if(is.null(input$gwsBrowseScreenLibrarySelect) & !isTRUE(input$gwsBrowseScreenCheckLibraryAll)){
+          invisible("INFO: Please select the librarie(s) of considered screens in the right panel!")
         }else{
-          invisible("INFO: Click Load data!")
+          if(is.null(input$gwsBrowseScreenContrastSelect) & !isTRUE(input$gwsBrowseScreenCheckContrastAll)){
+            invisible("INFO: Please select the contrasts(s) you want to browse in the right panel!")
+          }else{
+            invisible("INFO: Click Load data!")
+          }
         }
       }
     }
@@ -23,6 +27,188 @@ gwsBrowseScreenUpdateText <- function(){
 #upon load display nothing
 output$gwsBrowseScreenTable <- renderDataTable({
 })
+
+#upon load display nothing
+output$gwsBrowseScreenContrastTable <- renderDataTable({
+})
+
+#upon load display nothing
+output$gwsBrowseScreenSampleTable <- renderDataTable({
+})
+
+#query database and create dataframe
+gwsBrowseScreenContrastDataFrame <- reactive({
+  
+  if(isTRUE(input$gwsBrowseScreenCheckContrastAll)){
+    presel_contrasts <- gwsBrowseScreenContrastList()
+  }else{
+    presel_contrasts <- local(input$gwsBrowseScreenContrastSelect)
+  }
+  
+  df <- con %>%
+    tbl("contrasts") %>%
+    filter(contrast_id %in% presel_contrasts) %>%
+    distinct() %>%
+    collect()
+  
+  if(input$gwsBrowseScreenDisplayName == "short"){
+    df <- df %>%
+      select(contrast_id_QC, contrast_id, everything())
+  }else{
+    df <- df %>%
+      select(contrast_id, contrast_id_QC, everything())
+  }
+  
+  if(!input$gwsBrowseScreenDatasetSelect %in% c("dropout")){
+    df <- df %>%
+      select(-contrast_id_QC)
+  } 
+  
+  df
+})
+
+#query database and create dataframe
+gwsBrowseScreenSampleDataFrame <- reactive({
+  
+  if(input$gwsBrowseScreenSpeciesSelect == "all"){
+    speciesList <- c("human", "mouse")
+  }else{
+    speciesList <- input$gwsBrowseScreenSpeciesSelect
+  }
+  
+  #get selected tissue
+  preselTissue <- pheno %>%
+    filter(species %in%  speciesList, type %in% input$gwsBrowseScreenDatasetSelect) %>%
+    select(tissue_name) %>%
+    distinct() %>%
+    .$tissue_name
+  
+  if(!isTRUE(input$gwsBrowseScreenCheckTissueAll) & !is.null(input$gwsBrowseScreenTissueSelect)){
+    preselTissue <- pheno %>%
+      filter(species %in%  speciesList, type %in% input$gwsBrowseScreenDatasetSelect, tissue_name %in% input$gwsBrowseScreenTissueSelect) %>%
+      select(tissue_name) %>%
+      distinct() %>%
+      .$tissue_name
+  }
+  
+  #get selected cell line
+  preselCellline <- pheno %>%
+    filter(species %in% speciesList, type %in% input$gwsBrowseScreenDatasetSelect, tissue_name %in% preselTissue) %>%
+    select(cellline_name) %>%
+    arrange(cellline_name) %>%
+    .$cellline_name
+  
+  if(!isTRUE(input$gwsBrowseScreenCheckCellLineAll) & !is.null(input$gwsBrowseScreenCellLineSelect)){
+    preselCellline  <- pheno %>%
+      filter(species %in% speciesList, type %in% input$gwsBrowseScreenDatasetSelect, tissue_name %in% preselTissue, cellline_name %in% input$gwsBrowseScreenCellLineSelect) %>%
+      select(cellline_name) %>%
+      arrange(cellline_name) %>%
+      .$cellline_name
+  }
+  
+  #get selected library
+  preselLibrary <- libraries %>%
+    filter(species %in% speciesList, type %in% input$gwsBrowseScreenDatasetSelect, tissue_name %in% preselTissue, cellline_name %in% preselCellline) %>%
+    select(library_id) %>%
+    .$library_id
+  
+  if(!isTRUE(input$gwsBrowseScreenCheckLibraryAll) & !is.null(input$gwsBrowseScreenLibrarySelect)){
+    preselLibrary <- libraries %>%
+      filter(species %in% speciesList, 
+             type %in% input$gwsBrowseScreenDatasetSelect, 
+             tissue_name %in% preselTissue, 
+             cellline_name %in% preselCellline,
+             library_id %in% input$gwsBrowseScreenLibrarySelect) %>%
+      select(library_id) %>%
+      .$library_id
+  }
+  
+  
+  df <- pheno %>%
+    filter(type %in% input$gwsBrowseScreenDatasetSelect,
+           species %in% speciesList, 
+           tissue_name %in% preselTissue,
+           cellline_name %in% preselCellline,
+           library_id %in% preselLibrary 
+           ) %>%
+    distinct %>%
+    select(sample_id, condition, replicate, cellline_name, tissue_context, tissue_name, mutation, clone, time, treatment, dose, pcr_strategy, facs_gate, type, species, library_id, scientist, publication, legacy_sample_name, barcode, vbcf_id, raw_file) %>%
+    collect
+  
+})
+
+#create datatable out of dataframe
+gwsBrowseScreenContrastDataTable <- eventReactive(input$gwsBrowseScreenLoadButton,{
+  
+  df <- gwsBrowseScreenContrastDataFrame()
+  if (nrow(df) > 0) {
+    nfreezeColumns <- 1
+    
+    dt <- df %>%
+      DT::datatable(extensions = c('FixedColumns','FixedHeader'), 
+                    options = list(
+                      autoWidth = FALSE,
+                      headerCallback = JS(headerCallback),
+                      scrollX=TRUE,
+                      fixedColumns = list(leftColumns = nfreezeColumns),
+                      columnDefs = list(list(className = 'dt-center', targets = "_all")),
+                      pageLength = 25,
+                      lengthMenu = c(25, 50, 100, 200),
+                      searchHighlight = TRUE
+                      #fixedHeader = TRUE
+                    ),
+                    filter = list(position = 'top', clear = FALSE),
+                    rownames= FALSE)
+    
+    output$gwsBrowseScreenInfo <- renderText({
+      "Info: Loading completed!"
+    })
+
+    #display datatable
+    dt 
+  }else{
+    output$gwsBrowseScreenInfo <- renderText({
+      "WARNING: No data found!"
+    })
+  }
+})
+
+#create datatable out of dataframe
+gwsBrowseScreenSampleDataTable <- eventReactive(input$gwsBrowseScreenLoadButton,{
+  
+  df <- gwsBrowseScreenSampleDataFrame()
+  if (nrow(df) > 0) {
+    nfreezeColumns <- 1
+    
+    dt <- df %>%
+      DT::datatable(extensions = c('FixedColumns','FixedHeader'), 
+                    options = list(
+                      autoWidth = FALSE,
+                      headerCallback = JS(headerCallback),
+                      scrollX=TRUE,
+                      fixedColumns = list(leftColumns = nfreezeColumns),
+                      columnDefs = list(list(className = 'dt-center', targets = "_all")),
+                      pageLength = 25,
+                      lengthMenu = c(25, 50, 100, 200),
+                      searchHighlight = TRUE
+                      #fixedHeader = TRUE
+                    ),
+                    filter = list(position = 'top', clear = FALSE),
+                    rownames= FALSE)
+    
+    output$gwsBrowseScreenInfo <- renderText({
+      "Info: Loading completed!"
+    })
+    
+    #display datatable
+    dt 
+  }else{
+    output$gwsBrowseScreenInfo <- renderText({
+      "WARNING: No data found!"
+    })
+  }
+})
+
 
 #query database and create dataframe
 gwsBrowseScreenDataFrame <- reactive({
@@ -178,22 +364,36 @@ gwsBrowseScreenDataTable <- eventReactive(input$gwsBrowseScreenLoadButton,{
       select(sort(current_vars())) %>%
       select(contains(local(input$gwsBrowseScreenSearchRadio)), contains("entrez_id"), contains("symbol"), contains("Symbol_human"), contains("EntrezID_human"), contains("Symbol_mouse"), contains("EntrezID_mouse"), everything())
     
-    colnames_dt <- colnames(dt)
-    contrast_ids <- df$contrast_id %>% unique
-    tooltip <- ''
     colorInterval <- length(local(input$gwsBrowseScreenInclude))
-    
-    if(input$gwsBrowseScreenDatasetSelect %in% c("dropout")){
+    #change to contrast_id_QC for selected columns when type is dropout
+    presel_contrasts <- gwsBrowseScreenContrastList()
+    colnames_dt <- colnames(dt)
+    tooltip <- ''
+    if(input$gwsBrowseScreenDatasetSelect %in% c("dropout") & input$gwsBrowseScreenDisplayName == "short"){
       for(i in 1:length(colnames_dt)){
         if(i < length(colnames_dt)){
           tooltip <- paste0(tooltip, "'", colnames_dt[i], "'",  ", " )
         }else{
           tooltip <- paste0(tooltip, "'", colnames_dt[i], "'")
         }
-        if(colnames_dt[i] %in% contrast_ids){
-          colnames_dt[i] <- contrasts %>% select(contrast_id, contrast_id_QC) %>% filter(contrast_id == colnames_dt[i]) %>% .$contrast_id_QC
+        colname_buff <- colnames_dt[i]
+        if(str_ends(colname_buff, "_P")){
+          colname_buff <- substr(colname_buff,1,nchar(colname_buff)-2)
+        }
+        if(str_ends(colname_buff, "_FDR")){
+          colname_buff <- substr(colname_buff,1,nchar(colname_buff)-4)
+        }
+        if(str_ends(colname_buff, "_GUIDES")){
+          colname_buff <- substr(colname_buff,1,nchar(colname_buff)-7)
+        }
+        if(str_ends(colname_buff, "_GUIDES_GOOD")){
+          colname_buff <- substr(colname_buff,1,nchar(colname_buff)-12)
+        }
+        if(colname_buff %in% presel_contrasts){
+          colnames_dt[i] <- str_replace(colnames_dt[i], colname_buff, (contrasts %>% select(contrast_id, contrast_id_QC) %>% filter(contrast_id == colname_buff) %>% .$contrast_id_QC))
         }
       }
+      
       colnames(dt) <- colnames_dt
     }
     
@@ -295,31 +495,9 @@ gwsBrowseScreenTissueList <- reactive({
   
 })
 
-gwsBrowseScreenLibraryList <- reactive({
-  if(input$gwsBrowseScreenSpeciesSelect == "all"){
-    speciesList <- c("human", "mouse")
-  }else{
-    speciesList <- input$gwsBrowseScreenSpeciesSelect
-  }
-  
-  if(input$gwsBrowseScreenCheckTissueAll == T){
-    libraries %>%
-      filter(species %in% speciesList, type %in% input$gwsBrowseScreenDatasetSelect) %>%
-      select(library_id) %>%
-      arrange(library_id) %>%
-      .$library_id
-  }else{
-    libraries %>%
-      filter(species %in% speciesList, tissue_name %in% input$gwsBrowseScreenTissueSelect, type %in% input$gwsBrowseScreenDatasetSelect) %>%
-      select(library_id) %>%
-      arrange(library_id) %>%
-      .$library_id
-  }
-  
-})
-
-gwsBrowseScreenContrastList <- reactive({
-  if((!is.null(input$gwsBrowseScreenLibrarySelect) | isTRUE(input$gwsBrowseScreenCheckLibraryAll)) & (!is.null(input$gwsBrowseScreenTissueSelect) | isTRUE(input$gwsBrowseScreenCheckTissueAll))){
+gwsBrowseScreenCellLineList <- reactive({
+  if(isTRUE(input$gwsBrowseScreenCheckTissueAll) | !is.null(input$gwsBrowseScreenTissueSelect)){
+    
     if(input$gwsBrowseScreenSpeciesSelect == "all"){
       speciesList <- c("human", "mouse")
     }else{
@@ -327,42 +505,151 @@ gwsBrowseScreenContrastList <- reactive({
     }
     
     #get selected tissue
-    if(isTRUE(input$gwsBrowseScreenCheckTissueAll)){
+    preselTissue <- pheno %>%
+      filter(species %in%  speciesList, type %in% input$gwsBrowseScreenDatasetSelect) %>%
+      select(tissue_name) %>%
+      distinct() %>%
+      .$tissue_name
+    
+    if(!isTRUE(input$gwsBrowseScreenCheckTissueAll) & !is.null(input$gwsBrowseScreenTissueSelect)){
       preselTissue <- pheno %>%
-        filter(species %in%  speciesList, type %in% input$gwsBrowseScreenDatasetSelect) %>%
+        filter(species %in%  speciesList, type %in% input$gwsBrowseScreenDatasetSelect, tissue_name %in% input$gwsBrowseScreenTissueSelect) %>%
         select(tissue_name) %>%
         distinct() %>%
         .$tissue_name
+    }
+    
+    pheno %>%
+      filter(species %in% speciesList, type %in% input$gwsBrowseScreenDatasetSelect, tissue_name %in% preselTissue) %>%
+      select(cellline_name) %>%
+      distinct %>%
+      arrange(cellline_name) %>%
+      .$cellline_name
+  }
+})
+
+gwsBrowseScreenLibraryList <- reactive({
+  if(isTRUE(input$gwsBrowseScreenCheckCellLineAll) | !is.null(input$gwsBrowseScreenCellLineSelect)){
+    if(input$gwsBrowseScreenSpeciesSelect == "all"){
+      speciesList <- c("human", "mouse")
     }else{
-      if(!isTRUE(input$gwsBrowseScreenCheckTissueAll) & !is.null(input$gwsBrowseScreenTissueSelect)){
-        preselTissue <- pheno %>%
-          filter(species %in%  speciesList, type %in% input$gwsBrowseScreenDatasetSelect, tissue_name %in% input$gwsBrowseScreenTissueSelect) %>%
-          select(tissue_name) %>%
-          distinct() %>%
-          .$tissue_name
-      }
+      speciesList <- input$gwsBrowseScreenSpeciesSelect
+    }
+    
+    #get selected tissue
+    preselTissue <- pheno %>%
+      filter(species %in%  speciesList, type %in% input$gwsBrowseScreenDatasetSelect) %>%
+      select(tissue_name) %>%
+      distinct() %>%
+      .$tissue_name
+    
+    if(!isTRUE(input$gwsBrowseScreenCheckTissueAll) & !is.null(input$gwsBrowseScreenTissueSelect)){
+      preselTissue <- pheno %>%
+        filter(species %in%  speciesList, type %in% input$gwsBrowseScreenDatasetSelect, tissue_name %in% input$gwsBrowseScreenTissueSelect) %>%
+        select(tissue_name) %>%
+        distinct() %>%
+        .$tissue_name
+    }
+    
+    #get selected cell line
+    preselCellline <- pheno %>%
+      filter(species %in% speciesList, type %in% input$gwsBrowseScreenDatasetSelect, tissue_name %in% preselTissue) %>%
+      select(cellline_name) %>%
+      arrange(cellline_name) %>%
+      distinct %>%
+      .$cellline_name
+      
+    if(!isTRUE(input$gwsBrowseScreenCheckCellLineAll) & !is.null(input$gwsBrowseScreenCellLineSelect)){
+      preselCellline  <- pheno %>%
+        filter(species %in% speciesList, type %in% input$gwsBrowseScreenDatasetSelect, tissue_name %in% preselTissue, cellline_name %in% input$gwsBrowseScreenCellLineSelect) %>%
+        select(cellline_name) %>%
+        distinct %>%
+        arrange(cellline_name) %>%
+        .$cellline_name
+    }
+    
+    libraries %>%
+      filter(species %in% speciesList, 
+             type %in% input$gwsBrowseScreenDatasetSelect, 
+             tissue_name %in% preselTissue, 
+             cellline_name %in% preselCellline) %>%
+      select(library_id) %>%
+      distinct %>%
+      arrange(library_id) %>%
+      .$library_id
+  }
+  
+})
+
+gwsBrowseScreenContrastList <- reactive({
+  if(!is.null(input$gwsBrowseScreenLibrarySelect) | isTRUE(input$gwsBrowseScreenCheckLibraryAll)){
+    if(input$gwsBrowseScreenSpeciesSelect == "all"){
+      speciesList <- c("human", "mouse")
+    }else{
+      speciesList <- input$gwsBrowseScreenSpeciesSelect
+    }
+    
+    #get selected tissue
+    preselTissue <- pheno %>%
+      filter(species %in%  speciesList, type %in% input$gwsBrowseScreenDatasetSelect) %>%
+      select(tissue_name) %>%
+      distinct() %>%
+      .$tissue_name
+    
+    if(!isTRUE(input$gwsBrowseScreenCheckTissueAll) & !is.null(input$gwsBrowseScreenTissueSelect)){
+      preselTissue <- pheno %>%
+        filter(species %in%  speciesList, type %in% input$gwsBrowseScreenDatasetSelect, tissue_name %in% input$gwsBrowseScreenTissueSelect) %>%
+        select(tissue_name) %>%
+        distinct() %>%
+        .$tissue_name
+    }
+    
+    #get selected cell line
+    preselCellline <- pheno %>%
+      filter(species %in% speciesList, type %in% input$gwsBrowseScreenDatasetSelect, tissue_name %in% preselTissue) %>%
+      select(cellline_name) %>%
+      arrange(cellline_name) %>%
+      .$cellline_name
+    
+    if(!isTRUE(input$gwsBrowseScreenCheckCellLineAll) & !is.null(input$gwsBrowseScreenCellLineSelect)){
+      preselCellline  <- pheno %>%
+        filter(species %in% speciesList, type %in% input$gwsBrowseScreenDatasetSelect, tissue_name %in% preselTissue, cellline_name %in% input$gwsBrowseScreenCellLineSelect) %>%
+        select(cellline_name) %>%
+        arrange(cellline_name) %>%
+        .$cellline_name
     }
     
     #get selected library
-    if(isTRUE(input$gwsBrowseScreenCheckLibraryAll)){
+    preselLibrary <- libraries %>%
+      filter(species %in% speciesList, type %in% input$gwsBrowseScreenDatasetSelect, tissue_name %in% preselTissue, cellline_name %in% preselCellline) %>%
+      select(library_id) %>%
+      .$library_id
+    
+    if(!isTRUE(input$gwsBrowseScreenCheckLibraryAll) & !is.null(input$gwsBrowseScreenLibrarySelect)){
       preselLibrary <- libraries %>%
-        filter(species %in% speciesList, type %in% input$gwsBrowseScreenDatasetSelect, tissue_name %in% preselTissue) %>%
+        filter(species %in% speciesList, 
+               type %in% input$gwsBrowseScreenDatasetSelect, 
+               tissue_name %in% preselTissue, 
+               cellline_name %in% preselCellline,
+               library_id %in% input$gwsBrowseScreenLibrarySelect) %>%
         select(library_id) %>%
         .$library_id
-    }else{
-      if(!isTRUE(input$gwsBrowseScreenCheckLibraryAll) & !is.null(input$gwsBrowseScreenLibrarySelect)){
-        preselLibrary <- libraries %>%
-          filter(species %in% speciesList, type %in% input$gwsBrowseScreenDatasetSelect, tissue_name %in% preselTissue, library_id %in% input$gwsBrowseScreenLibrarySelect) %>%
-          select(library_id) %>%
-          .$library_id
-      }
     }
     
-    contrasts %>%
-      filter(species %in% speciesList) %>%
-      filter(library_id %in% preselLibrary) %>%
-      filter(tissue_name %in%  preselTissue) %>%
-      filter(type == input$gwsBrowseScreenDatasetSelect) %>%
+    presel_contrasts <- contrasts %>%
+      filter(species %in% speciesList,
+             library_id %in% preselLibrary,
+             tissue_name %in%  preselTissue,
+             type == input$gwsBrowseScreenDatasetSelect,
+             cellline_name %in% preselCellline
+             ) 
+    
+    if(input$gwsBrowseScreenDatasetSelect == "dropout"){
+      presel_contrasts <- presel_contrasts %>%
+        filter(abs(dynamic_range) >= input$gwsBrowseScreenQuality)
+    }
+    
+    presel_contrasts %>%
       select(contrast_id) %>%
       distinct() %>%
       .$contrast_id
@@ -377,6 +664,12 @@ gwsBrowseScreenContrastList <- reactive({
 observeEvent(input$gwsBrowseScreenLoadButton, {
   output$gwsBrowseScreenTable <- renderDataTable({
     gwsBrowseScreenDataTable()
+  })
+  output$gwsBrowseScreenContrastTable <- renderDataTable({
+    gwsBrowseScreenContrastDataTable()
+  })
+  output$gwsBrowseScreenSampleTable <- renderDataTable({
+    gwsBrowseScreenSampleDataTable()
   })
 })
 
@@ -410,6 +703,16 @@ observeEvent(input$gwsBrowseScreenSpeciesSelect, {
   gwsBrowseScreenUpdateText()
 })
 
+observeEvent(input$gwsBrowseScreenQuality, {
+  #update contrasts selectb
+  updateSelectizeInput(session, 'gwsBrowseScreenContrastSelect', choices = gwsBrowseScreenContrastList(), server = TRUE)
+  #unselect checkbox contrasts
+  updateCheckboxInput(session, 'gwsBrowseScreenCheckContrastAll', value = FALSE)
+  #disable laod button
+  disable("gwsBrowseScreenLoadButton")
+  gwsBrowseScreenUpdateText()
+})
+
 observeEvent(input$gwsBrowseScreenDatasetSelect, {
   #select checkbox tissue
   updateCheckboxInput(session, 'gwsBrowseScreenCheckTissueAll', value = FALSE)
@@ -419,8 +722,10 @@ observeEvent(input$gwsBrowseScreenDatasetSelect, {
   if(input$gwsBrowseScreenDatasetSelect %in% c("drug_modifier", "facs_based")){
     updateRadioButtons(session, 'gwsBrowseScreenIndexRadio',selected = "lfc")
     disable("gwsBrowseScreenIndexRadio")
+    disable("gwsBrowseScreenQuality")
   }else{
     enable("gwsBrowseScreenIndexRadio")
+    enable("gwsBrowseScreenQuality")
   }
   #update library selectbox
   updateSelectizeInput(session, 'gwsBrowseScreenLibrarySelect', choices = gwsBrowseScreenLibraryList(), server = TRUE)
@@ -442,12 +747,73 @@ observeEvent(input$gwsBrowseScreenTissueSelect, {
     #unselect checkbox tissue
     updateCheckboxInput(session, 'gwsBrowseScreenCheckTissueAll', value = FALSE)
   }
+  #update contrasts selectb
+  updateSelectizeInput(session, 'gwsBrowseScreenCellLineSelect', choices = gwsBrowseScreenCellLineList(), server = TRUE)
+  #unselect checkbox contrasts
+  updateCheckboxInput(session, 'gwsBrowseScreenCheckCellLineAll', value = FALSE)
+  
+  #update contrasts selectb
+  if(isTRUE(input$gwsBrowseScreenCheckTissueAll) | (!is.null(input$gwsBrowseScreenTissueSelect))){
+    enable("gwsBrowseScreenCellLineSelect")
+    enable("gwsBrowseScreenCheckCellLineAll")
+  }else{
+    disable("gwsBrowseScreenCellLineSelect")
+    disable("gwsBrowseScreenCheckCellLineAll")
+  }
   #update library selectbox
   updateSelectizeInput(session, 'gwsBrowseScreenLibrarySelect', choices = gwsBrowseScreenLibraryList(), server = TRUE)
   #select library checkbox
   updateCheckboxInput(session, 'gwsBrowseScreenCheckLibraryAll', value = FALSE)
   #update contrasts selectb
+  updateSelectizeInput(session, 'gwsBrowseScreenContrastSelect', choices = gwsBrowseScreenContrastList(), server = TRUE)
+  #unselect checkbox contrasts
+  updateCheckboxInput(session, 'gwsBrowseScreenCheckContrastAll', value = FALSE)
+  
+  gwsBrowseScreenUpdateText()
+  
+}, ignoreNULL = FALSE)
+
+observeEvent(input$gwsBrowseScreenCheckTissueAll, {
+  if(isTRUE(input$gwsBrowseScreenCheckTissueAll)){
+    #reset tissue selectbox
+    updateSelectizeInput(session, 'gwsBrowseScreenTissueSelect', choices = gwsBrowseScreenTissueList(), server = TRUE)
+  }
+  #update contrasts selectb
+  updateSelectizeInput(session, 'gwsBrowseScreenCellLineSelect', choices = gwsBrowseScreenCellLineList(), server = TRUE)
+  #unselect checkbox contrasts
+  updateCheckboxInput(session, 'gwsBrowseScreenCheckCellLineAll', value = FALSE)
+  
   if(isTRUE(input$gwsBrowseScreenCheckTissueAll) | (!is.null(input$gwsBrowseScreenTissueSelect))){
+    enable("gwsBrowseScreenCellLineSelect")
+    enable("gwsBrowseScreenCheckCellLineAll")
+  }else{
+    disable("gwsBrowseScreenCellLineSelect")
+    disable("gwsBrowseScreenCheckCellLineAll")
+  }
+  #update library selectbox
+  updateSelectizeInput(session, 'gwsBrowseScreenLibrarySelect', choices = gwsBrowseScreenLibraryList(), server = TRUE)
+  #select library checkbox
+  updateCheckboxInput(session, 'gwsBrowseScreenCheckLibraryAll', value = FALSE)
+  #update contrasts selectb
+  updateSelectizeInput(session, 'gwsBrowseScreenContrastSelect', choices = gwsBrowseScreenContrastList(), server = TRUE)
+  #unselect checkbox contrasts
+  updateCheckboxInput(session, 'gwsBrowseScreenCheckContrastAll', value = FALSE)
+  gwsBrowseScreenUpdateText()
+  
+}, ignoreNULL = FALSE)
+
+observeEvent(input$gwsBrowseScreenCellLineSelect, {
+  if(!is.null(input$gwsBrowseScreenCellLineSelect)){
+    #unselect checkbox tissue
+    updateCheckboxInput(session, 'gwsBrowseScreenCheckCellLineAll', value = FALSE)
+  }
+  #update cellline selectbox
+  updateSelectizeInput(session, 'gwsBrowseScreenLibrarySelect', choices = gwsBrowseScreenLibraryList(), server = TRUE)
+  
+  #select cellline checkbox
+  updateCheckboxInput(session, 'gwsBrowseScreenCheckLibraryAll', value = FALSE)
+  #update contrasts selectb
+  if(isTRUE(input$gwsBrowseScreenCheckCellLineAll) | (!is.null(input$gwsBrowseScreenCellLineSelect))){
     enable("gwsBrowseScreenLibrarySelect")
     enable("gwsBrowseScreenCheckLibraryAll")
   }else{
@@ -463,10 +829,10 @@ observeEvent(input$gwsBrowseScreenTissueSelect, {
   
 }, ignoreNULL = FALSE)
 
-observeEvent(input$gwsBrowseScreenCheckTissueAll, {
-  if(isTRUE(input$gwsBrowseScreenCheckTissueAll)){
+observeEvent(input$gwsBrowseScreenCheckCellLineAll, {
+  if(isTRUE(input$gwsBrowseScreenCheckCellLineAll)){
     #reset tissue selectbox
-    updateSelectizeInput(session, 'gwsBrowseScreenTissueSelect', choices = gwsBrowseScreenTissueList(), server = TRUE)
+    updateSelectizeInput(session, 'gwsBrowseScreenCellLineSelect', choices = gwsBrowseScreenCellLineList(), server = TRUE)
   }
   #update library selectbox
   updateSelectizeInput(session, 'gwsBrowseScreenLibrarySelect', choices = gwsBrowseScreenLibraryList(), server = TRUE)
@@ -582,7 +948,7 @@ observeEvent(input$gwsBrowseScreenCancelModal, {
 output$gwsBrowseScreenButtonDownload <- downloadHandler(
   filename = function() {
     if(isTRUE(input$gwsBrowseScreenCheckContrastAll)){
-      paste0(paste(c("all_contrasts", local(input$gwsBrowseScreenTissueSelect), local(input$gwsBrowseScreenLibrarySelect)),  collapse="_"), ".txt")
+      paste0(paste(c("all_contrasts", local(input$gwsBrowseScreenTissueSelect), local(input$gwsBrowseScreenCellLineSelect), local(input$gwsBrowseScreenLibrarySelect)),  collapse="_"), ".txt")
     }else{
       paste0(paste(local(input$gwsBrowseScreenContrastSelect),collapse="_"), ".txt")
     }
@@ -591,13 +957,6 @@ output$gwsBrowseScreenButtonDownload <- downloadHandler(
     df <- gwsBrowseScreenDataFrame()
     
     if (nrow(df) > 0) {
-      # df %>%
-      #   select(contrast_id, local(input$gwsBrowseScreenSearchRadio), entrez_id, symbol, local(input$gwsBrowseScreenIndexRadio)) %>%
-      #   spread(contrast_id, local(input$gwsBrowseScreenIndexRadio)) %>%
-      #   #use function arrange_at() instead of arrange() because input$gwsBrowseScreenSearchRadio needs to be parsed toquosure, then unquoted it  !!
-      #   arrange_at(local(input$gwsBrowseScreenSearchRadio)) %>% write_tsv(file)
-      
-      
       if(input$gwsBrowseScreenSpeciesSelect == "all"){
         
         dt <- df %>%
@@ -607,6 +966,7 @@ output$gwsBrowseScreenButtonDownload <- downloadHandler(
           arrange(Symbol_human, Symbol_mouse) %>%
           select(Symbol_human, EntrezID_human, Symbol_mouse, EntrezID_mouse=EntrezID_mouse, everything())
         
+        nfreezeColumns <- nfreezeColumns + 2
       }else{
         dt <- df %>%
           select(contrast_id, local(input$gwsBrowseScreenSearchRadio), entrez_id, symbol, input$gwsBrowseScreenIndexRadio) %>%
@@ -614,6 +974,86 @@ output$gwsBrowseScreenButtonDownload <- downloadHandler(
           select(-contains("gene_id")) %>%
           arrange(symbol)
       }
+      if(input$gwsBrowseScreenSearchRadio == "gene_id" & !is.null(local(input$gwsBrowseScreenInclude)) & length(local(input$gwsBrowseScreenInclude))!=0){
+        column <- local(input$gwsBrowseScreenInclude)
+        if("p"  %in% local(input$gwsBrowseScreenInclude)){
+          dt <- dt %>%
+            left_join(
+              df %>%
+                mutate(p = ifelse(p_positive < p_negative, p_positive, p_negative)) %>%
+                select(contrast_id, contains("entrez_id"), contains("symbol"), contains("Symbol_human"), contains("EntrezID_human"), contains("Symbol_mouse"), contains("EntrezID_mouse"), p) %>%
+                distinct %>%
+                pivot_wider(names_from="contrast_id", values_from="p") %>%
+                mutate_if(is.numeric, round, 3) %>%
+                rename_at(vars(-contains("entrez_id"), -contains("symbol"), -contains("Symbol_human"), -contains("EntrezID_human"), -contains("Symbol_mouse"), -contains("EntrezID_mouse")), ~ paste0(., '_P'))
+            )
+        }
+        if("fdr" %in% local(input$gwsBrowseScreenInclude)){
+          dt <- dt %>%
+            left_join(
+              df %>%
+                mutate(fdr = ifelse(fdr_positive < fdr_negative, fdr_positive, fdr_negative)) %>%
+                select(contrast_id, contains("entrez_id"), contains("symbol"), contains("Symbol_human"), contains("EntrezID_human"), contains("Symbol_mouse"), contains("EntrezID_mouse"), fdr) %>%
+                distinct %>%
+                pivot_wider(names_from="contrast_id", values_from="fdr") %>%
+                mutate_if(is.numeric, round, 3) %>%
+                rename_at(vars(-contains("entrez_id"), -contains("symbol"), -contains("Symbol_human"), -contains("EntrezID_human"), -contains("Symbol_mouse"), -contains("EntrezID_mouse")), ~ paste0(., '_FDR'))
+            )
+        }
+        if("guides" %in% local(input$gwsBrowseScreenInclude)){
+          dt <- dt %>%
+            left_join(
+              df %>%
+                mutate(guides = ifelse(guides_positive > guides_negative, guides_positive, guides_negative)) %>%
+                select(contrast_id, contains("entrez_id"), contains("symbol"), contains("Symbol_human"), contains("EntrezID_human"), contains("Symbol_mouse"), contains("EntrezID_mouse"), guides) %>%
+                distinct %>%
+                pivot_wider(names_from="contrast_id", values_from="guides") %>%
+                rename_at(vars(-contains("entrez_id"), -contains("symbol"), -contains("Symbol_human"), -contains("EntrezID_human"), -contains("Symbol_mouse"), -contains("EntrezID_mouse")), ~ paste0(., '_GUIDES'))
+            )
+        }
+        if("guides_good" %in% local(input$gwsBrowseScreenInclude)){
+          dt <- dt %>%
+            left_join(
+              df %>%
+                mutate(guides_good = ifelse(guides_good_positive > guides_good_negative, guides_good_positive, guides_good_negative)) %>%
+                select(contrast_id, contains("entrez_id"), contains("symbol"), contains("Symbol_human"), contains("EntrezID_human"), contains("Symbol_mouse"), contains("EntrezID_mouse"), guides_good) %>%
+                distinct %>%
+                pivot_wider(names_from="contrast_id", values_from="guides_good") %>%
+                rename_at(vars(-contains("entrez_id"), -contains("symbol"), -contains("Symbol_human"), -contains("EntrezID_human"), -contains("Symbol_mouse"), -contains("EntrezID_mouse")), ~ paste0(., '_GUIDES_GOOD'))
+            )
+        }
+      }
+      
+      dt <- dt %>%
+        select(sort(current_vars())) %>%
+        select(contains(local(input$gwsBrowseScreenSearchRadio)), contains("entrez_id"), contains("symbol"), contains("Symbol_human"), contains("EntrezID_human"), contains("Symbol_mouse"), contains("EntrezID_mouse"), everything())
+      
+      presel_contrasts <- gwsBrowseScreenContrastList()
+      colnames_dt <- colnames(dt)
+      tooltip <- ''
+      if(input$gwsBrowseScreenDatasetSelect %in% c("dropout") & input$gwsBrowseScreenDisplayName == "short"){
+        for(i in 1:length(colnames_dt)){
+          colname_buff <- colnames_dt[i]
+          if(str_ends(colname_buff, "_P")){
+            colname_buff <- substr(colname_buff,1,nchar(colname_buff)-2)
+          }
+          if(str_ends(colname_buff, "_FDR")){
+            colname_buff <- substr(colname_buff,1,nchar(colname_buff)-4)
+          }
+          if(str_ends(colname_buff, "_GUIDES")){
+            colname_buff <- substr(colname_buff,1,nchar(colname_buff)-7)
+          }
+          if(str_ends(colname_buff, "_GUIDES_GOOD")){
+            colname_buff <- substr(colname_buff,1,nchar(colname_buff)-12)
+          }
+          if(colname_buff %in% presel_contrasts){
+            colnames_dt[i] <- str_replace(colnames_dt[i], colname_buff, (contrasts %>% select(contrast_id, contrast_id_QC) %>% filter(contrast_id == colname_buff) %>% .$contrast_id_QC))
+          }
+        }
+        
+        colnames(dt) <- colnames_dt
+      }
+      
       dt %>% write_tsv(file)
     }
   }

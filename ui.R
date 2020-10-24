@@ -52,9 +52,9 @@ body <- dashboardBody(
             fluidRow(
               useShinyjs(),
               column(width = 9,
-                     box(title = "Screen Table", status = "primary", width = NULL, solidHeader = TRUE, collapsible = TRUE, withSpinner(dataTableOutput(outputId="gwsBrowseScreenTable"))),
-                     box(title = "Contrast Table", status = "primary", width = NULL, solidHeader = TRUE, collapsible = TRUE, withSpinner(dataTableOutput(outputId="gwsBrowseScreenContrastTable"))),
-                     box(title = "Sample Table", status = "primary", width = NULL, solidHeader = TRUE, collapsible = TRUE, withSpinner(dataTableOutput(outputId="gwsBrowseScreenSampleTable")))),
+                     box(title = "Screens", status = "success", width = NULL, solidHeader = TRUE, collapsible = TRUE, withSpinner(dataTableOutput(outputId="gwsBrowseScreenTable"))),
+                     box(title = "Contrasts", status = "warning", width = NULL, solidHeader = TRUE, collapsible = TRUE, collapsed=TRUE, withSpinner(dataTableOutput(outputId="gwsBrowseScreenContrastTable"))),
+                     box(title = "Samples", status = "danger", width = NULL, solidHeader = TRUE, collapsible = TRUE, collapsed=TRUE, withSpinner(dataTableOutput(outputId="gwsBrowseScreenSampleTable")))),
               column(width = 3,
                      box(width = NULL, solidHeader = TRUE,
                          radioButtons(
@@ -195,9 +195,9 @@ body <- dashboardBody(
                             box(width = NULL, solidHeader = TRUE, textOutput(outputId="gwsGeneInfo")))),
             fluidRow(
               column(width = 9,
-                     box(title = "Screen Table", status = "primary",width = NULL, solidHeader = TRUE, collapsible = TRUE, withSpinner(dataTableOutput("gwsGeneTable"))),
-                     box(title = "Contrast Table", status = "primary", width = NULL, solidHeader = TRUE, collapsible = TRUE, withSpinner(dataTableOutput(outputId="gwsGeneContrastTable"))),
-                     box(title = "Sample Table", status = "primary", width = NULL, solidHeader = TRUE, collapsible = TRUE, withSpinner(dataTableOutput(outputId="gwsGeneSampleTable")))),
+                     box(title = "Screens", status = "success", width = NULL, solidHeader = TRUE, collapsible = TRUE, withSpinner(dataTableOutput("gwsGeneTable"))),
+                     box(title = "Contrasts", status = "warning", width = NULL, solidHeader = TRUE, collapsible = TRUE, collapsed=TRUE, withSpinner(dataTableOutput(outputId="gwsGeneContrastTable"))),
+                     box(title = "Samples", status = "danger", width = NULL, solidHeader = TRUE, collapsible = TRUE, collapsed=TRUE, withSpinner(dataTableOutput(outputId="gwsGeneSampleTable")))),
               column(width = 3,
                      box(width = NULL, solidHeader = TRUE,
                          

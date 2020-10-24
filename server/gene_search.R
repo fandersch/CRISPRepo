@@ -64,12 +64,15 @@ gwsGeneContrastDataFrame <- reactive({
     distinct() %>%
     collect()
   
+  df <- df %>%
+    select(contrast_id, contrast_id_QC, treatment, control, type, cellline_name, tissue_name, tissue_context, library_id, species, 
+           auc, ssmd, dynamic_range, average_lfc_essentials, 
+           norm_method_mageck = norm_method, fdr_method_mageck = fdr_method, lfc_method_mageck=lfc_method, cnv_correction_mageck=cnv_correction, 
+           filter_mageck=filter, variance_estimation_mageck=variance_estimation)
+  
   if(input$gwsGeneDisplayName == "short"){
     df <- df %>%
       select(contrast_id_QC, contrast_id, everything())
-  }else{
-    df <- df %>%
-      select(contrast_id, contrast_id_QC, everything())
   }
   
   if(!input$gwsGeneDatasetSelect %in% c("dropout")){
@@ -83,69 +86,26 @@ gwsGeneContrastDataFrame <- reactive({
 #query database and create dataframe
 gwsGeneSampleDataFrame <- reactive({
   
-  if(input$gwsGeneSpeciesSelect == "all"){
-    speciesList <- c("human", "mouse")
+  if(isTRUE(input$gwsGeneCheckContrastAll)){
+    presel_contrasts <- gwsGeneContrastList()
   }else{
-    speciesList <- input$gwsGeneSpeciesSelect
+    presel_contrasts <- local(input$gwsGeneContrastSelect)
   }
   
-  #get selected tissue
-  preselTissue <- pheno %>%
-    filter(species %in%  speciesList, type %in% input$gwsGeneDatasetSelect) %>%
-    select(tissue_name) %>%
+  contrasts <- con %>%
+    tbl("contrasts") %>%
+    filter(contrast_id %in% presel_contrasts) %>%
     distinct() %>%
-    .$tissue_name
+    collect()
   
-  if(!isTRUE(input$gwsGeneCheckTissueAll) & !is.null(input$gwsGeneTissueSelect)){
-    preselTissue <- pheno %>%
-      filter(species %in%  speciesList, type %in% input$gwsGeneDatasetSelect, tissue_name %in% input$gwsGeneTissueSelect) %>%
-      select(tissue_name) %>%
-      distinct() %>%
-      .$tissue_name
-  }
-  
-  #get selected cell line
-  preselCellline <- pheno %>%
-    filter(species %in% speciesList, type %in% input$gwsGeneDatasetSelect, tissue_name %in% preselTissue) %>%
-    select(cellline_name) %>%
-    arrange(cellline_name) %>%
-    .$cellline_name
-  
-  if(!isTRUE(input$gwsGeneCheckCellLineAll) & !is.null(input$gwsGeneCellLineSelect)){
-    preselCellline  <- pheno %>%
-      filter(species %in% speciesList, type %in% input$gwsGeneDatasetSelect, tissue_name %in% preselTissue, cellline_name %in% input$gwsGeneCellLineSelect) %>%
-      select(cellline_name) %>%
-      arrange(cellline_name) %>%
-      .$cellline_name
-  }
-  
-  #get selected library
-  preselLibrary <- libraries %>%
-    filter(species %in% speciesList, type %in% input$gwsGeneDatasetSelect, tissue_name %in% preselTissue, cellline_name %in% preselCellline) %>%
-    select(library_id) %>%
-    .$library_id
-  
-  if(!isTRUE(input$gwsGeneCheckLibraryAll) & !is.null(input$gwsGeneLibrarySelect)){
-    preselLibrary <- libraries %>%
-      filter(species %in% speciesList, 
-             type %in% input$gwsGeneDatasetSelect, 
-             tissue_name %in% preselTissue, 
-             cellline_name %in% preselCellline,
-             library_id %in% input$gwsGeneLibrarySelect) %>%
-      select(library_id) %>%
-      .$library_id
-  }
-  
-  
+  sample_names <- c(contrasts$treatment %>% as.character %>% str_split(",") %>% unlist, contrasts$control %>% as.character %>% str_split(",") %>% unlist)
+
   df <- pheno %>%
-    filter(type %in% input$gwsGeneDatasetSelect,
-           species %in% speciesList, 
-           tissue_name %in% preselTissue,
-           cellline_name %in% preselCellline,
-           library_id %in% preselLibrary 
-    ) %>%
+    filter(sample_id %in% sample_names) %>%
     distinct %>%
-    select(sample_id, condition, replicate, cellline_name, tissue_context, tissue_name, mutation, clone, time, treatment, dose, pcr_strategy, facs_gate, type, species, library_id, scientist, publication, legacy_sample_name, barcode, vbcf_id, raw_file) %>%
+    select(sample_id, cellline_name, tissue_name, tissue_context, library_id, species, type,
+           condition, mutation, clone, time, treatment, dose, pcr_strategy, facs_gate, replicate, scientist, publication, legacy_sample_name,
+           barcode, vbcf_id, raw_file) %>%
     collect
   
 })
@@ -171,7 +131,8 @@ gwsGeneContrastDataTable <- eventReactive(input$gwsGeneLoadButton,{
                       #fixedHeader = TRUE
                     ),
                     filter = list(position = 'top', clear = FALSE),
-                    rownames= FALSE)
+                    rownames= FALSE) %>%
+      formatStyle(names(df),"white-space"="nowrap")
     
     output$gwsGeneInfo <- renderText({
       "Info: Loading completed!"
@@ -207,7 +168,8 @@ gwsGeneSampleDataTable <- eventReactive(input$gwsGeneLoadButton,{
                       #fixedHeader = TRUE
                     ),
                     filter = list(position = 'top', clear = FALSE),
-                    rownames= FALSE)
+                    rownames= FALSE) %>%
+      formatStyle(names(df),"white-space"="nowrap")
     
     output$gwsGeneInfo <- renderText({
       "Info: Loading completed!"

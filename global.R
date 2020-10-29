@@ -78,7 +78,7 @@ gene_list_screens <- con %>%
 gene_list_human <- NULL
 gene_list_mouse <- NULL 
 
-if("hs_gw_zuber_v3" %in% (libraries %>% collect %>% .$library_id)){
+if("hs_gw_zuber_v2" %in% (libraries %>% collect %>% .$library_id)){
   gene_list_human <- con_sgRNAs %>%
     tbl("genes_human") %>%
     select(Symbol, EntrezID) %>%
@@ -110,7 +110,7 @@ dict_joined <- read_tsv("dict/dict_joined.txt") %>%
   select(EntrezID_human=entrezID_human, Symbol_human, EntrezID_mouse=entrezID_mouse, Symbol_mouse)
 
 #distinguish between internal and external verson
-if("hs_gw_zuber_v3" %in% (libraries %>% collect %>% .$library_id)){
+if("hs_gw_zuber_v2" %in% (libraries %>% collect %>% .$library_id)){
   view <- "internal"
   dataset_selection_all <- list("dropout" = "dropout", "drug_modifier" = "drug_modifier", "facs_based" = "facs_based")
 }else{

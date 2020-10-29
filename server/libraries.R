@@ -64,6 +64,7 @@ libLibraryList <- reactive({
   libraries %>%
     filter(species %in% speciesList) %>%
     select(library_id) %>%
+    distinct %>%
     arrange(library_id) %>%
     .$library_id
 })

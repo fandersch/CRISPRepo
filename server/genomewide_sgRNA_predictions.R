@@ -110,21 +110,23 @@ sgRNAsDataTableOutput <- eventReactive(input$sgRNAsLoadButton,{
 # ----------------------------------------------------------------------------
 
 sgRNAsGeneList <- reactive({
-  if(input$sgRNAsSpeciesSelect == "all"){
-    gene_list <- gene_list_mouse %>%
-      rbind(gene_list_human)
-  }else{
-    if(input$sgRNAsSpeciesSelect == "human"){
-      gene_list <- gene_list_human 
+  if(!is.null(gene_list_mouse) & !is.null(gene_list_mouse)){
+    if(input$sgRNAsSpeciesSelect == "all"){
+      gene_list <- gene_list_mouse %>%
+        rbind(gene_list_human)
     }else{
-      gene_list <- gene_list_mouse 
+      if(input$sgRNAsSpeciesSelect == "human"){
+        gene_list <- gene_list_human 
+      }else{
+        gene_list <- gene_list_mouse 
+      }
     }
+    
+    gene_list %>%
+      dplyr::mutate(gene = ifelse(is.na(Symbol), paste0("No symbol found (", EntrezID, ")"), paste0(Symbol , " (", EntrezID, ")"))) %>%
+      arrange(gene) %>%
+      .$gene
   }
-  
-  gene_list %>%
-    dplyr::mutate(gene = ifelse(is.na(Symbol), paste0("No symbol found (", EntrezID, ")"), paste0(Symbol , " (", EntrezID, ")"))) %>%
-    arrange(gene) %>%
-    .$gene
   
 })
 

@@ -51,11 +51,18 @@ gwsBrowseScreenContrastDataFrame <- reactive({
     distinct() %>%
     collect()
   
+  namekey <- c(contrast_id="contrast_id", contrast_id_QC="contrast_id_QC", treatment="treatment", control="control", type="type", cellline_name="cellline_name", 
+               tissue_name= "tissue_name", tissue_context = "tissue_context", library_id="library_id", species="species", 
+               auc= "auc", ssmd = "ssmd", dynamic_range = "dynamic_range", average_lfc_essentials = "average_lfc_essentials", 
+               norm_method="norm_method_mageck", fdr_method="fdr_method_mageck", lfc_method="lfc_method_mageck", cnv_correction="cnv_correction_mageck",
+               filter="filter_mageck", variance_estimation="variance_estimation_mageck")
+  
+  names(df) <- namekey[names(df)]
   df <- df %>%
     select(contrast_id, contrast_id_QC, treatment, control, type, cellline_name, tissue_name, tissue_context, library_id, species, 
            auc, ssmd, dynamic_range, average_lfc_essentials, 
-           norm_method_mageck = norm_method, fdr_method_mageck = fdr_method, lfc_method_mageck=lfc_method, cnv_correction_mageck=cnv_correction, 
-           filter_mageck=filter, variance_estimation_mageck=variance_estimation)
+           matches("norm_method_mageck"), matches("fdr_method_mageck"), matches("lfc_method_mageck"), matches("cnv_correction_mageck"), 
+           matches("filter_mageck"), matches("variance_estimation_mageck"))
   
   if(input$gwsBrowseScreenDisplayName == "short"){
     df <- df %>%

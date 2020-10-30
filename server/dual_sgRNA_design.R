@@ -121,10 +121,10 @@ dualSgRNAsTable <- reactive({
                end =  ifelse(orientation=="+", stringr::str_split(`Position`, pattern = "[-:(]")[[1]][3], stringr::str_split(`Position`, pattern = "[-:(]")[[1]][2])) %>%
         mutate(genomic_cutting_position = ifelse(orientation=="+", as.numeric(end) - 3 - 3 - 3, as.numeric(end) + 3 + 3 + 3)) %>%
         mutate(cutting_distance = input_genomic_cutting_position - genomic_cutting_position,
-               produces_frameshift = ifelse(cutting_distance %% 3 != 0, TRUE, FALSE),
+               produces_frameshift = ifelse(cutting_distance %% 3 != 0 & input_exon==exon, TRUE, ifelse(cutting_distance %% 3 != 0 & input_exon!=exon), NA, FALSE),
                proximity_1kb = ifelse(abs(cutting_distance)<=1000, TRUE, FALSE),
                targets_same_exon = ifelse(input_exon==exon, TRUE, FALSE)) %>%
-        filter(proximity_1kb == TRUE, produces_frameshift == TRUE) %>%
+        filter(proximity_1kb == TRUE, is.na(produces_frameshift), produces_frameshift == TRUE) %>%
         mutate(original_sgRNA = input_sequence, original_sgRNA_position = input_position, original_sgRNA_exon_number = input_exon) %>%
         mutate(VBC.score = ifelse(VBC.score <= 0.001, NA, VBC.score)) %>%
         arrange(EntrezID, desc(proximity_1kb), desc(produces_frameshift), final_rank) %>%

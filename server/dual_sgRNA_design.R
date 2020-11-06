@@ -28,14 +28,14 @@ dualSgRNAsTable <- reactive({
   
   entrez_list_human <- con_sgRNAs %>%
     tbl("sgRNAs_human") %>%
-    select(EntrezID) %>%
+    dplyr::select(EntrezID) %>%
     distinct %>%
     collect %>%
     .$EntrezID
   
   entrez_list_mouse <- con_sgRNAs %>%
     tbl("sgRNAs_mouse") %>%
-    select(EntrezID) %>%
+    dplyr::select(EntrezID) %>%
     distinct %>%
     collect() %>%
     .$EntrezID
@@ -65,7 +65,7 @@ dualSgRNAsTable <- reactive({
       if(firstSgRNA_entrez %in% entrez_list_human){
         sgRNA_candidates <- con_sgRNAs %>%
           tbl("sgRNAs_human") %>%
-          filter(EntrezID == local(firstSgRNA_entrez)) %>%
+          dplyr::filter(EntrezID == local(firstSgRNA_entrez)) %>%
           collect() %>%
           mutate_at(c("Symbol", "sgRNA_23mer", "sgRNA_ID", "Position", "mature_sgRNA", "Off_target", "guide_origin"), as.character)
           
@@ -74,7 +74,7 @@ dualSgRNAsTable <- reactive({
         if(firstSgRNA_entrez %in% entrez_list_mouse){
           sgRNA_candidates <- con_sgRNAs %>%
             tbl("sgRNAs_mouse") %>%
-            filter(EntrezID == local(firstSgRNA_entrez)) %>%
+            dplyr::filter(EntrezID == local(firstSgRNA_entrez)) %>%
             collect() %>%
             mutate_at(c("Symbol", "sgRNA_23mer", "sgRNA_ID", "Position", "mature_sgRNA", "Off_target", "guide_origin"), as.character) %>%
             mutate(SNP_targeting = NA)
@@ -113,7 +113,7 @@ dualSgRNAsTable <- reactive({
         firstSgRNA_genomic_cutting_position = ifelse(firstSgRNA_orientation=="+", as.numeric(firstSgRNA_end) - 3 - 3 - 3, as.numeric(firstSgRNA_end) + 3 + 3 + 3)
         
         sgRNAs_selected <- sgRNA_candidates %>%
-          filter(!is.na(Position) & Position != "") %>%
+          dplyr::filter(!is.na(Position) & Position != "") %>%
           rowwise() %>%
           mutate(second_sgRNA_orientation =  stringr::str_split(`Position`, pattern = "[()]")[[1]][2],
                  second_sgRNA_chr = stringr::str_split(`Position`, pattern = "[-:(]")[[1]][1],
@@ -129,14 +129,14 @@ dualSgRNAsTable <- reactive({
                  first_sgRNA_exon_number = firstSgRNA_exon,
                  first_sgRNA_genomic_cutting_position = firstSgRNA_genomic_cutting_position,
                  VBC.score = ifelse(VBC.score <= 0.001, NA, VBC.score)) %>%
-          filter(proximity_1kb == TRUE, check == TRUE) %>%
+          dplyr::filter(proximity_1kb == TRUE, check == TRUE) %>%
           arrange(EntrezID, desc(proximity_1kb), desc(produces_frameshift), final_rank) %>%
-          select(EntrezID, Symbol, 
+          dplyr::select(EntrezID, Symbol, 
                  first_sgRNA_sequence, first_sgRNA_position, first_sgRNA_exon_number, first_sgRNA_genomic_cutting_position,
                  second_sgRNA_sequence=sgRNA_23mer, second_sgRNA_position=Position, second_sgRNA_exon=exon, second_sgRNA_genomic_cutting_position, 
                  genomic_cutting_distance, targets_same_exon, proximity_1kb, produces_frameshift, 
                  VBC.score, Off_target, inDelphi, cleavage_activity, everything()) %>%
-          select(-sgRNA_ID, -mature_sgRNA, -guide_origin, -second_sgRNA_orientation, -second_sgRNA_chr, -second_sgRNA_start, -second_sgRNA_end, -check)
+          dplyr::select(-sgRNA_ID, -mature_sgRNA, -guide_origin, -second_sgRNA_orientation, -second_sgRNA_chr, -second_sgRNA_start, -second_sgRNA_end, -check)
         
         chr_buff <-""
         for(i in 1:nrow(sgRNAs_selected)){
@@ -170,8 +170,8 @@ dualSgRNAsTable <- reactive({
             
             dist_tx <- res %>% 
               ungroup %>%
-              filter(distance !=0) %>%
-              select(distance, names)
+              dplyr::filter(distance !=0) %>%
+              dplyr::select(distance, names)
             
             first_sgRNA_transcripts <- res[res$group==1,"names"] %>% .$names
             nfirst_sgRNA_transcripts <- first_sgRNA_transcripts %>% length
@@ -179,9 +179,9 @@ dualSgRNAsTable <- reactive({
             nsecond_sgRNA_transcripts <- second_sgRNA_transcripts %>% length
             most_common_dist <- sort(table(dist_tx$distance),decreasing=TRUE)[1] %>% names %>% as.numeric
             tx_frames <- dist_tx %>% mutate(frame = distance %% 3)
-            TranscriptsInFrame <- tx_frames %>% filter(frame == 0) %>% .$names
+            TranscriptsInFrame <- tx_frames %>% dplyr::filter(frame == 0) %>% .$names
             nTranscriptsInFrame <- TranscriptsInFrame %>% length
-            TranscriptsOutOfFrame <- tx_frames %>% filter(frame != 0) %>% .$names
+            TranscriptsOutOfFrame <- tx_frames %>% dplyr::filter(frame != 0) %>% .$names
             nTranscriptsOutOfFrame <- TranscriptsOutOfFrame %>% length
             
             #if the most common distance is not in frame

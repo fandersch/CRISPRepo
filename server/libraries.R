@@ -5,12 +5,12 @@
 libTable <- reactive({
   con %>% 
     tbl("features") %>% 
-    filter(library_id %in% local(input$libSelectLibrary)) %>% 
+    dplyr::filter(library_id %in% local(input$libSelectLibrary)) %>% 
     collect() %>%
     mutate(Length = nchar(sequence), order_entrezID = as.numeric(entrez_id), 
            sgRNA_23_mer = ifelse(!gene_id %in% c("AMBIGUOUS", "UNMAPPED", "NOFEATURE", "SAFETARGETING", "NONTARGETING"), paste0(gene_id, "_", substr(context, 5, nchar(context)-3)), NA)) %>%
     dplyr::arrange(ifelse(gene_id %in% c("AMBIGUOUS", "UNMAPPED", "NOFEATURE", "SAFETARGETING", "NONTARGETING"), 1, 0), order_entrezID, guide_id) %>%
-    select("Guide-ID" = guide_id, "Entrez-ID" = entrez_id, "Gene-Symbol" = hgnc_symbol, "Ensembl-ID" = ensembl_id, Sequence = sequence, Length, 
+    dplyr::select("Guide-ID" = guide_id, "Entrez-ID" = entrez_id, "Gene-Symbol" = hgnc_symbol, "Ensembl-ID" = ensembl_id, Sequence = sequence, Length, 
            "sgRNA-ID-23-mer" = sgRNA_23_mer,
            "Library-ID" = library_id, Chromosome = chromosome, Strand = strand, "Genomic-Start-Position" = start, 
            "Genomic-End-Position" = end, "Perfect-matches-(PM)-total" = pm_total, "PM-with-PAM" = pm_pam, 
@@ -42,7 +42,7 @@ output$libBoxGuidesTotal <- renderInfoBox({
 })
 
 output$libBoxGenesTotal <- renderInfoBox({
-  infoBox(title = "Genes", value = libTable() %>% select("Entrez-ID") %>% distinct() %>% nrow())
+  infoBox(title = "Genes", value = libTable() %>% dplyr::select("Entrez-ID") %>% distinct() %>% nrow())
 })
 
 # ----------------------------------------------------------------------------
@@ -62,8 +62,8 @@ libLibraryList <- reactive({
   }
   
   libraries %>%
-    filter(species %in% speciesList) %>%
-    select(library_id) %>%
+    dplyr::filter(species %in% speciesList) %>%
+    dplyr::select(library_id) %>%
     distinct %>%
     arrange(library_id) %>%
     .$library_id

@@ -49,8 +49,8 @@ sgRNAInfoTableScreens <- reactive({
   #get gene_stats/guide_stats
   df_screens <- con %>%
     tbl("guide_stats") %>%
-    filter(guide_id %in% local(presel_guides)) %>%
-    left_join(features %>% select(-library_id) %>% distinct) %>%
+    dplyr::filter(guide_id %in% local(presel_guides)) %>%
+    left_join(features %>% dplyr::select(-library_id) %>% distinct) %>%
     collect() %>%
     mutate_at(c("lfc","effect"), funs(round(., 3)))
   
@@ -58,7 +58,7 @@ sgRNAInfoTableScreens <- reactive({
     presel_contrasts <- df_screens$contrast_id %>% unique
     
     df_screens <- df_screens %>%
-      select(contrast_id, guide_id, entrez_id, symbol,local(input$sgRNAInfoIndexRadio)) %>%
+      dplyr::select(contrast_id, guide_id, entrez_id, symbol,local(input$sgRNAInfoIndexRadio)) %>%
       spread(contrast_id, input$sgRNAInfoIndexRadio) %>%
       distinct()
   }
@@ -87,49 +87,49 @@ sgRNAInfoTablePredictions <- reactive({
   }
   
   sgRNAs_23mer <- features %>%
-    filter(guide_id %in% presel_guides) %>%
+    dplyr::filter(guide_id %in% presel_guides) %>%
     dplyr::mutate(sgRNA_23mer = substr(context, 5, nchar(context)-3)) %>%
     .$sgRNA_23mer
   
   if(input$sgRNAInfoSpeciesSelect == "all"){
     sgRNAs <- con_sgRNAs %>%
       tbl("sgRNAs_human") %>%
-      filter(EntrezID %in% c(presel_entrez)) %>%
-      select(`Entrez ID` = EntrezID, Symbol, `20-mer + NGG` = sgRNA_23mer, Position, Exon = exon, `Mature sgRNA` = mature_sgRNA,
+      dplyr::filter(EntrezID %in% c(presel_entrez)) %>%
+      dplyr::select(`Entrez ID` = EntrezID, Symbol, `20-mer + NGG` = sgRNA_23mer, Position, Exon = exon, `Mature sgRNA` = mature_sgRNA,
              `VBC-Score`=VBC.score, `Frameshift ratio inDelphi` = inDelphi, `Cleavage activity` = cleavage_activity, Length = len_cloning_sgRNA, `Off-target predictions` = Off_target, 
              Length = len_cloning_sgRNA, `Prediction rank`= final_rank, `Validation rank` = final_validated_rank, `SNP targeting` = SNP_targeting,
              `Restriction-site- / Poly-A- / Multi-T-containing` = RS_PolyA_multiT_containing, `Failed validation / Single outlier validation` = failed_outlier_validation, 
              `Trans-species (human/mouse)` = transspecies, `Maps to genome` = check) %>%
       collect() %>%
-      filter(str_detect(`20-mer + NGG`, paste(sgRNAs_23mer, collapse = "|"))) %>%
+      dplyr::filter(str_detect(`20-mer + NGG`, paste(sgRNAs_23mer, collapse = "|"))) %>%
       rbind(
         con_sgRNAs %>%
           tbl("sgRNAs_mouse") %>%
-          filter(EntrezID %in% c(presel_entrez)) %>%
-          select(`Entrez ID` = EntrezID, Symbol, `20-mer + NGG` = sgRNA_23mer, Position, Exon = exon, `Mature sgRNA` = mature_sgRNA,
+          dplyr::filter(EntrezID %in% c(presel_entrez)) %>%
+          dplyr::select(`Entrez ID` = EntrezID, Symbol, `20-mer + NGG` = sgRNA_23mer, Position, Exon = exon, `Mature sgRNA` = mature_sgRNA,
                  `VBC-Score`=VBC.score, `Frameshift ratio inDelphi` = inDelphi, `Cleavage activity` = cleavage_activity, Length = len_cloning_sgRNA, `Off-target predictions` = Off_target, 
                  Length = len_cloning_sgRNA, `Prediction rank`= final_rank, `Validation rank` = final_validated_rank, `SNP targeting` = SNP_targeting,
                  `Restriction-site- / Poly-A- / Multi-T-containing` = RS_PolyA_multiT_containing, `Failed validation / Single outlier validation` = failed_outlier_validation, 
                  `Trans-species (human/mouse)` = transspecies, `Maps to genome` = check) %>%
           collect() %>%
-          filter(str_detect(`20-mer + NGG`, paste(sgRNAs_23mer, collapse = "|")))
+          dplyr::filter(str_detect(`20-mer + NGG`, paste(sgRNAs_23mer, collapse = "|")))
       )
   }else{
     #get guide ranks
     sgRNAs <- con_sgRNAs %>%
       tbl(tableSgRNAs) %>%
-      filter(EntrezID %in% c(presel_entrez)) %>%
-      select(`Entrez ID` = EntrezID, Symbol, `20-mer + NGG` = sgRNA_23mer, Position, Exon = exon, `Mature sgRNA` = mature_sgRNA,
+      dplyr::filter(EntrezID %in% c(presel_entrez)) %>%
+      dplyr::select(`Entrez ID` = EntrezID, Symbol, `20-mer + NGG` = sgRNA_23mer, Position, Exon = exon, `Mature sgRNA` = mature_sgRNA,
              `VBC-Score`=VBC.score, `Frameshift ratio inDelphi` = inDelphi, `Cleavage activity` = cleavage_activity, Length = len_cloning_sgRNA, `Off-target predictions` = Off_target, 
              Length = len_cloning_sgRNA, `Prediction rank`= final_rank, `Validation rank` = final_validated_rank, `SNP targeting` = SNP_targeting,
              `Restriction-site- / Poly-A- / Multi-T-containing` = RS_PolyA_multiT_containing, `Failed validation / Single outlier validation` = failed_outlier_validation, 
              `Trans-species (human/mouse)` = transspecies, `Maps to genome` = check) %>%
       collect() %>%
-      filter(str_detect(`20-mer + NGG`, paste(sgRNAs_23mer, collapse = "|")))
+      dplyr::filter(str_detect(`20-mer + NGG`, paste(sgRNAs_23mer, collapse = "|")))
   }
   
   if(sgRNAs$`Maps to genome` %>% as.character %>% unique %>% length == "1"){
-    sgRNAs <- sgRNAs %>% select(-`Maps to genome`)
+    sgRNAs <- sgRNAs %>% dplyr::select(-`Maps to genome`)
   }
   
   sgRNAs
@@ -161,20 +161,20 @@ sgRNAInfoTableValidations <- reactive({
   }
   
   sgRNAs_23mer <- features %>%
-    filter(guide_id %in% presel_guides) %>%
+    dplyr::filter(guide_id %in% presel_guides) %>%
     dplyr::mutate(sgRNA_23mer = substr(context, 5, nchar(context)-3)) %>%
     .$sgRNA_23mer
   
   for(i in 1:length(tableSgRNAs)){
     sgRNAs_buff <- con_sgRNAs %>%
       tbl(tableSgRNAs[i]) %>%
-      filter(EntrezID %in% c(presel_entrez)) %>%
+      dplyr::filter(EntrezID %in% c(presel_entrez)) %>%
       collect() %>%
       mutate(Dataset = unlist(strsplit(tableSgRNAs[i], split="_"))[3:4] %>% paste(collapse = "_")) %>%
       separate(sgRNA_id, into =c("dummy", "seq_buff"), sep = "_", remove = FALSE) %>%
-      filter(str_detect(seq_buff, paste(sgRNAs_23mer, collapse = "|"))) %>%
-      select(-seq_buff, -dummy, -legacy_sequence, Library_origin = source, Mature_sgRNA = mature_sgRNA) %>%
-      select(Dataset, everything())
+      dplyr::filter(str_detect(seq_buff, paste(sgRNAs_23mer, collapse = "|"))) %>%
+      dplyr::select(-seq_buff, -dummy, -legacy_sequence, Library_origin = source, Mature_sgRNA = mature_sgRNA) %>%
+      dplyr::select(Dataset, everything())
     
     if(!"outlier_high_confident_all_total" %in% colnames(sgRNAs_buff)){
       sgRNAs_buff <- sgRNAs_buff %>%
@@ -251,7 +251,7 @@ sgRNAInfoDataTableScreens <- eventReactive(input$sgRNAInfoLoadButton,{
         }
         
         if(colnames_sgRNAInfoDatatable[i] %in% presel_contrasts){
-          colnames_sgRNAInfoDatatable[i] <- contrasts %>% select(contrast_id, contrast_id_QC) %>% filter(contrast_id == colnames_sgRNAInfoDatatable[i]) %>% .$contrast_id_QC
+          colnames_sgRNAInfoDatatable[i] <- contrasts %>% dplyr::select(contrast_id, contrast_id_QC) %>% dplyr::filter(contrast_id == colnames_sgRNAInfoDatatable[i]) %>% .$contrast_id_QC
           
         }
       }
@@ -468,12 +468,12 @@ sgRNAInfoGeneList <- reactive({
   }
   
   libraries_selected <- libraries %>%
-      filter(species %in% speciesList) %>%
+      dplyr::filter(species %in% speciesList) %>%
       .$library_id
     
   gene_list_screens %>%
-    filter(library_id %in% libraries_selected) %>%
-    select(symbol, entrez_id) %>%
+    dplyr::filter(library_id %in% libraries_selected) %>%
+    dplyr::select(symbol, entrez_id) %>%
     distinct() %>%
     dplyr::mutate(gene = ifelse(is.na(symbol), paste0("No symbol found (", entrez_id, ")"), paste0(symbol , " (", entrez_id, ")"))) %>%
     arrange(gene) %>%
@@ -494,8 +494,8 @@ sgRNAInfoGuideList <- reactive({
     presel_entrez <- unlist(presel_genes_both)[c(FALSE, TRUE)]
     
     features %>%
-      filter(entrez_id %in% c(presel_entrez) | symbol %in% c(presel_genes)) %>%
-      select(guide_id) %>%
+      dplyr::filter(entrez_id %in% c(presel_entrez) | symbol %in% c(presel_genes)) %>%
+      dplyr::select(guide_id) %>%
       distinct() %>%
       collect() %>%
       arrange(guide_id) %>%

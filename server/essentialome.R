@@ -10,8 +10,8 @@ essentialomeTable <- reactive({
   }
   
   essentialome %>% 
-    filter(source %in% local(input$essentialomeSelectSource), species %in% speciesList, class %in% input$essentialomeDisplay) %>% 
-    select(-source, -species)
+    dplyr::filter(source %in% local(input$essentialomeSelectSource), species %in% speciesList, class %in% input$essentialomeDisplay) %>% 
+    dplyr::select(-source, -species)
 })
 
 output$essentialomeTableOutput <- renderDataTable({
@@ -32,11 +32,11 @@ filter = list(position = 'top', clear = FALSE)
 )
 
 output$essentialomeEssentialGenesTotal <- renderInfoBox({
-  infoBox(title = "Number of essential genes", value = essentialomeTable() %>% filter(class == "essential") %>% nrow())
+  infoBox(title = "Number of essential genes", value = essentialomeTable() %>% dplyr::filter(class == "essential") %>% nrow())
 })
 
 output$essentialomeNonessentialGenesTotal <- renderInfoBox({
-  infoBox(title = "Number of nonessential genes", value = essentialomeTable() %>% filter(class == "nonessential") %>% nrow())
+  infoBox(title = "Number of nonessential genes", value = essentialomeTable() %>% dplyr::filter(class == "nonessential") %>% nrow())
 })
 
 # ----------------------------------------------------------------------------
@@ -52,8 +52,8 @@ essentialomeSourceList <- reactive({
   }
   
   essentialome %>% 
-    filter(species %in% speciesList) %>% 
-    select(source) %>%
+    dplyr::filter(species %in% speciesList) %>% 
+    dplyr::select(source) %>%
     distinct %>%
     .$source
 })

@@ -34,8 +34,8 @@ sgRNAsTable <- reactive({
   if(input$sgRNAsSpeciesSelect == "all"){
     sgRNAs <- con_sgRNAs %>%
       tbl("sgRNAs_human") %>%
-      filter(EntrezID %in% presel_gene_entrez) %>%
-      select(`Entrez ID` = EntrezID, Symbol, `20-mer + NGG` = sgRNA_23mer, Position, Exon = exon, `Mature sgRNA` = mature_sgRNA,
+      dplyr::filter(EntrezID %in% presel_gene_entrez) %>%
+      dplyr::select(`Entrez ID` = EntrezID, Symbol, `20-mer + NGG` = sgRNA_23mer, Position, Exon = exon, `Mature sgRNA` = mature_sgRNA,
              `VBC-Score`=VBC.score, `Frameshift ratio inDelphi` = inDelphi, `Cleavage activity` = cleavage_activity, Length = len_cloning_sgRNA, `Off-target predictions` = Off_target, 
              Length = len_cloning_sgRNA, `Prediction rank`= final_rank, `Validation rank` = final_validated_rank, `SNP targeting` = SNP_targeting,
              `Restriction-site- / Poly-A- / Multi-T-containing` = RS_PolyA_multiT_containing, `Failed validation / Single outlier validation` = failed_outlier_validation, 
@@ -44,8 +44,8 @@ sgRNAsTable <- reactive({
       rbind(
         con_sgRNAs %>%
           tbl("sgRNAs_mouse") %>%
-          filter(EntrezID %in% presel_gene_entrez) %>%
-          select(`Entrez ID` = EntrezID, Symbol, `20-mer + NGG` = sgRNA_23mer, Position, Exon = exon, `Mature sgRNA` = mature_sgRNA,
+          dplyr::filter(EntrezID %in% presel_gene_entrez) %>%
+          dplyr::select(`Entrez ID` = EntrezID, Symbol, `20-mer + NGG` = sgRNA_23mer, Position, Exon = exon, `Mature sgRNA` = mature_sgRNA,
                  `VBC-Score`=VBC.score, `Frameshift ratio inDelphi` = inDelphi, `Cleavage activity` = cleavage_activity, Length = len_cloning_sgRNA, `Off-target predictions` = Off_target, 
                  Length = len_cloning_sgRNA, `Prediction rank`= final_rank, `Validation rank` = final_validated_rank, `SNP targeting` = SNP_targeting,
                  `Restriction-site- / Poly-A- / Multi-T-containing` = RS_PolyA_multiT_containing, `Failed validation / Single outlier validation` = failed_outlier_validation, 
@@ -56,8 +56,8 @@ sgRNAsTable <- reactive({
   }else{
     sgRNAs <- con_sgRNAs %>%
       tbl(tableSgRNAs) %>%
-      filter(EntrezID %in% presel_gene_entrez) %>% 
-      select(`Entrez ID` = EntrezID, Symbol, `20-mer + NGG` = sgRNA_23mer, Position, Exon = exon, `Mature sgRNA` = mature_sgRNA,
+      dplyr::filter(EntrezID %in% presel_gene_entrez) %>% 
+      dplyr::select(`Entrez ID` = EntrezID, Symbol, `20-mer + NGG` = sgRNA_23mer, Position, Exon = exon, `Mature sgRNA` = mature_sgRNA,
              `VBC-Score`=VBC.score, `Frameshift ratio inDelphi` = inDelphi, `Cleavage activity` = cleavage_activity, Length = len_cloning_sgRNA, `Off-target predictions` = Off_target, 
              Length = len_cloning_sgRNA, `Prediction rank`= final_rank, `Validation rank` = final_validated_rank, `SNP targeting` = SNP_targeting,
              `Restriction-site- / Poly-A- / Multi-T-containing` = RS_PolyA_multiT_containing, `Failed validation / Single outlier validation` = failed_outlier_validation, 
@@ -65,7 +65,7 @@ sgRNAsTable <- reactive({
       collect()
   }
   if(sgRNAs$`Maps to genome` %>% as.character %>% unique %>% length == "1"){
-    sgRNAs <- sgRNAs %>% select(-`Maps to genome`)
+    sgRNAs <- sgRNAs %>% dplyr::select(-`Maps to genome`)
   }
   sgRNAs
 })

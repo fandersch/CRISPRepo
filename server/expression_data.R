@@ -58,31 +58,31 @@ expressionDataDataFrame <- reactive({
   presel_gene_entrez <- unlist(presel_genes)[c(FALSE, TRUE)] %>% as.numeric
   
   sample_ids <- cellline_list_expressionData %>%
-    filter(species %in% speciesList) %>%
-    filter(tissue_name %in%  presel_tissue) %>%
-    filter(cell_line_name %in% presel_cell_line) %>%
-    select(sample_id) %>%
+    dplyr::filter(species %in% speciesList) %>%
+    dplyr::filter(tissue_name %in%  presel_tissue) %>%
+    dplyr::filter(cell_line_name %in% presel_cell_line) %>%
+    dplyr::select(sample_id) %>%
     .$sample_id
   
   df <- con_expression %>%
     tbl("expression_data_values") %>%
-    select(sample_id, gene_symbol, entrez_id, expression_value) %>%
-    filter(entrez_id %in% presel_gene_entrez, gene_symbol %in% presel_gene_symbol, sample_id %in% sample_ids) %>%
+    dplyr::select(sample_id, gene_symbol, entrez_id, expression_value) %>%
+    dplyr::filter(entrez_id %in% presel_gene_entrez, gene_symbol %in% presel_gene_symbol, sample_id %in% sample_ids) %>%
     distinct() %>%
     collect()
   
   df <- df %>%
-    left_join(cellline_list_expressionData %>% select(sample_id, species, unit))
+    left_join(cellline_list_expressionData %>% dplyr::select(sample_id, species, unit))
   
   if(input$expressionDataSpeciesSelect == "all"){
     df_human <- df %>%
-      filter(species == "human") %>%
-      left_join(dict_joined %>% select(Symbol_human, Symbol_mouse, EntrezID_mouse) %>% filter(!is.na(Symbol_human)), by=c("gene_symbol" = "Symbol_human")) %>%
+      dplyr::filter(species == "human") %>%
+      left_join(dict_joined %>% dplyr::select(Symbol_human, Symbol_mouse, EntrezID_mouse) %>% dplyr::filter(!is.na(Symbol_human)), by=c("gene_symbol" = "Symbol_human")) %>%
       dplyr::rename(Symbol_human = gene_symbol, EntrezID_human = entrez_id)
     
     df_mouse <- df %>%
-      filter(species == "mouse") %>%
-      left_join(dict_joined %>% select(Symbol_human, Symbol_mouse, EntrezID_human) %>% filter(!is.na(Symbol_mouse)), by=c("gene_symbol" = "Symbol_mouse")) %>%
+      dplyr::filter(species == "mouse") %>%
+      left_join(dict_joined %>% dplyr::select(Symbol_human, Symbol_mouse, EntrezID_human) %>% dplyr::filter(!is.na(Symbol_mouse)), by=c("gene_symbol" = "Symbol_mouse")) %>%
       dplyr::rename(Symbol_mouse = gene_symbol, EntrezID_mouse = entrez_id)
     
     df <- df_human %>% rbind(df_mouse)
@@ -109,15 +109,15 @@ expressionDataDataTable <- eventReactive(input$expressionDataLoadButton,{
     if(input$expressionDataSpeciesSelect == "all"){
       
       dt <- df %>%
-        select(sample_id, expression_value, Symbol_human, EntrezID_human, Symbol_mouse, EntrezID_mouse) %>%
+        dplyr::select(sample_id, expression_value, Symbol_human, EntrezID_human, Symbol_mouse, EntrezID_mouse) %>%
         spread(sample_id, expression_value) %>%
         arrange(Symbol_human, Symbol_mouse) %>%
-        select(Symbol_human, EntrezID_human, Symbol_mouse, EntrezID_mouse, everything())
+        dplyr::select(Symbol_human, EntrezID_human, Symbol_mouse, EntrezID_mouse, everything())
       
       nfreezeColumns <- nfreezeColumns + 2
     }else{
       dt <- df %>%
-        select(sample_id, gene_symbol, entrez_id, expression_value) %>%
+        dplyr::select(sample_id, gene_symbol, entrez_id, expression_value) %>%
         spread(sample_id, expression_value) %>%
         arrange(gene_symbol)
     }
@@ -225,8 +225,8 @@ expressionDataTissueList <- reactive({
   }
   
   cellline_list_expressionData %>%
-    filter(species %in% speciesList) %>%
-    select(tissue_name) %>%
+    dplyr::filter(species %in% speciesList) %>%
+    dplyr::select(tissue_name) %>%
     distinct() %>%
     arrange(tissue_name) %>%
     .$tissue_name
@@ -241,23 +241,23 @@ expressionDataCellLineList <- reactive({
   }
   
   preselTissue = cellline_list_expressionData %>%
-    filter(species %in%  speciesList) %>%
-    select(tissue_name) %>%
+    dplyr::filter(species %in%  speciesList) %>%
+    dplyr::select(tissue_name) %>%
     distinct() %>%
     .$tissue_name
   
   if(!isTRUE(input$expressionDataCheckTissueAll) & !is.null(input$expressionDataTissueSelect)){
     preselTissue = cellline_list_expressionData %>%
-      filter(species %in% speciesList) %>%
-      filter(tissue_name %in% input$expressionDataTissueSelect) %>%
-      select(tissue_name) %>%
+      dplyr::filter(species %in% speciesList) %>%
+      dplyr::filter(tissue_name %in% input$expressionDataTissueSelect) %>%
+      dplyr::select(tissue_name) %>%
       distinct() %>%
       .$tissue_name
   }
   
   cellline_list_expressionData %>%
-    filter(species %in% speciesList, tissue_name %in% preselTissue) %>%
-    select(cell_line_name) %>%
+    dplyr::filter(species %in% speciesList, tissue_name %in% preselTissue) %>%
+    dplyr::select(cell_line_name) %>%
     arrange(cell_line_name) %>%
     .$cell_line_name
 })
@@ -273,8 +273,8 @@ expressionDataGeneList <- reactive({
     }
     
     gene_list_expressionData %>%
-      filter(species %in% speciesList) %>%
-      select(gene_symbol, entrez_id) %>%
+      dplyr::filter(species %in% speciesList) %>%
+      dplyr::select(gene_symbol, entrez_id) %>%
       collect() %>%
       dplyr::mutate(gene = ifelse(is.na(gene_symbol), paste0("No symbol found (", entrez_id, ")"), paste0(gene_symbol , " (", entrez_id, ")"))) %>%
       arrange(gene) %>%
@@ -468,7 +468,7 @@ output$expressionDataButtonDownload <- downloadHandler(
     
     if (nrow(df) > 0) {
       dt <- df %>%
-        select(sample_id, gene_symbol, entrez_id, expression_value, unit) %>%
+        dplyr::select(sample_id, gene_symbol, entrez_id, expression_value, unit) %>%
         spread(sample_id, expression_value) %>%
         arrange(gene_symbol) %>% write_tsv(file)
     }

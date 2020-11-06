@@ -15,6 +15,8 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+library(ensembldb)
+library(EnsDb.Hsapiens.v86)
 library(shinydashboard)
 library(tidyverse)
 library(stringr)
@@ -25,8 +27,7 @@ library(forcats)
 library(shinycssloaders)
 library(shinyjs)
 library(readxl)
-library(ensembldb)
-library(EnsDb.Hsapiens.v86)
+
 
 
 con <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "screen.db")
@@ -42,38 +43,38 @@ pheno <- con %>%
   tbl("pheno")
 
 libraries <- pheno %>%
-  select(library_id, cellline_name, tissue_name, species, type) %>%
+  dplyr::select(library_id, cellline_name, tissue_name, species, type) %>%
   distinct 
 
 species <- pheno %>%
-  select(species) %>%
+  dplyr::select(species) %>%
   distinct %>%
   .$species
 
 features <- con %>%
   tbl("features") %>%
-  select(guide_id, gene_id, symbol=hgnc_symbol, entrez_id, sequence, guide_id, context, library_id) %>%
-  filter(gene_id != "AMBIGUOUS") %>%
-  filter(gene_id != "UNMAPPED") %>%
-  filter(gene_id != "NOFEATURE") %>%
-  filter(gene_id != "SAFETARGETING") %>%
-  filter(gene_id != "NONTARGETING") %>%
-  filter(!is.na(gene_id)) %>%
+  dplyr::select(guide_id, gene_id, symbol=hgnc_symbol, entrez_id, sequence, guide_id, context, library_id) %>%
+  dplyr::filter(gene_id != "AMBIGUOUS") %>%
+  dplyr::filter(gene_id != "UNMAPPED") %>%
+  dplyr::filter(gene_id != "NOFEATURE") %>%
+  dplyr::filter(gene_id != "SAFETARGETING") %>%
+  dplyr::filter(gene_id != "NONTARGETING") %>%
+  dplyr::filter(!is.na(gene_id)) %>%
   distinct
 
 contrasts <- con %>%
   tbl("contrasts") %>%
-  select(contrast_id, contrast_id_QC, library_id, cellline_name, tissue_name, species, type, dynamic_range)
+  dplyr::select(contrast_id, contrast_id_QC, library_id, cellline_name, tissue_name, species, type, dynamic_range)
 
 gene_list_screens <- con %>%
   tbl("features") %>%
-  filter(gene_id != "AMBIGUOUS") %>%
-  filter(gene_id != "UNMAPPED") %>%
-  filter(gene_id != "NOFEATURE") %>%
-  filter(gene_id != "SAFETARGETING") %>%
-  filter(gene_id != "NONTARGETING") %>%
-  filter(!is.na(gene_id)) %>%
-  select(symbol=hgnc_symbol, entrez_id, library_id) %>%
+  dplyr::filter(gene_id != "AMBIGUOUS") %>%
+  dplyr::filter(gene_id != "UNMAPPED") %>%
+  dplyr::filter(gene_id != "NOFEATURE") %>%
+  dplyr::filter(gene_id != "SAFETARGETING") %>%
+  dplyr::filter(gene_id != "NONTARGETING") %>%
+  dplyr::filter(!is.na(gene_id)) %>%
+  dplyr::select(symbol=hgnc_symbol, entrez_id, library_id) %>%
   distinct %>%
   arrange(symbol)
 
@@ -83,14 +84,14 @@ gene_list_mouse <- NULL
 if("hs_gw_zuber_v2" %in% (libraries %>% collect %>% .$library_id)){
   gene_list_human <- con_sgRNAs %>%
     tbl("genes_human") %>%
-    select(Symbol, EntrezID) %>%
+    dplyr::select(Symbol, EntrezID) %>%
     distinct %>%
     arrange(Symbol) %>%
     collect
   
   gene_list_mouse <- con_sgRNAs %>%
     tbl("genes_mouse") %>%
-    select(Symbol, EntrezID) %>%
+    dplyr::select(Symbol, EntrezID) %>%
     distinct %>%
     arrange(Symbol) %>%
     collect
@@ -98,7 +99,7 @@ if("hs_gw_zuber_v2" %in% (libraries %>% collect %>% .$library_id)){
 
 cellline_list_expressionData <- con_expression %>%
   tbl("expression_data_meta_info") %>%
-  select(sample_id, cell_line_name, tissue_name, species, unit) %>%
+  dplyr::select(sample_id, cell_line_name, tissue_name, species, unit) %>%
   distinct() %>%
   arrange(cell_line_name)
 
@@ -109,7 +110,7 @@ loadExpressionDataTissueList <- F
 
 #load dictionary
 dict_joined <- read_tsv("dict/dict_joined.txt") %>%
-  select(EntrezID_human=entrezID_human, Symbol_human, EntrezID_mouse=entrezID_mouse, Symbol_mouse)
+  dplyr::select(EntrezID_human=entrezID_human, Symbol_human, EntrezID_mouse=entrezID_mouse, Symbol_mouse)
 
 #load essentialome
 essentialome <- read_tsv("essentialome_file_shiny.txt", col_names = T)

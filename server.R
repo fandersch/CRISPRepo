@@ -37,6 +37,11 @@ function(input, output, session) {
       menuItem(text = "Expression data", tabName = "expressionDataSidebar")
   })
   
+  output$essentialomeSidebar <- renderMenu({
+    if(view == "internal")
+      menuItem(text = "Essentialome", tabName = "essentialomeSidebar")
+  })
+  
   # ----------------------------------------------------------------------------
   # Browse Screen
   # ----------------------------------------------------------------------------
@@ -78,6 +83,12 @@ function(input, output, session) {
   # ----------------------------------------------------------------------------
   
   source(file = "server/expression_data.R", local = T)
+  
+  # ----------------------------------------------------------------------------
+  # Essentialome
+  # ----------------------------------------------------------------------------
+  
+  source(file = "server/essentialome.R", local = T)
   
   # ----------------------------------------------------------------------------
   # Header callback

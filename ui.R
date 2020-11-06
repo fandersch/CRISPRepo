@@ -34,7 +34,8 @@ sidebar <- dashboardSidebar(
               menuItemOutput("sgRNAInfoSidebar"),
               menuItemOutput("sgRNAsSidebar"),
               menuItemOutput("dualSgRNAsSidebar"),
-              menuItemOutput("expressionDataSidebar")
+              menuItemOutput("expressionDataSidebar"),
+              menuItemOutput("essentialomeSidebar")
   )
 )
 
@@ -599,6 +600,40 @@ body <- dashboardBody(
                      )
               )
             ) 
+    ),
+    # Library
+    tabItem(tabName = "essentialomeSidebar", width = NULL, 
+            fluidRow(
+              column(width = 9, 
+                     box(width = NULL, solidHeader = TRUE, withSpinner(dataTableOutput("essentialomeTableOutput")))
+              ), 
+              column(width = 3, 
+                     box(width = NULL, solidHeader = TRUE, 
+                         radioButtons(
+                           "essentialomeSpeciesSelect",
+                           label = "Species:",
+                           choices = list("Human" = "human", "Mouse" = "mouse", "All"="all"),
+                           selected = "human",
+                           inline = T
+                         ),
+                         checkboxGroupInput(
+                           "essentialomeDisplay",
+                           label = "Display:",
+                           choices = list("Essential genes" = "essential", "Nonessential genes" = "nonessential"),
+                           selected = c("essential", "nonessential"),
+                           inline = T
+                         ),
+                         selectInput(inputId = "essentialomeSelectSource",
+                                     label = "Source:",
+                                     choices = NULL,
+                                     selectize = TRUE)), 
+                     infoBoxOutput(width = NULL, "essentialomeBoxEssentialGenesTotal"),
+                     infoBoxOutput(width = NULL, "essentialomeBoxNonessentialGenesTotal"),
+                     downloadButton(width = NULL, 
+                                    outputId = "essentialomeButtonDownload",
+                                    label = "Download")
+              )
+            )
     )
   )
 )

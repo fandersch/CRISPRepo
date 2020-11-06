@@ -25,6 +25,8 @@ library(forcats)
 library(shinycssloaders)
 library(shinyjs)
 library(readxl)
+library(ensembldb)
+library(EnsDb.Hsapiens.v86)
 
 
 con <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "screen.db")
@@ -105,9 +107,12 @@ gene_list_expressionData <- con_expression %>%
 
 loadExpressionDataTissueList <- F
 
-#make dictionary
+#load dictionary
 dict_joined <- read_tsv("dict/dict_joined.txt") %>%
   select(EntrezID_human=entrezID_human, Symbol_human, EntrezID_mouse=entrezID_mouse, Symbol_mouse)
+
+#load essentialome
+essentialome <- read_tsv("essentialome_file_shiny.txt", col_names = T)
 
 #distinguish between internal and external verson
 if("hs_gw_zuber_v2" %in% (libraries %>% collect %>% .$library_id)){

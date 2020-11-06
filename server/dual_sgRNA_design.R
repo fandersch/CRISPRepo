@@ -57,32 +57,33 @@ dualSgRNAsTable <- reactive({
   
   for(i in 1:nrow(dualSgRNAs_input)){
     
-    input_sequence <- dualSgRNAs_input[i,2] %>% as.character
-    input_entrez <- dualSgRNAs_input[i,1] %>% as.integer
+    firstSgRNA_sequence <- dualSgRNAs_input[i,2] %>% as.character
+    firstSgRNA_entrez <- dualSgRNAs_input[i,1] %>% as.integer
     
-    if(entrez_old!=input_entrez){
-      if(input_entrez %in% entrez_list_human){
+    #get all sgRNAs for this entrezID (only if entrezID changes)
+    if(entrez_old!=firstSgRNA_entrez){
+      if(firstSgRNA_entrez %in% entrez_list_human){
         sgRNA_candidates <- con_sgRNAs %>%
           tbl("sgRNAs_human") %>%
-          filter(EntrezID == local(input_entrez)) %>%
+          filter(EntrezID == local(firstSgRNA_entrez)) %>%
           collect() %>%
           mutate_at(c("Symbol", "sgRNA_23mer", "sgRNA_ID", "Position", "mature_sgRNA", "Off_target", "guide_origin"), as.character)
           
-          entrez_old <- input_entrez
+          entrez_old <- firstSgRNA_entrez
       }else{
-        if(input_entrez %in% entrez_list_mouse){
+        if(firstSgRNA_entrez %in% entrez_list_mouse){
           sgRNA_candidates <- con_sgRNAs %>%
             tbl("sgRNAs_mouse") %>%
-            filter(EntrezID == local(input_entrez)) %>%
+            filter(EntrezID == local(firstSgRNA_entrez)) %>%
             collect() %>%
             mutate_at(c("Symbol", "sgRNA_23mer", "sgRNA_ID", "Position", "mature_sgRNA", "Off_target", "guide_origin"), as.character) %>%
             mutate(SNP_targeting = NA)
           
-          entrez_old <- input_entrez
+          entrez_old <- firstSgRNA_entrez
         }else{
-          entrez_not_found <- c(entrez_not_found, input_entrez)
+          entrez_not_found <- c(entrez_not_found, firstSgRNA_entrez)
           entrez_not_found_counter<- entrez_not_found_counter+1
-          position_not_found <- c(position_not_found, input_sequence)
+          position_not_found <- c(position_not_found, firstSgRNA_sequence)
           position_not_found_counter<- position_not_found_counter+1
           sgRNA_candidates <- NULL
         }
@@ -91,63 +92,147 @@ dualSgRNAsTable <- reactive({
     
     if(!is.null(sgRNA_candidates)){
       
-      #get position
-      input_position <- sgRNA_candidates[sgRNA_candidates$sgRNA_23mer == input_sequence, "Position"]
-      if(nrow(input_position)==1){
-        input_position <- input_position %>% as.character
+      #get position from matching 23mer
+      firstSgRNA_position <- sgRNA_candidates[sgRNA_candidates$sgRNA_23mer == firstSgRNA_sequence, "Position"]
+      #must retrieve only one matching sgRNA position
+      if(nrow(firstSgRNA_position)==1){
+        firstSgRNA_position <- firstSgRNA_position %>% as.character
       }else{
-        input_position <- NA
+        firstSgRNA_position <- NA
       }
-      if(is.na(input_position) | input_position == ""){
+      if(is.na(firstSgRNA_position) | firstSgRNA_position == ""){
         position_not_found_counter<-position_not_found_counter + 1
-      }
-      input_exon <- sgRNA_candidates[sgRNA_candidates$sgRNA_23mer == input_sequence, "exon"] %>% as.character()
-      input_orientation <-  stringr::str_split(input_position, pattern = "[()]")[[1]][2]
-      input_chr <-  stringr::str_split(input_position, pattern = "[-:(]")[[1]][1]
-      input_start <-  ifelse(input_orientation=="+", stringr::str_split(input_position, pattern = "[-:(]")[[1]][2], stringr::str_split(input_position, pattern = "[-:(]")[[1]][3])
-      input_end <-  ifelse(input_orientation=="+", stringr::str_split(input_position, pattern = "[-:(]")[[1]][3], stringr::str_split(input_position, pattern = "[-:(]")[[1]][2])
-      
-      
-      # The 30nt include 4nt+23nt sgRNA + 3nt.
-      # 3nt upstream of PAM
-      input_genomic_cutting_position = ifelse(input_orientation=="+", as.numeric(input_end) - 3 - 3 - 3, as.numeric(input_end) + 3 + 3 + 3)
-      
-      sgRNAs_selected <- sgRNA_candidates %>%
-        filter(!is.na(Position) & Position != "") %>%
-        rowwise() %>%
-        mutate(orientation =  stringr::str_split(`Position`, pattern = "[()]")[[1]][2],
-               chr = stringr::str_split(`Position`, pattern = "[-:(]")[[1]][1],
-               start =  ifelse(orientation=="+", stringr::str_split(`Position`, pattern = "[-:(]")[[1]][2], stringr::str_split(`Position`, pattern = "[-:(]")[[1]][3]),
-               end =  ifelse(orientation=="+", stringr::str_split(`Position`, pattern = "[-:(]")[[1]][3], stringr::str_split(`Position`, pattern = "[-:(]")[[1]][2])) %>%
-        mutate(genomic_cutting_position = ifelse(orientation=="+", as.numeric(end) - 3 - 3 - 3, as.numeric(end) + 3 + 3 + 3)) %>%
-        mutate(cutting_distance = input_genomic_cutting_position - genomic_cutting_position,
-               produces_frameshift = ifelse(cutting_distance %% 3 != 0 & input_exon==exon, TRUE, ifelse(cutting_distance %% 3 != 0 & input_exon!=exon, NA, FALSE)),
-               proximity_1kb = ifelse(abs(cutting_distance)<=1000, TRUE, FALSE),
-               targets_same_exon = ifelse(input_exon==exon, TRUE, FALSE)) %>%
-        filter(proximity_1kb == TRUE, is.na(produces_frameshift) | produces_frameshift == TRUE) %>%
-        mutate(original_sgRNA = input_sequence, original_sgRNA_position = input_position, original_sgRNA_exon_number = input_exon) %>%
-        mutate(VBC.score = ifelse(VBC.score <= 0.001, NA, VBC.score)) %>%
-        arrange(EntrezID, desc(proximity_1kb), desc(produces_frameshift), final_rank) %>%
-        select(EntrezID, Symbol, original_sgRNA, original_sgRNA_position, original_sgRNA_exon_number,  matching_sgRNA=sgRNA_23mer, Position, VBC.score, Off_target, cutting_distance, exon, targets_same_exon, everything()) %>%
-        rename(maps_to_genome = check)
-
-      #Limit number of reported dual-sgRNA-combinations per gene
-      if(input$dualSgRNAs_LimitOutput == TRUE){
-        limit <- ifelse(nrow(sgRNAs_selected) > input$dualSgRNAs_nOutput, input$dualSgRNAs_nOutput, nrow(sgRNAs_selected))
-        sgRNAs_selected <- sgRNAs_selected[1:limit,]
-      }
-      if(i == 1){
-        dualSgRNAs_output <- sgRNAs_selected
       }else{
-        dualSgRNAs_output <- dualSgRNAs_output %>% rbind(sgRNAs_selected)
+        
+        firstSgRNA_exon <- sgRNA_candidates[sgRNA_candidates$sgRNA_23mer == firstSgRNA_sequence, "exon"] %>% as.character()
+        firstSgRNA_orientation <-  stringr::str_split(firstSgRNA_position, pattern = "[()]")[[1]][2]
+        firstSgRNA_chr <-  stringr::str_split(firstSgRNA_position, pattern = "[-:(]")[[1]][1]
+        firstSgRNA_start <-  ifelse(firstSgRNA_orientation=="+", stringr::str_split(firstSgRNA_position, pattern = "[-:(]")[[1]][2], stringr::str_split(firstSgRNA_position, pattern = "[-:(]")[[1]][3])
+        firstSgRNA_end <-  ifelse(firstSgRNA_orientation=="+", stringr::str_split(firstSgRNA_position, pattern = "[-:(]")[[1]][3], stringr::str_split(firstSgRNA_position, pattern = "[-:(]")[[1]][2])
+        # The 30nt include 4nt+23nt sgRNA + 3nt. Cutting site is described as 3nt upstream of PAM
+        firstSgRNA_genomic_cutting_position = ifelse(firstSgRNA_orientation=="+", as.numeric(firstSgRNA_end) - 3 - 3 - 3, as.numeric(firstSgRNA_end) + 3 + 3 + 3)
+        
+        sgRNAs_selected <- sgRNA_candidates %>%
+          filter(!is.na(Position) & Position != "") %>%
+          rowwise() %>%
+          mutate(second_sgRNA_orientation =  stringr::str_split(`Position`, pattern = "[()]")[[1]][2],
+                 second_sgRNA_chr = stringr::str_split(`Position`, pattern = "[-:(]")[[1]][1],
+                 second_sgRNA_start =  ifelse(second_sgRNA_orientation=="+", stringr::str_split(`Position`, pattern = "[-:(]")[[1]][2], stringr::str_split(`Position`, pattern = "[-:(]")[[1]][3]),
+                 second_sgRNA_end =  ifelse(second_sgRNA_orientation=="+", stringr::str_split(`Position`, pattern = "[-:(]")[[1]][3], stringr::str_split(`Position`, pattern = "[-:(]")[[1]][2]), 
+                 second_sgRNA_genomic_cutting_position = ifelse(second_sgRNA_orientation=="+", as.numeric(second_sgRNA_end) - 3 - 3 - 3, as.numeric(second_sgRNA_end) + 3 + 3 + 3),
+                 genomic_cutting_distance = firstSgRNA_genomic_cutting_position - second_sgRNA_genomic_cutting_position,
+                 produces_frameshift = ifelse(genomic_cutting_distance %% 3 != 0 & firstSgRNA_exon==exon, TRUE, ifelse(genomic_cutting_distance %% 3 != 0 & firstSgRNA_exon!=exon, NA, FALSE)),
+                 proximity_1kb = ifelse(abs(genomic_cutting_distance)<=1000, TRUE, FALSE),
+                 targets_same_exon = ifelse(firstSgRNA_exon==exon, TRUE, FALSE),
+                 first_sgRNA_sequence = firstSgRNA_sequence, 
+                 first_sgRNA_position = firstSgRNA_position, 
+                 first_sgRNA_exon_number = firstSgRNA_exon,
+                 first_sgRNA_genomic_cutting_position = firstSgRNA_genomic_cutting_position,
+                 VBC.score = ifelse(VBC.score <= 0.001, NA, VBC.score)) %>%
+          filter(proximity_1kb == TRUE, check == TRUE) %>%
+          arrange(EntrezID, desc(proximity_1kb), desc(produces_frameshift), final_rank) %>%
+          select(EntrezID, Symbol, 
+                 first_sgRNA_sequence, first_sgRNA_position, first_sgRNA_exon_number, first_sgRNA_genomic_cutting_position,
+                 second_sgRNA_sequence=sgRNA_23mer, second_sgRNA_position=Position, second_sgRNA_exon=exon, second_sgRNA_genomic_cutting_position, 
+                 genomic_cutting_distance, targets_same_exon, proximity_1kb, produces_frameshift, 
+                 VBC.score, Off_target, inDelphi, cleavage_activity, everything()) %>%
+          select(-sgRNA_ID, -mature_sgRNA, -guide_origin, -second_sgRNA_orientation, -second_sgRNA_chr, -second_sgRNA_start, -second_sgRNA_end, -check)
+        
+        chr_buff <-""
+        for(i in 1:nrow(sgRNAs_selected)){
+          if(is.na(sgRNAs_selected[i,"produces_frameshift"])){
+            
+            input_position <- sgRNAs_selected$first_sgRNA_position[i]
+            input_orientation <-  stringr::str_split(input_position, pattern = "[()]")[[1]][2]
+            input_chr <-  str_replace(stringr::str_split(input_position, pattern = "[-:(]")[[1]][1], pattern = "chr", replacement = "")
+            input_start <-  ifelse(input_orientation=="+", stringr::str_split(input_position, pattern = "[-:(]")[[1]][2], stringr::str_split(input_position, pattern = "[-:(]")[[1]][3])
+            input_end <-  ifelse(input_orientation=="+", stringr::str_split(input_position, pattern = "[-:(]")[[1]][3], stringr::str_split(input_position, pattern = "[-:(]")[[1]][2])
+            input_genomic_cutting_position = ifelse(input_orientation=="+", as.numeric(input_end) - 3 - 3 - 3, as.numeric(input_end) + 3 + 3 + 3)
+            
+            combination_cutting_site <- sgRNAs_selected$second_sgRNA_genomic_cutting_position[i]
+            
+            #get EnsDb object from current chromosome (only if chromosome changes)
+            if(chr_buff != input_chr){
+              chr_buff <- input_chr
+              edbx <- ensembldb::filter(EnsDb.Hsapiens.v86, filter = ~ seq_name == str_replace(input_chr, pattern = "chr", replacement = ""))
+            }
+            
+            #make GRanges object with both sgRNA cutting sites
+            gnm <- c(GRanges(paste0(input_chr, ":", input_genomic_cutting_position, "-", input_genomic_cutting_position+1)), GRanges(paste0(input_chr, ":", combination_cutting_site, "-", combination_cutting_site+1)))
+            
+            ## Map genomic coordinates to within-transcript coordinates
+            gnm_tx <- genomeToTranscript(gnm, edbx)
+            
+            #get within-transcript distances from transcript pairs
+            res <- gnm_tx %>% as.data.frame() %>%
+              group_by(tx_id) %>%
+              mutate(distance = start - last(start))
+            
+            dist_tx <- res %>% 
+              ungroup %>%
+              filter(distance !=0) %>%
+              select(distance, names)
+            
+            first_sgRNA_transcripts <- res[res$group==1,"names"] %>% .$names
+            nfirst_sgRNA_transcripts <- first_sgRNA_transcripts %>% length
+            second_sgRNA_transcripts <- res[res$group==2,"names"] %>% .$names
+            nsecond_sgRNA_transcripts <- second_sgRNA_transcripts %>% length
+            most_common_dist <- sort(table(dist_tx$distance),decreasing=TRUE)[1] %>% names %>% as.numeric
+            tx_frames <- dist_tx %>% mutate(frame = distance %% 3)
+            TranscriptsInFrame <- tx_frames %>% filter(frame == 0) %>% .$names
+            nTranscriptsInFrame <- TranscriptsInFrame %>% length
+            TranscriptsOutOfFrame <- tx_frames %>% filter(frame != 0) %>% .$names
+            nTranscriptsOutOfFrame <- TranscriptsOutOfFrame %>% length
+            
+            #if the most common distance is not in frame
+            if(most_common_dist %% 3 !=0){
+              sgRNAs_selected[i,"produces_frameshift_in_most_transcripts"] <- TRUE
+            }else{
+              sgRNAs_selected[i,"produces_frameshift_in_most_transcripts"] <- FALSE
+            }
+            #if all distances are not in frame
+            if(nTranscriptsInFrame == 0){
+              sgRNAs_selected[i,"produces_frameshift"] <- TRUE
+              sgRNAs_selected[i,"produces_frameshift_in_all_transcripts"] <- TRUE
+            }else{
+              sgRNAs_selected[i,"produces_frameshift"] <- FALSE
+              sgRNAs_selected[i,"produces_frameshift_in_all_transcripts"] <- FALSE
+            }
+            
+            sgRNAs_selected[i,"most_common_dist"] <- most_common_dist
+            sgRNAs_selected[i,"first_sgRNA_targeted_transcripts"] <- paste(first_sgRNA_transcripts, collapse = ",")
+            sgRNAs_selected[i,"nFirst_sgRNA_targeted_transcripts"] <- nfirst_sgRNA_transcripts
+            sgRNAs_selected[i,"second_sgRNA_targeted_transcripts"] <- paste(second_sgRNA_transcripts, collapse = ",")
+            sgRNAs_selected[i,"nSecond_sgRNA_targeted_transcripts"] <- nsecond_sgRNA_transcripts
+            sgRNAs_selected[i,"TranscriptsInFrame"] <- paste(TranscriptsInFrame, collapse = ",")
+            sgRNAs_selected[i,"nTranscriptsInFrame"] <- nTranscriptsInFrame
+            sgRNAs_selected[i,"TranscriptsOutOfFrame"] <- paste(TranscriptsOutOfFrame, collapse = ",")
+            sgRNAs_selected[i,"nTranscriptsOutOfFrame"] <- nTranscriptsOutOfFrame
+          }
+        }
+        
+        sgRNAs_selected <- sgRNAs_selected %>%
+          arrange(EntrezID, desc(proximity_1kb), desc(produces_frameshift), final_rank)
+          
+        #Limit number of reported dual-sgRNA-combinations per gene
+        if(input$dualSgRNAs_LimitOutput == TRUE){
+          limit <- ifelse(nrow(sgRNAs_selected) > input$dualSgRNAs_nOutput, input$dualSgRNAs_nOutput, nrow(sgRNAs_selected))
+          sgRNAs_selected <- sgRNAs_selected[1:limit,]
+        }
+        
+        if(i == 1){
+          dualSgRNAs_output <- sgRNAs_selected
+        }else{
+          dualSgRNAs_output <- dualSgRNAs_output %>% rbind(sgRNAs_selected)
+        }
       }
     }
   }
   
-  if(length(sgRNAs_selected$maps_to_genome %>% unique)==1){
-    sgRNAs_selected <- sgRNAs_selected %>%
-      select(-maps_to_genome)
-  }
+  # if(length(sgRNAs_selected$maps_to_genome %>% unique)==1){
+  #   sgRNAs_selected <- sgRNAs_selected %>%
+  #     select(-maps_to_genome)
+  # }
   
   if(entrez_not_found_counter>0 | position_not_found_counter > 0){
     if(entrez_not_found_counter ==1){

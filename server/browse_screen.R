@@ -701,13 +701,10 @@ observeEvent(input$gwsBrowseScreenDatasetSelect, {
   updateSelectizeInput(session, 'gwsBrowseScreenLibrarySelect', choices = gwsBrowseScreenLibraryList(), server = TRUE)
   #select library checkbox
   updateCheckboxInput(session, 'gwsBrowseScreenCheckLibraryAll', value = FALSE)
-  #enable index
-  enable("gwsBrowseScreenIndexRadio")
   #update contrasts select
   updateSelectizeInput(session, 'gwsBrowseScreenContrastSelect', choices = gwsBrowseScreenContrastList(), server = TRUE)
   #unselect checkbox contrasts
   updateCheckboxInput(session, 'gwsBrowseScreenCheckContrastAll', value = FALSE)
-  
   gwsBrowseScreenUpdateText()
   
 }, ignoreNULL = FALSE)

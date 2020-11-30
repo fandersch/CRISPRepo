@@ -121,7 +121,7 @@ dualSgRNAsTable <- reactive({
                  second_sgRNA_end =  ifelse(second_sgRNA_orientation=="+", stringr::str_split(`Position`, pattern = "[-:(]")[[1]][3], stringr::str_split(`Position`, pattern = "[-:(]")[[1]][2]), 
                  second_sgRNA_genomic_cutting_position = ifelse(second_sgRNA_orientation=="+", as.numeric(second_sgRNA_end) - 3 - 3 - 3, as.numeric(second_sgRNA_end) + 3 + 3 + 3),
                  genomic_cutting_distance = firstSgRNA_genomic_cutting_position - second_sgRNA_genomic_cutting_position,
-                 produces_frameshift = ifelse(genomic_cutting_distance %% 3 != 0 & firstSgRNA_exon==exon, TRUE, ifelse(genomic_cutting_distance %% 3 != 0 & firstSgRNA_exon!=exon, NA, FALSE)),
+                 produces_frameshift = ifelse(genomic_cutting_distance %% 3 != 0 & firstSgRNA_exon==exon, TRUE, ifelse(genomic_cutting_distance %% 3 == 0 & firstSgRNA_exon==exon, FALSE, NA)),
                  proximity_1kb = ifelse(abs(genomic_cutting_distance)<=1000, TRUE, FALSE),
                  targets_same_exon = ifelse(firstSgRNA_exon==exon, TRUE, FALSE),
                  first_sgRNA_sequence = firstSgRNA_sequence, 
@@ -139,17 +139,19 @@ dualSgRNAsTable <- reactive({
           dplyr::select(-sgRNA_ID, -mature_sgRNA, -guide_origin, -second_sgRNA_orientation, -second_sgRNA_chr, -second_sgRNA_start, -second_sgRNA_end, -check)
         
         chr_buff <-""
-        for(i in 1:nrow(sgRNAs_selected)){
-          if(is.na(sgRNAs_selected[i,"produces_frameshift"])){
+        x<-1
+        for(x in 1:nrow(sgRNAs_selected)){
+
+          if(is.na(sgRNAs_selected[x,"produces_frameshift"])){
             
-            input_position <- sgRNAs_selected$first_sgRNA_position[i]
+            input_position <- sgRNAs_selected$first_sgRNA_position[x]
             input_orientation <-  stringr::str_split(input_position, pattern = "[()]")[[1]][2]
             input_chr <-  str_replace(stringr::str_split(input_position, pattern = "[-:(]")[[1]][1], pattern = "chr", replacement = "")
             input_start <-  ifelse(input_orientation=="+", stringr::str_split(input_position, pattern = "[-:(]")[[1]][2], stringr::str_split(input_position, pattern = "[-:(]")[[1]][3])
             input_end <-  ifelse(input_orientation=="+", stringr::str_split(input_position, pattern = "[-:(]")[[1]][3], stringr::str_split(input_position, pattern = "[-:(]")[[1]][2])
             input_genomic_cutting_position = ifelse(input_orientation=="+", as.numeric(input_end) - 3 - 3 - 3, as.numeric(input_end) + 3 + 3 + 3)
             
-            combination_cutting_site <- sgRNAs_selected$second_sgRNA_genomic_cutting_position[i]
+            combination_cutting_site <- sgRNAs_selected$second_sgRNA_genomic_cutting_position[x]
             
             #get EnsDb object from current chromosome (only if chromosome changes)
             if(chr_buff != input_chr){
@@ -186,28 +188,40 @@ dualSgRNAsTable <- reactive({
             
             #if the most common distance is not in frame
             if(most_common_dist %% 3 !=0){
-              sgRNAs_selected[i,"produces_frameshift_in_most_transcripts"] <- TRUE
+              sgRNAs_selected[x,"produces_frameshift_in_most_transcripts"] <- TRUE
             }else{
-              sgRNAs_selected[i,"produces_frameshift_in_most_transcripts"] <- FALSE
+              sgRNAs_selected[x,"produces_frameshift_in_most_transcripts"] <- FALSE
             }
             #if all distances are not in frame
             if(nTranscriptsInFrame == 0){
-              sgRNAs_selected[i,"produces_frameshift"] <- TRUE
-              sgRNAs_selected[i,"produces_frameshift_in_all_transcripts"] <- TRUE
+              sgRNAs_selected[x,"produces_frameshift"] <- TRUE
+              sgRNAs_selected[x,"produces_frameshift_in_all_transcripts"] <- TRUE
             }else{
-              sgRNAs_selected[i,"produces_frameshift"] <- FALSE
-              sgRNAs_selected[i,"produces_frameshift_in_all_transcripts"] <- FALSE
+              sgRNAs_selected[x,"produces_frameshift"] <- FALSE
+              sgRNAs_selected[x,"produces_frameshift_in_all_transcripts"] <- FALSE
             }
             
-            sgRNAs_selected[i,"most_common_dist"] <- most_common_dist
-            sgRNAs_selected[i,"first_sgRNA_targeted_transcripts"] <- paste(first_sgRNA_transcripts, collapse = ",")
-            sgRNAs_selected[i,"nFirst_sgRNA_targeted_transcripts"] <- nfirst_sgRNA_transcripts
-            sgRNAs_selected[i,"second_sgRNA_targeted_transcripts"] <- paste(second_sgRNA_transcripts, collapse = ",")
-            sgRNAs_selected[i,"nSecond_sgRNA_targeted_transcripts"] <- nsecond_sgRNA_transcripts
-            sgRNAs_selected[i,"TranscriptsInFrame"] <- paste(TranscriptsInFrame, collapse = ",")
-            sgRNAs_selected[i,"nTranscriptsInFrame"] <- nTranscriptsInFrame
-            sgRNAs_selected[i,"TranscriptsOutOfFrame"] <- paste(TranscriptsOutOfFrame, collapse = ",")
-            sgRNAs_selected[i,"nTranscriptsOutOfFrame"] <- nTranscriptsOutOfFrame
+            sgRNAs_selected[x,"most_common_dist"] <- most_common_dist
+            sgRNAs_selected[x,"first_sgRNA_targeted_transcripts"] <- paste(first_sgRNA_transcripts, collapse = ",")
+            sgRNAs_selected[x,"nFirst_sgRNA_targeted_transcripts"] <- nfirst_sgRNA_transcripts
+            sgRNAs_selected[x,"second_sgRNA_targeted_transcripts"] <- paste(second_sgRNA_transcripts, collapse = ",")
+            sgRNAs_selected[x,"nSecond_sgRNA_targeted_transcripts"] <- nsecond_sgRNA_transcripts
+            sgRNAs_selected[x,"TranscriptsInFrame"] <- paste(TranscriptsInFrame, collapse = ",")
+            sgRNAs_selected[x,"nTranscriptsInFrame"] <- nTranscriptsInFrame
+            sgRNAs_selected[x,"TranscriptsOutOfFrame"] <- paste(TranscriptsOutOfFrame, collapse = ",")
+            sgRNAs_selected[x,"nTranscriptsOutOfFrame"] <- nTranscriptsOutOfFrame
+          }else{
+            sgRNAs_selected[x,"produces_frameshift_in_most_transcripts"] <- NA
+            sgRNAs_selected[x,"produces_frameshift_in_all_transcripts"] <- FALSE
+            sgRNAs_selected[x,"most_common_dist"] <- NaN
+            sgRNAs_selected[x,"first_sgRNA_targeted_transcripts"] <- ""
+            sgRNAs_selected[x,"nFirst_sgRNA_targeted_transcripts"] <- NaN
+            sgRNAs_selected[x,"second_sgRNA_targeted_transcripts"] <- ""
+            sgRNAs_selected[x,"nSecond_sgRNA_targeted_transcripts"] <- NaN
+            sgRNAs_selected[x,"TranscriptsInFrame"] <- ""
+            sgRNAs_selected[x,"nTranscriptsInFrame"] <- NaN
+            sgRNAs_selected[x,"TranscriptsOutOfFrame"] <- ""
+            sgRNAs_selected[x,"nTranscriptsOutOfFrame"] <- NaN
           }
         }
         
@@ -219,7 +233,6 @@ dualSgRNAsTable <- reactive({
           limit <- ifelse(nrow(sgRNAs_selected) > input$dualSgRNAs_nOutput, input$dualSgRNAs_nOutput, nrow(sgRNAs_selected))
           sgRNAs_selected <- sgRNAs_selected[1:limit,]
         }
-        
         if(i == 1){
           dualSgRNAs_output <- sgRNAs_selected
         }else{

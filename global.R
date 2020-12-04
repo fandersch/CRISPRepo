@@ -17,6 +17,7 @@
 
 library(ensembldb)
 library(EnsDb.Hsapiens.v86)
+library(EnsDb.Mmusculus.v79)
 library(shinydashboard)
 library(tidyverse)
 library(stringr)

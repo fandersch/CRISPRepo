@@ -220,7 +220,7 @@ body <- dashboardBody(
                          
                          radioButtons(
                            "gwsGeneIndexRadio",
-                           label = "Display:",
+                           label = "Display data as:",
                            choices = list("Log-fold change" = "lfc", "Effect" = "effect"),
                            selected = "lfc",
                            inline = T
@@ -236,7 +236,7 @@ body <- dashboardBody(
                          
                          checkboxGroupInput(
                            "gwsGeneInclude",
-                           label = "Include:",
+                           label = "Include gene-level statistics:",
                            choices = list("P-value" = "p", "FDR" = "fdr", "Guides-good" = "guides_good", "Guides-total" = "guides"),
                            selected = NULL,
                            inline = F

@@ -145,6 +145,18 @@ dualSgRNAsTable <- reactive({
         chr_buff <-""
         x<-1
         for(x in 1:nrow(sgRNAs_selected)){
+          
+          sgRNAs_selected[x,"produces_frameshift_in_most_transcripts"] <- NA
+          sgRNAs_selected[x,"produces_frameshift_in_all_transcripts"] <- NA
+          sgRNAs_selected[x,"most_common_dist"] <- NaN
+          sgRNAs_selected[x,"first_sgRNA_targeted_transcripts"] <- ""
+          sgRNAs_selected[x,"nFirst_sgRNA_targeted_transcripts"] <- NaN
+          sgRNAs_selected[x,"second_sgRNA_targeted_transcripts"] <- ""
+          sgRNAs_selected[x,"nSecond_sgRNA_targeted_transcripts"] <- NaN
+          sgRNAs_selected[x,"TranscriptsInFrame"] <- ""
+          sgRNAs_selected[x,"nTranscriptsInFrame"] <- NaN
+          sgRNAs_selected[x,"TranscriptsOutOfFrame"] <- ""
+          sgRNAs_selected[x,"nTranscriptsOutOfFrame"] <- NaN
 
           if(is.na(sgRNAs_selected[x,"produces_frameshift"]) & sgRNAs_selected[x,"first_sgRNA_sequence_23mer"] != sgRNAs_selected[x,"second_sgRNA_sequence_23mer"]){
             
@@ -184,53 +196,44 @@ dualSgRNAsTable <- reactive({
               dplyr::filter(distance !=0) %>%
               dplyr::select(distance, names)
             
-            first_sgRNA_transcripts <- res[res$group==1,"names"] %>% .$names
-            nfirst_sgRNA_transcripts <- first_sgRNA_transcripts %>% length
-            second_sgRNA_transcripts <- res[res$group==2,"names"] %>% .$names
-            nsecond_sgRNA_transcripts <- second_sgRNA_transcripts %>% length
-            most_common_dist <- sort(table(dist_tx$distance),decreasing=TRUE)[1] %>% names %>% as.numeric
-            tx_frames <- dist_tx %>% mutate(frame = distance %% 3)
-            TranscriptsInFrame <- tx_frames %>% dplyr::filter(frame == 0) %>% .$names
-            nTranscriptsInFrame <- TranscriptsInFrame %>% length
-            TranscriptsOutOfFrame <- tx_frames %>% dplyr::filter(frame != 0) %>% .$names
-            nTranscriptsOutOfFrame <- TranscriptsOutOfFrame %>% length
+            if(!is.null(dist_tx) & nrow(dist_tx) >= 1){
             
-            #if the most common distance is not in frame
-            if(most_common_dist %% 3 !=0){
-              sgRNAs_selected[x,"produces_frameshift_in_most_transcripts"] <- TRUE
-            }else{
-              sgRNAs_selected[x,"produces_frameshift_in_most_transcripts"] <- FALSE
-            }
-            #if all distances are not in frame
-            if(nTranscriptsInFrame == 0){
-              sgRNAs_selected[x,"produces_frameshift"] <- TRUE
-              sgRNAs_selected[x,"produces_frameshift_in_all_transcripts"] <- TRUE
-            }else{
-              sgRNAs_selected[x,"produces_frameshift"] <- FALSE
-              sgRNAs_selected[x,"produces_frameshift_in_all_transcripts"] <- FALSE
-            }
-            
-            sgRNAs_selected[x,"most_common_dist"] <- most_common_dist
-            sgRNAs_selected[x,"first_sgRNA_targeted_transcripts"] <- paste(first_sgRNA_transcripts, collapse = ",")
-            sgRNAs_selected[x,"nFirst_sgRNA_targeted_transcripts"] <- nfirst_sgRNA_transcripts
-            sgRNAs_selected[x,"second_sgRNA_targeted_transcripts"] <- paste(second_sgRNA_transcripts, collapse = ",")
-            sgRNAs_selected[x,"nSecond_sgRNA_targeted_transcripts"] <- nsecond_sgRNA_transcripts
-            sgRNAs_selected[x,"TranscriptsInFrame"] <- paste(TranscriptsInFrame, collapse = ",")
-            sgRNAs_selected[x,"nTranscriptsInFrame"] <- nTranscriptsInFrame
-            sgRNAs_selected[x,"TranscriptsOutOfFrame"] <- paste(TranscriptsOutOfFrame, collapse = ",")
-            sgRNAs_selected[x,"nTranscriptsOutOfFrame"] <- nTranscriptsOutOfFrame
-          }else{
-            sgRNAs_selected[x,"produces_frameshift_in_most_transcripts"] <- NA
-            sgRNAs_selected[x,"produces_frameshift_in_all_transcripts"] <- NA
-            sgRNAs_selected[x,"most_common_dist"] <- NaN
-            sgRNAs_selected[x,"first_sgRNA_targeted_transcripts"] <- ""
-            sgRNAs_selected[x,"nFirst_sgRNA_targeted_transcripts"] <- NaN
-            sgRNAs_selected[x,"second_sgRNA_targeted_transcripts"] <- ""
-            sgRNAs_selected[x,"nSecond_sgRNA_targeted_transcripts"] <- NaN
-            sgRNAs_selected[x,"TranscriptsInFrame"] <- ""
-            sgRNAs_selected[x,"nTranscriptsInFrame"] <- NaN
-            sgRNAs_selected[x,"TranscriptsOutOfFrame"] <- ""
-            sgRNAs_selected[x,"nTranscriptsOutOfFrame"] <- NaN
+              first_sgRNA_transcripts <- res[res$group==1,"names"] %>% .$names
+              nfirst_sgRNA_transcripts <- first_sgRNA_transcripts %>% length
+              second_sgRNA_transcripts <- res[res$group==2,"names"] %>% .$names
+              nsecond_sgRNA_transcripts <- second_sgRNA_transcripts %>% length
+              most_common_dist <- sort(table(dist_tx$distance),decreasing=TRUE)[1] %>% names %>% as.numeric
+              tx_frames <- dist_tx %>% mutate(frame = distance %% 3)
+              TranscriptsInFrame <- tx_frames %>% dplyr::filter(frame == 0) %>% .$names
+              nTranscriptsInFrame <- TranscriptsInFrame %>% length
+              TranscriptsOutOfFrame <- tx_frames %>% dplyr::filter(frame != 0) %>% .$names
+              nTranscriptsOutOfFrame <- TranscriptsOutOfFrame %>% length
+              
+              #if the most common distance is not in frame
+              if(most_common_dist %% 3 !=0){
+                sgRNAs_selected[x,"produces_frameshift_in_most_transcripts"] <- TRUE
+              }else{
+                sgRNAs_selected[x,"produces_frameshift_in_most_transcripts"] <- FALSE
+              }
+              #if all distances are not in frame
+              if(nTranscriptsInFrame == 0){
+                sgRNAs_selected[x,"produces_frameshift"] <- TRUE
+                sgRNAs_selected[x,"produces_frameshift_in_all_transcripts"] <- TRUE
+              }else{
+                sgRNAs_selected[x,"produces_frameshift"] <- FALSE
+                sgRNAs_selected[x,"produces_frameshift_in_all_transcripts"] <- FALSE
+              }
+              
+              sgRNAs_selected[x,"most_common_dist"] <- most_common_dist
+              sgRNAs_selected[x,"first_sgRNA_targeted_transcripts"] <- paste(first_sgRNA_transcripts, collapse = ",")
+              sgRNAs_selected[x,"nFirst_sgRNA_targeted_transcripts"] <- nfirst_sgRNA_transcripts
+              sgRNAs_selected[x,"second_sgRNA_targeted_transcripts"] <- paste(second_sgRNA_transcripts, collapse = ",")
+              sgRNAs_selected[x,"nSecond_sgRNA_targeted_transcripts"] <- nsecond_sgRNA_transcripts
+              sgRNAs_selected[x,"TranscriptsInFrame"] <- paste(TranscriptsInFrame, collapse = ",")
+              sgRNAs_selected[x,"nTranscriptsInFrame"] <- nTranscriptsInFrame
+              sgRNAs_selected[x,"TranscriptsOutOfFrame"] <- paste(TranscriptsOutOfFrame, collapse = ",")
+              sgRNAs_selected[x,"nTranscriptsOutOfFrame"] <- nTranscriptsOutOfFrame
+            } 
           }
         }
         

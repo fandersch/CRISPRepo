@@ -50,13 +50,13 @@ sgRNAInfoTableScreens <- reactive({
   df_screens <- con %>%
     tbl("guide_stats") %>%
     dplyr::filter(guide_id %in% local(presel_guides)) %>%
-    left_join(features %>% dplyr::select(-library_id) %>% distinct) %>%
+    left_join(features %>% dplyr::select(-library_id, -sequence) %>% distinct) %>%
     collect() %>%
     mutate_at(c("lfc","effect"), funs(round(., 3)))
   
   if (nrow(df_screens) > 0) {
     presel_contrasts <- df_screens$contrast_id %>% unique
-    
+
     df_screens <- df_screens %>%
       dplyr::select(contrast_id, guide_id, entrez_id, symbol,local(input$sgRNAInfoIndexRadio)) %>%
       spread(contrast_id, input$sgRNAInfoIndexRadio) %>%

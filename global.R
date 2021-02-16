@@ -33,8 +33,6 @@ library(readxl)
 
 con <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "screen.db")
 
-# con_facs <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "screen_facs.db")
-
 con_expression <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "expression_data.db")
 
 con_sgRNAs <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "sgRNAs.db")
@@ -75,7 +73,7 @@ gene_list_screens <- con %>%
   dplyr::filter(gene_id != "SAFETARGETING") %>%
   dplyr::filter(gene_id != "NONTARGETING") %>%
   dplyr::filter(!is.na(gene_id)) %>%
-  dplyr::select(symbol=hgnc_symbol, entrez_id, library_id) %>%
+  dplyr::select(gene_id, symbol=hgnc_symbol, entrez_id, library_id) %>%
   distinct %>%
   arrange(symbol)
 

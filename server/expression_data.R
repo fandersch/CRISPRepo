@@ -66,7 +66,7 @@ expressionDataDataFrame <- reactive({
   
   df <- con_expression %>%
     tbl("expression_data_values") %>%
-    dplyr::select(sample_id, gene_symbol, entrez_id, expression_value) %>%
+    dplyr::select(sample_id, gene_symbol, entrez_id, ensembl_id, expression_value) %>%
     dplyr::filter(entrez_id %in% presel_gene_entrez, gene_symbol %in% presel_gene_symbol, sample_id %in% sample_ids) %>%
     distinct() %>%
     collect()
@@ -78,12 +78,12 @@ expressionDataDataFrame <- reactive({
     df_human <- df %>%
       dplyr::filter(species == "human") %>%
       left_join(dict_joined %>% dplyr::select(Symbol_human, Symbol_mouse, EntrezID_mouse) %>% dplyr::filter(!is.na(Symbol_human)), by=c("gene_symbol" = "Symbol_human")) %>%
-      dplyr::rename(Symbol_human = gene_symbol, EntrezID_human = entrez_id)
+      dplyr::rename(Symbol_human = gene_symbol, EntrezID_human = entrez_id, Ensembl_human = ensembl_id)
     
     df_mouse <- df %>%
       dplyr::filter(species == "mouse") %>%
       left_join(dict_joined %>% dplyr::select(Symbol_human, Symbol_mouse, EntrezID_human) %>% dplyr::filter(!is.na(Symbol_mouse)), by=c("gene_symbol" = "Symbol_mouse")) %>%
-      dplyr::rename(Symbol_mouse = gene_symbol, EntrezID_mouse = entrez_id)
+      dplyr::rename(Symbol_mouse = gene_symbol, EntrezID_mouse = entrez_id, Ensembl_mouse = ensembl_id)
     
     df <- df_human %>% rbind(df_mouse)
   }
@@ -104,7 +104,7 @@ expressionDataDataTable <- eventReactive(input$expressionDataLoadButton,{
     clrs <- round(seq(255, 5, length.out = (length(brks) + 1)), 0) %>%
     {paste0("rgb(255,", ., ",", ., ")")}
 
-    nfreezeColumns <- 2
+    nfreezeColumns <- 3
     
     if(input$expressionDataSpeciesSelect == "all"){
       
@@ -114,10 +114,10 @@ expressionDataDataTable <- eventReactive(input$expressionDataLoadButton,{
         arrange(Symbol_human, Symbol_mouse) %>%
         dplyr::select(Symbol_human, EntrezID_human, Symbol_mouse, EntrezID_mouse, everything())
       
-      nfreezeColumns <- nfreezeColumns + 2
+      nfreezeColumns <- nfreezeColumns + 3
     }else{
       dt <- df %>%
-        dplyr::select(sample_id, gene_symbol, entrez_id, expression_value) %>%
+        dplyr::select(sample_id, gene_symbol, entrez_id, ensembl_id, expression_value) %>%
         spread(sample_id, expression_value) %>%
         arrange(gene_symbol)
     }

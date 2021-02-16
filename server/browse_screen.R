@@ -195,23 +195,62 @@ gwsBrowseScreenDataFrame <- reactive({
     presel_contrasts <- local(input$gwsBrowseScreenContrastSelect)
   }
   
+  
   statistics_columns_negative <- paste0(local(input$gwsBrowseScreenInclude), "_negative")
   statistics_columns_positive <- paste0(local(input$gwsBrowseScreenInclude), "_positive")
   
-  df <- con %>%
-    tbl(tableSelect) %>%
-    dplyr::filter(contrast_id %in% presel_contrasts) %>%
-    dplyr::filter(gene_id != "AMBIGUOUS") %>%
-    dplyr::filter(gene_id != "UNMAPPED") %>%
-    dplyr::filter(gene_id != "NOFEATURE") %>%
-    dplyr::filter(gene_id != "SAFETARGETING") %>%
-    dplyr::filter(gene_id != "NONTARGETING") %>%
-    dplyr::filter(!is.na(gene_id)) %>%
-    left_join(con %>% tbl("contrasts") %>% dplyr::select(contrast_id, contrast_id_QC, species, library_id), by = "contrast_id") %>%
-    left_join(con %>% tbl("features") %>% dplyr::select(local(input$gwsBrowseScreenSearchRadio), hgnc_symbol, entrez_id, library_id) %>% distinct %>% rename(symbol=hgnc_symbol), by = c(local(input$gwsBrowseScreenSearchRadio), "library_id")) %>%
-    dplyr::select(contrast_id, contrast_id_QC, local(input$gwsBrowseScreenSearchRadio), lfc, effect, symbol, entrez_id, species, dplyr::one_of(statistics_columns_negative), dplyr::one_of(statistics_columns_positive)) %>%
-    distinct() %>%
-    collect()
+  if(input$gwsBrowseScreenSearchRadio=="guide_id"){
+    search_radio <- "guide_id, gene_id"
+  }else{
+    search_radio <- "gene_id"
+  }
+  
+  
+  if(statistics_columns_negative  == "_negative" | statistics_columns_positive == "_positive"){
+    select_str <- paste("contrast_id", 
+                        search_radio, 
+                        local(input$gwsBrowseScreenIndexRadio), sep= ", ")
+    
+  }else{
+    select_str <- paste("contrast_id", 
+                        search_radio, 
+                        local(input$gwsBrowseScreenIndexRadio), 
+                        paste(statistics_columns_negative, collapse=", "), paste(statistics_columns_positive, collapse=", "), sep= ", ")
+  }
+  
+  paste(paste(" contrast_id", paste0("'", presel_contrasts, "'"), sep="="), collapse=" OR ")
+  
+  contrasts_filter_str <- paste(paste("contrast_id", paste0("'", presel_contrasts, "'"), sep="="), collapse=" OR ")
+  
+  query <- paste0("SELECT ", select_str, " FROM ", tableSelect,
+                  " WHERE NOT gene_id='AMBIGUOUS' AND NOT gene_id='UNMAPPED' AND NOT gene_id='NOFEATURE' AND NOT gene_id='SAFETARGETING' AND NOT gene_id='NONTARGETING' AND gene_id NOT NULL ",
+                  "AND (", contrasts_filter_str, ") ")
+  
+  df<- NULL
+  # Or a chunk at a time
+  res <- dbSendQuery(con, query)
+  i<-1
+  while(!dbHasCompleted(res)){
+    chunk <- dbFetch(res, n = 2500000)
+    if(is.null(df)){
+      df <- chunk
+    }else{
+      df <- df %>% rbind(chunk)
+    }
+    i<-i+1
+  }
+  dbClearResult(res)
+  
+
+  contrast_buff <- contrasts %>%
+    dplyr::select(contrast_id, contrast_id_QC, species, library_id) %>% 
+    distinct 
+  
+  df <- df %>%
+    left_join(contrast_buff, by = "contrast_id") %>%
+    left_join(gene_list_screens, by = c("gene_id", "library_id")) %>%
+    dplyr::select(contrast_id, contrast_id_QC, contains("guide_id"), gene_id, local(input$gwsBrowseScreenIndexRadio), symbol, entrez_id, species, dplyr::one_of(statistics_columns_negative), dplyr::one_of(statistics_columns_positive)) %>%
+    distinct()
   
   if(input$gwsBrowseScreenSpeciesSelect == "all"){
     
@@ -219,13 +258,13 @@ gwsBrowseScreenDataFrame <- reactive({
       dplyr::filter(species == "human") %>%
       left_join(dict_joined, by=c("symbol" = "Symbol_human")) %>%
       mutate(EntrezID_human = entrez_id) %>%
-      dplyr::select(contrast_id, contrast_id_QC, local(input$gwsBrowseScreenSearchRadio), lfc, effect, Symbol_human = symbol, EntrezID_human, Symbol_mouse,  EntrezID_mouse, dplyr::one_of(statistics_columns_negative), dplyr::one_of(statistics_columns_positive))
+      dplyr::select(contrast_id, contrast_id_QC, contains("guide_id"), gene_id, local(input$gwsBrowseScreenIndexRadio), Symbol_human = symbol, EntrezID_human, Symbol_mouse,  EntrezID_mouse, dplyr::one_of(statistics_columns_negative), dplyr::one_of(statistics_columns_positive))
     
     df_mouse <- df %>% 
       dplyr::filter(species == "mouse") %>%
       left_join(dict_joined, by=c("symbol" = "Symbol_mouse")) %>%
       mutate(EntrezID_mouse = entrez_id) %>%
-      dplyr::select(contrast_id, contrast_id_QC, local(input$gwsBrowseScreenSearchRadio), lfc, effect, Symbol_human, EntrezID_human, Symbol_mouse = symbol, EntrezID_mouse, dplyr::one_of(statistics_columns_negative), dplyr::one_of(statistics_columns_positive))
+      dplyr::select(contrast_id, contrast_id_QC, contains("guide_id"), gene_id, local(input$gwsBrowseScreenIndexRadio), Symbol_human, EntrezID_human, Symbol_mouse = symbol, EntrezID_mouse, dplyr::one_of(statistics_columns_negative), dplyr::one_of(statistics_columns_positive))
     
     df <- df_human %>% rbind(df_mouse)
   }
@@ -235,8 +274,8 @@ gwsBrowseScreenDataFrame <- reactive({
 
 #create datatable out of dataframe
 gwsBrowseScreenDataTable <- eventReactive(input$gwsBrowseScreenLoadButton,{
-  
   df <- gwsBrowseScreenDataFrame()
+  
   if (nrow(df) > 0) {
     # color codig for heatmap
     values <- df %>% 
@@ -260,37 +299,39 @@ gwsBrowseScreenDataTable <- eventReactive(input$gwsBrowseScreenLoadButton,{
       nfreezeColumns <- 2
     }
     
-    df$lfc <- round(df$lfc, 3)
-    df$effect <- round(df$effect, 3)
-
-    if(input$gwsBrowseScreenSpeciesSelect == "all"){
-      
+    df <- df %>%
+      mutate_at(local(input$gwsBrowseScreenIndexRadio), round, 3)
+    
+    if(local(input$gwsBrowseScreenSpeciesSelect) == "all"){
       dt <- df %>%
-        dplyr::select(contrast_id, local(input$gwsBrowseScreenSearchRadio), Symbol_human, EntrezID_human, Symbol_mouse, EntrezID_mouse, input$gwsBrowseScreenIndexRadio) %>%
-        dplyr::select(-contains("gene_id")) %>%
-        spread(contrast_id, input$gwsBrowseScreenIndexRadio) %>%
+        dplyr::select(contrast_id, contains("guide_id"), gene_id, Symbol_human, EntrezID_human, Symbol_mouse, EntrezID_mouse, input$gwsBrowseScreenIndexRadio) %>%
+        pivot_wider(names_from=contrast_id, values_from=input$gwsBrowseScreenIndexRadio) %>%
         arrange(Symbol_human, Symbol_mouse) %>%
         dplyr::select(Symbol_human, EntrezID_human, Symbol_mouse, EntrezID_mouse=EntrezID_mouse, everything())
       
       nfreezeColumns <- nfreezeColumns + 2
+    
     }else{
       dt <- df %>%
-        dplyr::select(contrast_id, local(input$gwsBrowseScreenSearchRadio), entrez_id, symbol, input$gwsBrowseScreenIndexRadio) %>%
-        spread(contrast_id, input$gwsBrowseScreenIndexRadio) %>%
-        dplyr::select(-contains("gene_id")) %>%
+        dplyr::select(contrast_id, contains("guide_id"), gene_id, entrez_id, symbol, input$gwsBrowseScreenIndexRadio) %>%
+        pivot_wider(names_from=contrast_id, values_from=local(input$gwsBrowseScreenIndexRadio)) %>%
         arrange(symbol)
+      
     }
+    
+    genes_filter <- dt$gene_id %>% unique
+    
     if(input$gwsBrowseScreenSearchRadio == "gene_id" & !is.null(local(input$gwsBrowseScreenInclude)) & length(local(input$gwsBrowseScreenInclude))!=0){
       column <- local(input$gwsBrowseScreenInclude)
       if("p"  %in% local(input$gwsBrowseScreenInclude)){
         dt <- dt %>%
-          left_join(
+          full_join(
             df %>%
+              dplyr::filter(gene_id %in% genes_filter) %>%
               mutate(p = ifelse(p_positive < p_negative, p_positive, p_negative)) %>%
               dplyr::select(contrast_id, contains("entrez_id"), contains("symbol"), contains("Symbol_human"), contains("EntrezID_human"), contains("Symbol_mouse"), contains("EntrezID_mouse"), p) %>%
               distinct %>%
               pivot_wider(names_from="contrast_id", values_from="p") %>%
-              mutate_if(is.numeric, round, 3) %>%
               rename_at(vars(-contains("entrez_id"), -contains("symbol"), -contains("Symbol_human"), -contains("EntrezID_human"), -contains("Symbol_mouse"), -contains("EntrezID_mouse")), ~ paste0(., '_P'))
             )
       }
@@ -298,11 +339,11 @@ gwsBrowseScreenDataTable <- eventReactive(input$gwsBrowseScreenLoadButton,{
         dt <- dt %>%
           left_join(
             df %>%
+              dplyr::filter(gene_id %in% genes_filter) %>%
               mutate(fdr = ifelse(fdr_positive < fdr_negative, fdr_positive, fdr_negative)) %>%
               dplyr::select(contrast_id, contains("entrez_id"), contains("symbol"), contains("Symbol_human"), contains("EntrezID_human"), contains("Symbol_mouse"), contains("EntrezID_mouse"), fdr) %>%
               distinct %>%
               pivot_wider(names_from="contrast_id", values_from="fdr") %>%
-              mutate_if(is.numeric, round, 3) %>%
               rename_at(vars(-contains("entrez_id"), -contains("symbol"), -contains("Symbol_human"), -contains("EntrezID_human"), -contains("Symbol_mouse"), -contains("EntrezID_mouse")), ~ paste0(., '_FDR'))
           )
       }
@@ -310,6 +351,7 @@ gwsBrowseScreenDataTable <- eventReactive(input$gwsBrowseScreenLoadButton,{
         dt <- dt %>%
           left_join(
             df %>%
+              dplyr::filter(gene_id %in% genes_filter) %>%
               mutate(guides = ifelse(guides_positive > guides_negative, guides_positive, guides_negative)) %>%
               dplyr::select(contrast_id, contains("entrez_id"), contains("symbol"), contains("Symbol_human"), contains("EntrezID_human"), contains("Symbol_mouse"), contains("EntrezID_mouse"), guides) %>%
               distinct %>%
@@ -321,6 +363,7 @@ gwsBrowseScreenDataTable <- eventReactive(input$gwsBrowseScreenLoadButton,{
         dt <- dt %>%
           left_join(
             df %>%
+              dplyr::filter(gene_id %in% genes_filter) %>%
               mutate(guides_good = ifelse(guides_good_positive > guides_good_negative, guides_good_positive, guides_good_negative)) %>%
               dplyr::select(contrast_id, contains("entrez_id"), contains("symbol"), contains("Symbol_human"), contains("EntrezID_human"), contains("Symbol_mouse"), contains("EntrezID_mouse"), guides_good) %>%
               distinct %>%
@@ -331,7 +374,8 @@ gwsBrowseScreenDataTable <- eventReactive(input$gwsBrowseScreenLoadButton,{
     }
     
     dt <- dt %>%
-      dplyr::select(sort(current_vars())) %>%
+      dplyr::select(-contains("gene_id")) %>%
+      dplyr::select(sort(tidyselect::peek_vars())) %>%
       dplyr::select(contains(local(input$gwsBrowseScreenSearchRadio)), contains("entrez_id"), contains("symbol"), contains("Symbol_human"), contains("EntrezID_human"), contains("Symbol_mouse"), contains("EntrezID_mouse"), everything())
     
     colorInterval <- length(local(input$gwsBrowseScreenInclude))
@@ -553,7 +597,7 @@ gwsBrowseScreenLibraryList <- reactive({
 
 gwsBrowseScreenContrastList <- reactive({
   if(!is.null(input$gwsBrowseScreenLibrarySelect) | isTRUE(input$gwsBrowseScreenCheckLibraryAll)){
-    if(input$gwsBrowseScreenSpeciesSelect == "all"){
+    if(local(input$gwsBrowseScreenSpeciesSelect) == "all"){
       speciesList <- c("human", "mouse")
     }else{
       speciesList <- input$gwsBrowseScreenSpeciesSelect
@@ -646,6 +690,7 @@ observeEvent(input$gwsBrowseScreenLoadButton, {
 observeEvent(input$gwsBrowseScreenSearchRadio, {
   if(input$gwsBrowseScreenSearchRadio == "guide_id"){
     disable("gwsBrowseScreenInclude")
+    updateCheckboxInput(session, 'gwsBrowseScreenInclude', value="")
   }else{
     enable("gwsBrowseScreenInclude")
   }
@@ -921,37 +966,42 @@ output$gwsBrowseScreenButtonDownload <- downloadHandler(
     }
   },
   content = function(file) {
-    df <- gwsBrowseScreenDataFrame()
     
+    df <- gwsBrowseScreenDataFrame()
+
     if (nrow(df) > 0) {
-      if(input$gwsBrowseScreenSpeciesSelect == "all"){
-        
+      df <- df %>%
+        mutate_at(local(input$gwsBrowseScreenIndexRadio), round, 3)
+      
+      if(local(input$gwsBrowseScreenSpeciesSelect) == "all"){
         dt <- df %>%
-          dplyr::select(contrast_id, local(input$gwsBrowseScreenSearchRadio), Symbol_human, EntrezID_human, Symbol_mouse, EntrezID_mouse, input$gwsBrowseScreenIndexRadio) %>%
-          dplyr::select(-contains("gene_id")) %>%
-          spread(contrast_id, input$gwsBrowseScreenIndexRadio) %>%
+          dplyr::select(contrast_id, contains("guide_id"), gene_id, Symbol_human, EntrezID_human, Symbol_mouse, EntrezID_mouse, input$gwsBrowseScreenIndexRadio) %>%
+          pivot_wider(names_from=contrast_id, values_from=input$gwsBrowseScreenIndexRadio) %>%
           arrange(Symbol_human, Symbol_mouse) %>%
           dplyr::select(Symbol_human, EntrezID_human, Symbol_mouse, EntrezID_mouse=EntrezID_mouse, everything())
         
-        nfreezeColumns <- nfreezeColumns + 2
+        
       }else{
         dt <- df %>%
-          dplyr::select(contrast_id, local(input$gwsBrowseScreenSearchRadio), entrez_id, symbol, input$gwsBrowseScreenIndexRadio) %>%
-          spread(contrast_id, input$gwsBrowseScreenIndexRadio) %>%
-          dplyr::select(-contains("gene_id")) %>%
+          dplyr::select(contrast_id, contains("guide_id"), gene_id, entrez_id, symbol, input$gwsBrowseScreenIndexRadio) %>%
+          pivot_wider(names_from=contrast_id, values_from=local(input$gwsBrowseScreenIndexRadio)) %>%
           arrange(symbol)
+        
       }
+      
+      genes_filter <- dt$gene_id %>% unique
+      
       if(input$gwsBrowseScreenSearchRadio == "gene_id" & !is.null(local(input$gwsBrowseScreenInclude)) & length(local(input$gwsBrowseScreenInclude))!=0){
         column <- local(input$gwsBrowseScreenInclude)
         if("p"  %in% local(input$gwsBrowseScreenInclude)){
           dt <- dt %>%
-            left_join(
+            full_join(
               df %>%
+                dplyr::filter(gene_id %in% genes_filter) %>%
                 mutate(p = ifelse(p_positive < p_negative, p_positive, p_negative)) %>%
                 dplyr::select(contrast_id, contains("entrez_id"), contains("symbol"), contains("Symbol_human"), contains("EntrezID_human"), contains("Symbol_mouse"), contains("EntrezID_mouse"), p) %>%
                 distinct %>%
                 pivot_wider(names_from="contrast_id", values_from="p") %>%
-                mutate_if(is.numeric, round, 3) %>%
                 rename_at(vars(-contains("entrez_id"), -contains("symbol"), -contains("Symbol_human"), -contains("EntrezID_human"), -contains("Symbol_mouse"), -contains("EntrezID_mouse")), ~ paste0(., '_P'))
             )
         }
@@ -959,11 +1009,11 @@ output$gwsBrowseScreenButtonDownload <- downloadHandler(
           dt <- dt %>%
             left_join(
               df %>%
+                dplyr::filter(gene_id %in% genes_filter) %>%
                 mutate(fdr = ifelse(fdr_positive < fdr_negative, fdr_positive, fdr_negative)) %>%
                 dplyr::select(contrast_id, contains("entrez_id"), contains("symbol"), contains("Symbol_human"), contains("EntrezID_human"), contains("Symbol_mouse"), contains("EntrezID_mouse"), fdr) %>%
                 distinct %>%
                 pivot_wider(names_from="contrast_id", values_from="fdr") %>%
-                mutate_if(is.numeric, round, 3) %>%
                 rename_at(vars(-contains("entrez_id"), -contains("symbol"), -contains("Symbol_human"), -contains("EntrezID_human"), -contains("Symbol_mouse"), -contains("EntrezID_mouse")), ~ paste0(., '_FDR'))
             )
         }
@@ -971,6 +1021,7 @@ output$gwsBrowseScreenButtonDownload <- downloadHandler(
           dt <- dt %>%
             left_join(
               df %>%
+                dplyr::filter(gene_id %in% genes_filter) %>%
                 mutate(guides = ifelse(guides_positive > guides_negative, guides_positive, guides_negative)) %>%
                 dplyr::select(contrast_id, contains("entrez_id"), contains("symbol"), contains("Symbol_human"), contains("EntrezID_human"), contains("Symbol_mouse"), contains("EntrezID_mouse"), guides) %>%
                 distinct %>%
@@ -982,6 +1033,7 @@ output$gwsBrowseScreenButtonDownload <- downloadHandler(
           dt <- dt %>%
             left_join(
               df %>%
+                dplyr::filter(gene_id %in% genes_filter) %>%
                 mutate(guides_good = ifelse(guides_good_positive > guides_good_negative, guides_good_positive, guides_good_negative)) %>%
                 dplyr::select(contrast_id, contains("entrez_id"), contains("symbol"), contains("Symbol_human"), contains("EntrezID_human"), contains("Symbol_mouse"), contains("EntrezID_mouse"), guides_good) %>%
                 distinct %>%
@@ -992,12 +1044,14 @@ output$gwsBrowseScreenButtonDownload <- downloadHandler(
       }
       
       dt <- dt %>%
-        dplyr::select(sort(current_vars())) %>%
+        dplyr::select(-contains("gene_id")) %>%
+        dplyr::select(sort(tidyselect::peek_vars())) %>%
         dplyr::select(contains(local(input$gwsBrowseScreenSearchRadio)), contains("entrez_id"), contains("symbol"), contains("Symbol_human"), contains("EntrezID_human"), contains("Symbol_mouse"), contains("EntrezID_mouse"), everything())
       
+      #change to contrast_id_QC for selected columns when type is dropout
       presel_contrasts <- gwsBrowseScreenContrastList()
       colnames_dt <- colnames(dt)
-      tooltip <- ''
+
       if(input$gwsBrowseScreenDatasetSelect %in% c("dropout") & input$gwsBrowseScreenDisplayName == "short"){
         for(i in 1:length(colnames_dt)){
           colname_buff <- colnames_dt[i]
@@ -1017,7 +1071,7 @@ output$gwsBrowseScreenButtonDownload <- downloadHandler(
             colnames_dt[i] <- str_replace(colnames_dt[i], colname_buff, (contrasts %>% dplyr::select(contrast_id, contrast_id_QC) %>% dplyr::filter(contrast_id == colname_buff) %>% .$contrast_id_QC))
           }
         }
-        
+
         colnames(dt) <- colnames_dt
       }
       

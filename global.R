@@ -28,6 +28,7 @@ library(forcats)
 library(shinycssloaders)
 library(shinyjs)
 library(readxl)
+library(DBI)
 
 
 

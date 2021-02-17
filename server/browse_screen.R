@@ -1072,7 +1072,7 @@ output$gwsBrowseScreenButtonDownload <- downloadHandler(
           }
         }
 
-        colnames(dt) <- colnames_dt
+        colnames(dt) <-  make.unique(colnames_dt)
       }
       
       dt %>% write_tsv(file)

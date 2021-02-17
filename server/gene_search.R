@@ -1191,8 +1191,9 @@ output$gwsGeneButtonDownload <- downloadHandler(
         }
       }
       
-      colnames(table) <- colnames_gwsGeneDatatable
+      colnames(table) <- make.unique(colnames_gwsGeneDatatable)
     }
+    
     
     table %>% dplyr::select(-contains("Action_sgRNA"), -contains("Action_gene")) %>%
       write_tsv(file)

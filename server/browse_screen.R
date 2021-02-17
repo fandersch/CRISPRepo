@@ -932,7 +932,7 @@ observeEvent(input$gwsBrowseScreenCheckContrastAll, {
       title = "WARNING!", 
       paste0("WARNING: You have selected ", 
              length(contrastList), 
-             " contrasts. Are you sure you want to load all contrasts for this selection? This might take a long time to load!"),
+             " contrasts. Are you sure you want to load all contrasts for this selection?"),
       footer = tagList(
         modalButton("OK"),
         actionButton("gwsBrowseScreenCancelModal", "Cancel")

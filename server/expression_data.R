@@ -64,28 +64,71 @@ expressionDataDataFrame <- reactive({
     dplyr::select(sample_id) %>%
     .$sample_id
   
-  df <- con_expression %>%
-    tbl("expression_data_values") %>%
-    dplyr::select(sample_id, gene_symbol, entrez_id, ensembl_id, expression_value) %>%
-    dplyr::filter(entrez_id %in% presel_gene_entrez, gene_symbol %in% presel_gene_symbol, sample_id %in% sample_ids) %>%
-    distinct() %>%
-    collect()
+  species_filter_string <- paste(paste("meta.species", paste0("'", speciesList, "'"), sep="="), collapse=" OR ")
+  tissue_filter_string <- paste(paste("meta.tissue_name", paste0("'", presel_tissue, "'"), sep="="), collapse=" OR ")
+  cell_line_filter_string <- paste(paste("meta.cell_line_name", paste0("'", presel_cell_line, "'"), sep="="), collapse=" OR ")
   
-  df <- df %>%
-    left_join(cellline_list_expressionData %>% dplyr::select(sample_id, species, unit))
+  query <- paste0("SELECT meta.sample_id, meta.species, val.gene_symbol, val.entrez_id, val.ensembl_id, val.expression_value FROM expression_data_meta_info AS meta ",
+                         "LEFT JOIN expression_data_values AS val ON meta.sample_id=val.sample_id ",
+                         "WHERE (", species_filter_string, ") ")
   
-  if(input$expressionDataSpeciesSelect == "all"){
+  if(!isTRUE(input$expressionDataCheckTissueAll)){
+    query <- paste0(query,
+                    "AND (", tissue_filter_string, ") ")
+  }
+  
+  if(!isTRUE(input$expressionDataCheckCellLineAll)){
+    query <- paste0(query, 
+                    "AND (", cell_line_filter_string, ") ")
+  }
+  
+  if(!isTRUE(input$expressionDataCheckGeneAll)){
+    gene_filter_str <- paste(paste("val.entrez_id", paste0(presel_gene_entrez), sep="="), collapse=" OR ")
+    
+    query <- paste0(query,
+                    "AND (", gene_filter_str, ") ")
+  }
+  
+  df<- NULL
+  # Or a chunk at a time
+  res <- dbSendQuery(con_expression, query)
+  i<-1
+  while(!dbHasCompleted(res)){
+    chunk <- dbFetch(res, n = 2500000)
+    if(is.null(df)){
+      df <- chunk
+    }else{
+      df <- df %>% rbind(chunk)
+    }
+    i<-i+1
+  }
+  dbClearResult(res)
+  
+  if(input$expressionDataSpeciesSelect == "all" & !is.null(df)){
+    
+    dict_joined <- dict_joined %>%
+      left_join(df %>% 
+                  dplyr::filter(species == "human") %>%
+                  dplyr::select(gene_symbol, entrez_id, EnsemblID_human = ensembl_id) %>% distinct, by=c("EntrezID_human" = "entrez_id")) %>%
+      left_join(df %>% 
+                  dplyr::filter(species == "mouse") %>%
+                  dplyr::select(gene_symbol, entrez_id, EnsemblID_mouse = ensembl_id) %>% distinct, by=c("EntrezID_mouse" = "entrez_id")) %>%
+      distinct
+    
     df_human <- df %>%
       dplyr::filter(species == "human") %>%
-      left_join(dict_joined %>% dplyr::select(Symbol_human, Symbol_mouse, EntrezID_mouse) %>% dplyr::filter(!is.na(Symbol_human)), by=c("gene_symbol" = "Symbol_human")) %>%
-      dplyr::rename(Symbol_human = gene_symbol, EntrezID_human = entrez_id, Ensembl_human = ensembl_id)
+      left_join(dict_joined %>% dplyr::select(Symbol_human, Symbol_mouse, EntrezID_mouse, EnsemblID_mouse) %>% 
+                  dplyr::filter(!is.na(Symbol_human)), by=c("gene_symbol" = "Symbol_human")) %>%
+      dplyr::rename(Symbol_human = gene_symbol, EntrezID_human = entrez_id, EnsemblID_human = ensembl_id)
     
     df_mouse <- df %>%
       dplyr::filter(species == "mouse") %>%
-      left_join(dict_joined %>% dplyr::select(Symbol_human, Symbol_mouse, EntrezID_human) %>% dplyr::filter(!is.na(Symbol_mouse)), by=c("gene_symbol" = "Symbol_mouse")) %>%
-      dplyr::rename(Symbol_mouse = gene_symbol, EntrezID_mouse = entrez_id, Ensembl_mouse = ensembl_id)
+      left_join(dict_joined %>% dplyr::select(Symbol_human, Symbol_mouse, EntrezID_human, EnsemblID_human) %>% 
+                  dplyr::filter(!is.na(Symbol_mouse)), by=c("gene_symbol" = "Symbol_mouse")) %>%
+      dplyr::rename(Symbol_mouse = gene_symbol, EntrezID_mouse = entrez_id, EnsemblID_mouse = ensembl_id)
     
-    df <- df_human %>% rbind(df_mouse)
+    df <- df_human %>% rbind(df_mouse) %>% distinct
+    
   }
   
   df
@@ -95,10 +138,9 @@ expressionDataDataFrame <- reactive({
 #create datatable out of dataframe
 expressionDataDataTable <- eventReactive(input$expressionDataLoadButton,{
   
-  df <- expressionDataDataFrame() %>%
-    dplyr::distinct()
+  df <- expressionDataDataFrame()
   
-  if (nrow(df) > 0) {
+  if(!is.null(df)){
     
     brks <- seq(0, 20, length.out = 40)
     clrs <- round(seq(255, 5, length.out = (length(brks) + 1)), 0) %>%
@@ -107,67 +149,20 @@ expressionDataDataTable <- eventReactive(input$expressionDataLoadButton,{
     nfreezeColumns <- 3
     
     if(input$expressionDataSpeciesSelect == "all"){
-      
+
       dt <- df %>%
-        dplyr::select(sample_id, expression_value, Symbol_human, EntrezID_human, Symbol_mouse, EntrezID_mouse) %>%
-        spread(sample_id, expression_value) %>%
+        dplyr::select(sample_id, expression_value, Symbol_human, EntrezID_human, EnsemblID_human, Symbol_mouse, EntrezID_mouse, EnsemblID_mouse) %>%
+        pivot_wider(names_from=sample_id, values_from=expression_value) %>%
         arrange(Symbol_human, Symbol_mouse) %>%
-        dplyr::select(Symbol_human, EntrezID_human, Symbol_mouse, EntrezID_mouse, everything())
+        dplyr::select(Symbol_human, EntrezID_human, EnsemblID_human, Symbol_mouse, EntrezID_mouse, EnsemblID_mouse, everything())
       
       nfreezeColumns <- nfreezeColumns + 3
     }else{
       dt <- df %>%
         dplyr::select(sample_id, gene_symbol, entrez_id, ensembl_id, expression_value) %>%
-        spread(sample_id, expression_value) %>%
+        pivot_wider(names_from=sample_id, values_from=expression_value) %>%
         arrange(gene_symbol)
     }
-    
-    #tooltips
-    colnames_dt <- colnames(dt)
-    # 
-    # contrast_ids <- df$contrast_id %>% unique
-    # tooltip <- ''
-    # 
-    # if(input$gwsBrowseScreenDatasetSelect %in% c("dropout")){
-    #   for(i in 1:length(colnames_dt)){
-    #     if(i < length(colnames_dt)){
-    #       tooltip <- paste0(tooltip, "'", colnames_dt[i], "'",  ", " )
-    #     }else{
-    #       tooltip <- paste0(tooltip, "'", colnames_dt[i], "'")
-    #     }
-    #     if(colnames_dt[i] %in% contrast_ids){
-    #       colnames_dt[i] <- contrasts %>% select(contrast_id, contrast_id_QC) %>% filter(contrast_id == colnames_dt[i]) %>% .$contrast_id_QC
-    #     }
-    #   }
-    #   colnames(dt) <- colnames_dt
-    # }
-    
-    # headerCallback <- c(
-    #   "function(thead, data, start, end, display){",
-    #   "  var $ths = $(thead).find('th');",
-    #   "  $ths.css({'vertical-align': 'bottom', 'white-space': 'nowrap'});",
-    #   "  var betterCells = [];",
-    #   "  $ths.each(function(){",
-    #   "    var cell = $(this);",
-    #   "    var newDiv = $('<div>', {height: 'auto', width: 'auto'});",
-    #   "    var newInnerDiv = $('<div>', {text: cell.text()});",
-    #   "    newDiv.css({margin: 'auto'});",
-    #   "    newInnerDiv.css({",
-    #   "      transform: 'rotate(180deg)',",
-    #   "      'writing-mode': 'tb-rl',",
-    #   "      'white-space': 'nowrap'",
-    #   "    });",
-    #   "    newDiv.append(newInnerDiv);",
-    #   "    betterCells.push(newDiv);",
-    #   "  });",
-    #   "  $ths.each(function(i){",
-    #   "    $(this).html(betterCells[i]);",
-    #   "  });",
-    #   paste0("  var tooltips = [", tooltip, "];"),
-    #   paste0("  for(var i=0; i<", length(colnames_dt), "; i++){"),
-    #   "    $('th:eq('+i+')',thead).attr('title', tooltips[i]);",
-    #   "  }",
-    #   "}")
     
     dt <- dt %>%
       DT::datatable(extensions = c('FixedColumns','FixedHeader'),
@@ -184,7 +179,7 @@ expressionDataDataTable <- eventReactive(input$expressionDataLoadButton,{
                     ),
                     filter = list(position = 'top', clear = FALSE),
                     rownames= FALSE) %>%
-    formatStyle(seq(nfreezeColumns+1, length(colnames_dt),1),
+    formatStyle(seq(nfreezeColumns+1, length(colnames(dt)),1),
                 backgroundColor = styleInterval(brks, clrs))
     
     if(!is.null(input$expressionDataGeneSelect) | isTRUE(input$expressionDataCheckGeneAll)){
@@ -202,6 +197,7 @@ expressionDataDataTable <- eventReactive(input$expressionDataLoadButton,{
     }else{
       expressionDataUpdateText()
     }
+    df
   }
 })
 
@@ -276,8 +272,8 @@ expressionDataGeneList <- reactive({
       dplyr::filter(species %in% speciesList) %>%
       dplyr::select(gene_symbol, entrez_id) %>%
       collect() %>%
+      arrange(entrez_id) %>%
       dplyr::mutate(gene = ifelse(is.na(gene_symbol), paste0("No symbol found (", entrez_id, ")"), paste0(gene_symbol , " (", entrez_id, ")"))) %>%
-      arrange(gene) %>%
       .$gene
   }
 })
@@ -300,7 +296,10 @@ observe(
 
 observeEvent(input$expressionDataLoadButton, {
   output$expressionDataTable <- renderDataTable({
-    expressionDataDataTable()
+    dt <- expressionDataDataTable()
+    if(!is.null(dt)){
+      dt
+    }
   })
 })
 
@@ -404,6 +403,45 @@ observeEvent(input$expressionDataCheckCellLineAll, {
   if(isTRUE(input$expressionDataCheckCellLineAll)){
     #update library selectbox
     updateSelectizeInput(session, 'expressionDataCellLineSelect', choices = expressionDataCellLineList(), server = TRUE)
+    
+    #get selected species
+    if(input$expressionDataSpeciesSelect == "all"){
+      speciesList <- c("human", "mouse")
+    }else{
+      speciesList <- input$expressionDataSpeciesSelect
+    }
+    
+    #get selected tissue
+    if(isTRUE(input$expressionDataCheckTissueAll)){
+      presel_tissue <- expressionDataTissueList()
+    }else{
+      presel_tissue <- local(input$expressionDataTissueSelect)
+    }
+    
+    #get selected cell line
+    if(isTRUE(input$expressionDataCheckCellLineAll)){
+      presel_cell_line <- expressionDataCellLineList()
+    }else{
+      presel_cell_line <- local(input$expressionDataCellLineSelect)
+    }
+    
+    sample_ids <- cellline_list_expressionData %>%
+      dplyr::filter(species %in% speciesList) %>%
+      dplyr::filter(tissue_name %in%  presel_tissue) %>%
+      dplyr::filter(cell_line_name %in% presel_cell_line) %>%
+      dplyr::select(sample_id) %>%
+      .$sample_id
+    
+    showModal(modalDialog(
+      title = "WARNING!", 
+      paste0("WARNING: You have selected ", 
+             length(sample_ids), 
+             " samples. Are you sure you want to load all samples for this selection?"),
+      footer = tagList(
+        modalButton("OK"),
+        actionButton("expressionDataCancelModal", "Cancel")
+      )
+    ))
   }
   
   #update gene selectb
@@ -421,6 +459,11 @@ observeEvent(input$expressionDataCheckCellLineAll, {
   expressionDataUpdateText()
   
 }, ignoreNULL = FALSE)
+
+observeEvent(input$expressionDataCancelModal, {
+  updateCheckboxInput(session, 'expressionDataCheckCellLineAll', value = FALSE)
+  removeModal()
+})
 
 observeEvent(input$expressionDataGeneSelect, {
   #unselect library checkbox
@@ -467,10 +510,24 @@ output$expressionDataButtonDownload <- downloadHandler(
     df <- expressionDataDataFrame()
     
     if (nrow(df) > 0) {
-      dt <- df %>%
-        dplyr::select(sample_id, gene_symbol, entrez_id, expression_value, unit) %>%
-        spread(sample_id, expression_value) %>%
-        arrange(gene_symbol) %>% write_tsv(file)
+      
+      if(input$expressionDataSpeciesSelect == "all"){
+        
+        dt <- df %>%
+          dplyr::select(sample_id, expression_value, Symbol_human, EntrezID_human, Symbol_mouse, EntrezID_mouse) %>%
+          pivot_wider(names_from=sample_id, values_from=expression_value) %>%
+          arrange(Symbol_human, Symbol_mouse) %>%
+          dplyr::select(Symbol_human, EntrezID_human, Symbol_mouse, EntrezID_mouse, everything())
+        
+        nfreezeColumns <- nfreezeColumns + 3
+      }else{
+        dt <- df %>%
+          dplyr::select(sample_id, gene_symbol, entrez_id, ensembl_id, expression_value) %>%
+          pivot_wider(names_from=sample_id, values_from=expression_value) %>%
+          arrange(gene_symbol)
+      }
+      
+      dt %>% write_tsv(file)
     }
   }
 )

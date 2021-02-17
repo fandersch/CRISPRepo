@@ -259,7 +259,7 @@ gwsGeneDataFrame <- reactive({
       # dplyr::mutate(sgRNA_23mer = substr(context, 5, nchar(context)-3)) %>%
       left_join(sgRNAs, copy=TRUE, by=c("guide_id" = "sgRNA_23mer", "entrez_id" = "entrez_id")) %>%
       distinct() %>%
-      mutate_at(c("lfc","effect"), funs(round(., 3))) %>%
+      mutate_at(c("lfc","effect"), round, 3) %>%
       arrange(symbol)
     
   }else{
@@ -269,7 +269,7 @@ gwsGeneDataFrame <- reactive({
       dplyr::select(contrast_id, contrast_id_QC, gene_id, lfc, effect, symbol, entrez_id, species, dplyr::one_of(statistics_columns_negative), dplyr::one_of(statistics_columns_positive)) %>%
       distinct() %>%
       collect() %>%
-      mutate_at(c("lfc","effect"), funs(round(., 3))) %>%
+      mutate_at(c("lfc","effect"), round, 3) %>%
       arrange(symbol)
     
   }
@@ -359,7 +359,7 @@ gwsGeneDataFrame <- reactive({
     }
     
     dt <- dt %>%
-      dplyr::select(sort(current_vars())) %>%
+      dplyr::select(sort(tidyselect::peek_vars())) %>%
       dplyr::select(contains(local(input$gwsGeneSearchRadio)), contains("entrez_id"), contains("symbol"), contains("Symbol_human"), contains("EntrezID_human"), contains("Symbol_mouse"), contains("EntrezID_mouse"), everything())
     
     #create actionButtons for each rows
@@ -793,13 +793,22 @@ gwsGeneGeneList <- reactive({
 # ----------------------------------------------------------------------------
 observeEvent(input$gwsGeneLoadButton, {
   output$gwsGeneTable <- renderDataTable({
-    gwsGeneDatatable <- gwsGeneDataTable()
+    dt <- gwsGeneDataTable()
+    if(!is.null(dt)){
+      dt
+    }
   })
   output$gwsGeneContrastTable <- renderDataTable({
-    gwsGeneContrastDataTable()
+    dt <- gwsGeneContrastDataTable()
+    if(!is.null(dt)){
+      dt
+    }
   })
   output$gwsGeneSampleTable <- renderDataTable({
-    gwsGeneSampleDataTable()
+    dt <- gwsGeneSampleDataTable()
+    if(!is.null(dt)){
+      dt
+    }
   })
 })
 
@@ -856,6 +865,7 @@ observeEvent(input$select_button_sgRNA, {
 observeEvent(input$gwsGeneSearchRadio, {
   if(input$gwsGeneSearchRadio == "guide_id"){
     disable("gwsGeneInclude")
+    updateCheckboxInput(session, 'gwsGeneInclude', value="")
   }else{
     enable("gwsGeneInclude")
   }

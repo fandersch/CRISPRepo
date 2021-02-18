@@ -53,7 +53,7 @@ species <- pheno %>%
 
 features <- con %>%
   tbl("features") %>%
-  dplyr::select(guide_id, gene_id, symbol=hgnc_symbol, entrez_id, sequence, guide_id, context, library_id) %>%
+  dplyr::select(guide_id, gene_id, symbol=hgnc_symbol, entrez_id, sequence, context, library_id) %>%
   dplyr::filter(gene_id != "AMBIGUOUS") %>%
   dplyr::filter(gene_id != "UNMAPPED") %>%
   dplyr::filter(gene_id != "NOFEATURE") %>%

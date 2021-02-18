@@ -185,8 +185,10 @@ gwsBrowseScreenDataFrame <- reactive({
   
   if(input$gwsBrowseScreenSearchRadio == "guide_id"){
     tableSelect <- "guide_stats"
+    search_radio <- "guide_id, gene_id"
   }else{
     tableSelect <- "gene_stats"
+    search_radio <- "gene_id"
   }
   
   if(isTRUE(input$gwsBrowseScreenCheckContrastAll)){
@@ -199,12 +201,6 @@ gwsBrowseScreenDataFrame <- reactive({
   statistics_columns_negative <- paste0(local(input$gwsBrowseScreenInclude), "_negative")
   statistics_columns_positive <- paste0(local(input$gwsBrowseScreenInclude), "_positive")
   
-  if(input$gwsBrowseScreenSearchRadio=="guide_id"){
-    search_radio <- "guide_id, gene_id"
-  }else{
-    search_radio <- "gene_id"
-  }
-  
   
   if(statistics_columns_negative  == "_negative" | statistics_columns_positive == "_positive"){
     select_str <- paste("contrast_id", 
@@ -215,10 +211,9 @@ gwsBrowseScreenDataFrame <- reactive({
     select_str <- paste("contrast_id", 
                         search_radio, 
                         local(input$gwsBrowseScreenIndexRadio), 
-                        paste(statistics_columns_negative, collapse=", "), paste(statistics_columns_positive, collapse=", "), sep= ", ")
+                        paste(statistics_columns_negative, collapse=", "), 
+                        paste(statistics_columns_positive, collapse=", "), sep= ", ")
   }
-  
-  paste(paste(" contrast_id", paste0("'", presel_contrasts, "'"), sep="="), collapse=" OR ")
   
   contrasts_filter_str <- paste(paste("contrast_id", paste0("'", presel_contrasts, "'"), sep="="), collapse=" OR ")
   
@@ -713,6 +708,8 @@ observeEvent(input$gwsBrowseScreenSpeciesSelect, {
   #update other species select
   updateSelectizeInput(session, 'sgRNAsSpeciesSelect', choices = list("Human" = "human", "Mouse" = "mouse", "All"="all"), selected = input$gwsBrowseScreenSpeciesSelect, server = TRUE)
   updateSelectizeInput(session, 'gwsGeneSpeciesSelect', choices = list("Human" = "human", "Mouse" = "mouse", "All"="all"), selected = input$gwsBrowseScreenSpeciesSelect, server = TRUE)
+  updateSelectizeInput(session, 'sgRNAInfoSpeciesSelect', choices = list("Human" = "human", "Mouse" = "mouse", "All"="all"), selected = input$gwsBrowseScreenSpeciesSelect, server = TRUE)
+  
   #disable laod button
   disable("gwsBrowseScreenLoadButton")
   gwsBrowseScreenUpdateText()

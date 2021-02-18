@@ -57,13 +57,6 @@ expressionDataDataFrame <- reactive({
   presel_gene_symbol <- unlist(presel_genes)[c(TRUE, FALSE)] %>% trimws()
   presel_gene_entrez <- unlist(presel_genes)[c(FALSE, TRUE)] %>% as.numeric
   
-  sample_ids <- cellline_list_expressionData %>%
-    dplyr::filter(species %in% speciesList) %>%
-    dplyr::filter(tissue_name %in%  presel_tissue) %>%
-    dplyr::filter(cell_line_name %in% presel_cell_line) %>%
-    dplyr::select(sample_id) %>%
-    .$sample_id
-  
   species_filter_string <- paste(paste("meta.species", paste0("'", speciesList, "'"), sep="="), collapse=" OR ")
   tissue_filter_string <- paste(paste("meta.tissue_name", paste0("'", presel_tissue, "'"), sep="="), collapse=" OR ")
   cell_line_filter_string <- paste(paste("meta.cell_line_name", paste0("'", presel_cell_line, "'"), sep="="), collapse=" OR ")

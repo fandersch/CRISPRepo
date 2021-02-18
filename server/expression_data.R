@@ -47,6 +47,13 @@ expressionDataDataFrame <- reactive({
     presel_cell_line <- local(input$expressionDataCellLineSelect)
   }
   
+  sample_ids <- cellline_list_expressionData %>%
+    dplyr::filter(species %in% speciesList) %>%
+    dplyr::filter(tissue_name %in%  presel_tissue) %>%
+    dplyr::filter(cell_line_name %in% presel_cell_line) %>%
+    dplyr::select(sample_id) %>%
+    .$sample_id
+  
   if(isTRUE(input$expressionDataCheckGeneAll)){
     presel_genes <- expressionDataGeneList()
   }else{
@@ -54,48 +61,89 @@ expressionDataDataFrame <- reactive({
   }
   
   presel_genes<- presel_genes %>% strsplit(split="\\(|\\)")
-  presel_gene_symbol <- unlist(presel_genes)[c(TRUE, FALSE)] %>% trimws()
+  presel_gene_symbol <- unlist(presel_genes)[c(TRUE, FALSE)] %>% trimws() 
   presel_gene_entrez <- unlist(presel_genes)[c(FALSE, TRUE)] %>% as.numeric
   
-  species_filter_string <- paste(paste("meta.species", paste0("'", speciesList, "'"), sep="="), collapse=" OR ")
-  tissue_filter_string <- paste(paste("meta.tissue_name", paste0("'", presel_tissue, "'"), sep="="), collapse=" OR ")
-  cell_line_filter_string <- paste(paste("meta.cell_line_name", paste0("'", presel_cell_line, "'"), sep="="), collapse=" OR ")
+  # species_filter_string <- paste(paste("meta.species", paste0("'", speciesList, "'"), sep="="), collapse=" OR ")
+  # tissue_filter_string <- paste(paste("meta.tissue_name", paste0("'", presel_tissue, "'"), sep="="), collapse=" OR ")
+  # cell_line_filter_string <- paste(paste("meta.cell_line_name", paste0("'", presel_cell_line, "'"), sep="="), collapse=" OR ")
   
-  query <- paste0("SELECT meta.sample_id, meta.species, val.gene_symbol, val.entrez_id, val.ensembl_id, val.expression_value FROM expression_data_meta_info AS meta ",
-                         "LEFT JOIN expression_data_values AS val ON meta.sample_id=val.sample_id ",
-                         "WHERE (", species_filter_string, ") ")
+  sample_ids_filter_string <- paste(paste("sample_id", paste0("'", sample_ids, "'"), sep="="), collapse=" OR ")
   
-  if(!isTRUE(input$expressionDataCheckTissueAll)){
-    query <- paste0(query,
-                    "AND (", tissue_filter_string, ") ")
-  }
+  # query <- paste0("SELECT meta.sample_id, meta.species, val.gene_symbol, val.entrez_id, val.ensembl_id, val.expression_value FROM expression_data_meta_info AS meta ",
+  #                        "LEFT JOIN expression_data_values AS val ON meta.sample_id=val.sample_id ",
+  #                        "WHERE (", species_filter_string, ") ")
   
-  if(!isTRUE(input$expressionDataCheckCellLineAll)){
-    query <- paste0(query, 
-                    "AND (", cell_line_filter_string, ") ")
-  }
+  query <- paste0("SELECT sample_id, gene_symbol, entrez_id, ensembl_id, expression_value FROM expression_data_values ",
+                  "WHERE (", sample_ids_filter_string, ") ")
+
+  # if(!isTRUE(input$expressionDataCheckTissueAll)){
+  #   query <- paste0(query,
+  #                   "AND (", tissue_filter_string, ") ")
+  # }
+  
+  # if(!isTRUE(input$expressionDataCheckCellLineAll)){
+  #   query <- paste0(query, 
+  #                   "AND (", cell_line_filter_string, ") ")
+  # }
   
   if(!isTRUE(input$expressionDataCheckGeneAll)){
-    gene_filter_str <- paste(paste("val.entrez_id", paste0(presel_gene_entrez), sep="="), collapse=" OR ")
-    
+    gene_filter_str <- paste("entrez_id", paste0(presel_gene_entrez), sep="=")
     query <- paste0(query,
                     "AND (", gene_filter_str, ") ")
   }
   
-  df<- NULL
-  # Or a chunk at a time
-  res <- dbSendQuery(con_expression, query)
-  i<-1
-  while(!dbHasCompleted(res)){
-    chunk <- dbFetch(res, n = 2500000)
-    if(is.null(df)){
-      df <- chunk
-    }else{
-      df <- df %>% rbind(chunk)
+  if(!isTRUE(input$expressionDataCheckCellLineAll) | !isTRUE(input$expressionDataCheckGeneAll)){
+    df<- NULL
+    for(z in 1:length(query)){
+      # a chunk at a time
+      res <- dbSendQuery(con_expression, query[z])
+      i<-1
+      while(!dbHasCompleted(res)){
+        chunk <- dbFetch(res, n = 5000000)
+        if(is.null(df)){
+          df <- chunk
+        }else{
+          df <- df %>% rbind(chunk)
+        }
+        if(i %% 10==0){
+          gc()
+        }
+        i<-i+1
+      }
+      dbClearResult(res)
     }
-    i<-i+1
+    df <- df %>%
+      left_join(cellline_list_expressionData %>% dplyr::select(sample_id, species))
+  }else{
+    if(isTRUE(input$expressionDataCheckTissueAll)){
+      if(input$expressionDataSpeciesSelect == "all"){
+        df <- readRDS(file = paste0("expression_values_per_tissue/ALL_TISSUES.rds"))
+      }
+      if(input$expressionDataSpeciesSelect == "human"){
+        df <- readRDS(file = paste0("expression_values_per_tissue/ALL_TISSUES_HUMAN.rds"))
+      }
+      if(input$expressionDataSpeciesSelect == "mouse"){
+        df <- readRDS(file = paste0("expression_values_per_tissue/ALL_TISSUES_MOUSE.rds"))
+      }
+    }else{
+      for(i in 1:length(presel_tissue)){
+        if(i==1){
+          df <- readRDS(file = paste0("expression_values_per_tissue/", presel_tissue[i], ".rds")) %>%
+            filter(species %in% speciesList)
+        }else{
+          df <- df %>% 
+            rbind(readRDS(file = paste0("expression_values_per_tissue/", presel_tissue[i], ".rds"))) %>%
+            filter(species %in% speciesList)
+        }
+      }
+    }
   }
-  dbClearResult(res)
+  
+  df <- df %>% 
+    distinct
+  
+  print(df)
   
   if(input$expressionDataSpeciesSelect == "all" & !is.null(df)){
     

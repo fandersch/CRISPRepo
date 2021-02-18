@@ -30,8 +30,6 @@ library(shinyjs)
 library(readxl)
 library(DBI)
 
-
-
 con <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "screen.db")
 
 con_expression <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "expression_data.db")

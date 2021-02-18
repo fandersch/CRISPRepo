@@ -244,7 +244,7 @@ gwsGeneDataFrame <- reactive({
   res <- dbSendQuery(con, query)
   i<-1
   while(!dbHasCompleted(res)){
-    chunk <- dbFetch(res, n = 2500000)
+    chunk <- dbFetch(res, n = 5000000)
     if(is.null(df)){
       df <- chunk
     }else{

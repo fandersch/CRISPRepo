@@ -64,40 +64,40 @@ expressionDataDataFrame <- reactive({
   presel_gene_symbol <- unlist(presel_genes)[c(TRUE, FALSE)] %>% trimws() 
   presel_gene_entrez <- unlist(presel_genes)[c(FALSE, TRUE)] %>% as.numeric
   
-  # species_filter_string <- paste(paste("meta.species", paste0("'", speciesList, "'"), sep="="), collapse=" OR ")
-  # tissue_filter_string <- paste(paste("meta.tissue_name", paste0("'", presel_tissue, "'"), sep="="), collapse=" OR ")
-  # cell_line_filter_string <- paste(paste("meta.cell_line_name", paste0("'", presel_cell_line, "'"), sep="="), collapse=" OR ")
-  
-  sample_ids_filter_string <- paste(paste("sample_id", paste0("'", sample_ids, "'"), sep="="), collapse=" OR ")
-  
-  # query <- paste0("SELECT meta.sample_id, meta.species, val.gene_symbol, val.entrez_id, val.ensembl_id, val.expression_value FROM expression_data_meta_info AS meta ",
-  #                        "LEFT JOIN expression_data_values AS val ON meta.sample_id=val.sample_id ",
-  #                        "WHERE (", species_filter_string, ") ")
-  
+  if(length(sample_ids)>=900){
+    sample_ids_filter_string <- c(paste(paste("sample_id", paste0("'", sample_ids[1:899], "'"), sep="="), collapse=" OR "))
+    i<-900
+    while(i <= length(sample_ids)){
+      end<-i+899
+      if(end>length(sample_ids)){
+        end<-length(sample_ids)
+      }
+      sample_ids_filter_string <- c(sample_ids_filter_string, paste(paste("sample_id", paste0("'", sample_ids[i:end], "'"), sep="="), collapse=" OR "))
+      i<-i+end
+    }
+  }else{
+    sample_ids_filter_string <- paste(paste("sample_id", paste0("'", sample_ids, "'"), sep="="), collapse=" OR ")
+  }
+
   query <- paste0("SELECT sample_id, gene_symbol, entrez_id, ensembl_id, expression_value FROM expression_data_values ",
                   "WHERE (", sample_ids_filter_string, ") ")
-
-  # if(!isTRUE(input$expressionDataCheckTissueAll)){
-  #   query <- paste0(query,
-  #                   "AND (", tissue_filter_string, ") ")
-  # }
-  
-  # if(!isTRUE(input$expressionDataCheckCellLineAll)){
-  #   query <- paste0(query, 
-  #                   "AND (", cell_line_filter_string, ") ")
-  # }
   
   if(!isTRUE(input$expressionDataCheckGeneAll)){
     gene_filter_str <- paste("entrez_id", paste0(presel_gene_entrez), sep="=")
-    query <- paste0(query,
-                    "AND (", gene_filter_str, ") ")
+    for(i in 1:length(presel_gene_entrez)){
+      if(i==1){
+        query_final <- paste0(query, "AND (", gene_filter_str[i], ") ")
+      }else{
+        query_final <- c(query_final, paste0(query, "AND (", gene_filter_str[i], ") "))
+      }
+    }
   }
   
-  if(!isTRUE(input$expressionDataCheckCellLineAll) | !isTRUE(input$expressionDataCheckGeneAll)){
+  if(isTRUE(input$expressionDataCheckCellLineAll) & length(presel_gene_entrez)<=50){
     df<- NULL
-    for(z in 1:length(query)){
+    for(z in 1:length(query_final)){
       # a chunk at a time
-      res <- dbSendQuery(con_expression, query[z])
+      res <- dbSendQuery(con_expression, query_final[z])
       i<-1
       while(!dbHasCompleted(res)){
         chunk <- dbFetch(res, n = 5000000)
@@ -138,12 +138,14 @@ expressionDataDataFrame <- reactive({
         }
       }
     }
+    if(!isTRUE(input$expressionDataCheckGeneAll)){
+      df <- df %>%
+        filter(entrez_id %in% presel_gene_entrez)
+    }
   }
   
   df <- df %>% 
     distinct
-  
-  print(df)
   
   if(input$expressionDataSpeciesSelect == "all" & !is.null(df)){
     

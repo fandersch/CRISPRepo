@@ -257,6 +257,7 @@ gwsBrowseScreenDataFrame <- reactive({
       }
       i<-i+1
     }
+    chunk<-NULL
     dbClearResult(res)
   }
 
@@ -285,7 +286,11 @@ gwsBrowseScreenDataFrame <- reactive({
       dplyr::select(contrast_id, contrast_id_QC, contains("guide_id"), gene_id, local(input$gwsBrowseScreenIndexRadio), Symbol_human, EntrezID_human, Symbol_mouse = symbol, EntrezID_mouse, dplyr::one_of(statistics_columns_negative), dplyr::one_of(statistics_columns_positive))
     
     df <- df_human %>% rbind(df_mouse)
+    
+    df_human<-NULL
+    df_mouse<-NULL
   }
+  gc()
   df
 
 })
@@ -390,6 +395,8 @@ gwsBrowseScreenDataTable <- eventReactive(input$gwsBrowseScreenLoadButton,{
           )
       }
     }
+    #clean up
+    df<-NULL
     
     dt <- dt %>%
       dplyr::select(-contains("gene_id")) %>%
@@ -479,6 +486,7 @@ gwsBrowseScreenDataTable <- eventReactive(input$gwsBrowseScreenLoadButton,{
         "Info: Loading completed!"
       })
     }
+    gc()
     #display datatable
     dt 
   }else{

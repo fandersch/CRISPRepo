@@ -94,7 +94,6 @@ expressionDataDataFrame <- reactive({
   }
   
   if(!isTRUE(input$expressionDataCheckCellLineAll) | length(presel_gene_entrez)<=50){
-    print("query")
     df<- NULL
     for(z in 1:length(query_final)){
       # a chunk at a time
@@ -112,12 +111,12 @@ expressionDataDataFrame <- reactive({
         }
         i<-i+1
       }
+      chunk<-NULL
       dbClearResult(res)
     }
     df <- df %>%
       left_join(cellline_list_expressionData %>% dplyr::select(sample_id, species))
   }else{
-    print("rsd")
     if(isTRUE(input$expressionDataCheckTissueAll)){
       if(input$expressionDataSpeciesSelect == "all"){
         df <- readRDS(file = paste0("expression_values_per_tissue/ALL_TISSUES.rds"))
@@ -173,9 +172,11 @@ expressionDataDataFrame <- reactive({
       dplyr::rename(Symbol_mouse = gene_symbol, EntrezID_mouse = entrez_id, EnsemblID_mouse = ensembl_id)
     
     df <- df_human %>% rbind(df_mouse) %>% distinct
-    
+    #clean up
+    df_human <- NULL
+    df_mouse <- NULL
   }
-  
+  gc()
   df
   
 })
@@ -208,7 +209,7 @@ expressionDataDataTable <- eventReactive(input$expressionDataLoadButton,{
         pivot_wider(names_from=sample_id, values_from=expression_value) %>%
         arrange(gene_symbol)
     }
-    
+    df<-NULL
     dt <- dt %>%
       DT::datatable(extensions = c('FixedColumns','FixedHeader'),
                     options = list(
@@ -232,6 +233,7 @@ expressionDataDataTable <- eventReactive(input$expressionDataLoadButton,{
         "Info: Loading completed! Table shows log2-transformed TPM values (+1 pseudocount)"
       })
     }
+    gc()
     #display datatable
     dt
   }else{
@@ -242,7 +244,6 @@ expressionDataDataTable <- eventReactive(input$expressionDataLoadButton,{
     }else{
       expressionDataUpdateText()
     }
-    df
   }
 })
 
@@ -571,6 +572,9 @@ output$expressionDataButtonDownload <- downloadHandler(
           pivot_wider(names_from=sample_id, values_from=expression_value) %>%
           arrange(gene_symbol)
       }
+      #clean up
+      df<-NULL
+      gc()
       
       dt %>% write_tsv(file)
     }

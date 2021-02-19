@@ -270,6 +270,7 @@ gwsGeneDataFrame <- reactive({
       }
       i<-i+1
     }
+    chunk<-NULL
     dbClearResult(res)
   }
   
@@ -346,6 +347,10 @@ gwsGeneDataFrame <- reactive({
       dplyr::select(-entrez_id)
     
     df <- df_human %>% rbind(df_mouse)
+    
+    df_human<-NULL
+    df_mouse<-NULL
+    gc()
   }
   
   #remove duplicate entries to enable spread
@@ -429,6 +434,9 @@ gwsGeneDataFrame <- reactive({
         cbind(Action_sgRNA)
     }
     
+    df<-NULL
+    gc()
+    
     #remove sensitive data for external view
     if(view=="external"){
       dt %>%
@@ -441,24 +449,17 @@ gwsGeneDataFrame <- reactive({
 
 #make 
 gwsGeneDataTable <- eventReactive(input$gwsGeneLoadButton,{
-  df <- gwsGeneDataFrame()
-  if (nrow(df) > 0) {
+  gwsGeneDatatable <- gwsGeneDataFrame()
+  if (nrow(gwsGeneDatatable) > 0) {
     if(!is.null(input$gwsGeneGeneSelect)){
       output$gwsGeneInfo <- renderText({
         "Info: Loading completed!"
       })
     }
     
-    effect<-FALSE
-    if(input$gwsGeneIndexRadio == "effect"){
-      effect<-TRUE
-    }
-    
-    gwsGeneDatatable <- df
-  
     if (!is.null(gwsGeneDatatable) & nrow(gwsGeneDatatable) > 0) {
       #make color interval for heatmap
-      if(effect){
+      if(input$gwsGeneIndexRadio == "effect"){
         brks_smaller <- seq(-3, 0, length.out = 20)
         brks_bigger <- seq(0, 3, length.out = 20)
       }else{

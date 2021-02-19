@@ -93,7 +93,8 @@ expressionDataDataFrame <- reactive({
     }
   }
   
-  if(isTRUE(input$expressionDataCheckCellLineAll) & length(presel_gene_entrez)<=50){
+  if(!isTRUE(input$expressionDataCheckCellLineAll) | length(presel_gene_entrez)<=50){
+    print("query")
     df<- NULL
     for(z in 1:length(query_final)){
       # a chunk at a time
@@ -116,6 +117,7 @@ expressionDataDataFrame <- reactive({
     df <- df %>%
       left_join(cellline_list_expressionData %>% dplyr::select(sample_id, species))
   }else{
+    print("rsd")
     if(isTRUE(input$expressionDataCheckTissueAll)){
       if(input$expressionDataSpeciesSelect == "all"){
         df <- readRDS(file = paste0("expression_values_per_tissue/ALL_TISSUES.rds"))

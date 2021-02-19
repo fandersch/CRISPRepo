@@ -232,7 +232,21 @@ gwsGeneDataFrame <- reactive({
                         paste(statistics_columns_positive, collapse=", "), sep= ", ")
   }
   
-  contrasts_filter_str <- paste(paste("contrast_id", paste0("'", presel_contrasts, "'"), sep="="), collapse=" OR ")
+  if(length(presel_contrasts)>=900){
+    contrasts_filter_str <- c(paste(paste("contrast_id", paste0("'", presel_contrasts[1:899], "'"), sep="="), collapse=" OR "))
+    i<-900
+    while(i <= length(presel_contrasts)){
+      end<-i+899
+      if(end>length(presel_contrasts)){
+        end<-length(presel_contrasts)
+      }
+      contrasts_filter_str <- c(contrasts_filter_str, paste(paste("contrast_id", paste0("'", presel_contrasts[i:end], "'"), sep="="), collapse=" OR "))
+      i<-i+end
+    }
+  }else{
+    contrasts_filter_str <- paste(paste("contrast_id", paste0("'", presel_contrasts, "'"), sep="="), collapse=" OR ")
+  }
+  
   gene_filter_str <- paste(paste("gene_id", paste0(presel_entrez), sep="="), collapse=" OR ")
   
   query <- paste0("SELECT ", select_str, " FROM ", tableSelect,
@@ -240,19 +254,24 @@ gwsGeneDataFrame <- reactive({
                   "AND (", contrasts_filter_str, ") ")
   
   df<- NULL
-  # Or a chunk at a time
-  res <- dbSendQuery(con, query)
-  i<-1
-  while(!dbHasCompleted(res)){
-    chunk <- dbFetch(res, n = 5000000)
-    if(is.null(df)){
-      df <- chunk
-    }else{
-      df <- df %>% rbind(chunk)
+  for(z in 1:length(query)){
+    # a chunk at a time
+    res <- dbSendQuery(con, query[z])
+    i<-1
+    while(!dbHasCompleted(res)){
+      chunk <- dbFetch(res, n = 5000000)
+      if(is.null(df)){
+        df <- chunk
+      }else{
+        df <- df %>% rbind(chunk)
+      }
+      if(i %% 10==0){
+        gc()
+      }
+      i<-i+1
     }
-    i<-i+1
+    dbClearResult(res)
   }
-  dbClearResult(res)
   
   df <- df %>%
     left_join(contrasts, by="contrast_id")

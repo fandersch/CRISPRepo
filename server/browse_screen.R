@@ -197,6 +197,9 @@ gwsBrowseScreenDataFrame <- reactive({
     presel_contrasts <- local(input$gwsBrowseScreenContrastSelect)
   }
   
+  contrast_ids_not_selected <- contrasts %>%
+    filter(!contrast_id %in% presel_contrasts) %>%
+    .$contrast_id
   
   statistics_columns_negative <- paste0(local(input$gwsBrowseScreenInclude), "_negative")
   statistics_columns_positive <- paste0(local(input$gwsBrowseScreenInclude), "_positive")
@@ -215,27 +218,47 @@ gwsBrowseScreenDataFrame <- reactive({
                         paste(statistics_columns_positive, collapse=", "), sep= ", ")
   }
   
-  contrasts_filter_str <- paste(paste("contrast_id", paste0("'", presel_contrasts, "'"), sep="="), collapse=" OR ")
+  if(length(presel_contrasts)>=900){
+    contrasts_filter_str <- c(paste(paste("contrast_id", paste0("'", presel_contrasts[1:899], "'"), sep="="), collapse=" OR "))
+    i<-900
+    while(i <= length(presel_contrasts)){
+      end<-i+899
+      if(end>length(presel_contrasts)){
+        end<-length(presel_contrasts)
+      }
+      contrasts_filter_str <- c(contrasts_filter_str, paste(paste("contrast_id", paste0("'", presel_contrasts[i:end], "'"), sep="="), collapse=" OR "))
+      i<-i+end
+    }
+  }else{
+    contrasts_filter_str <- paste(paste("contrast_id", paste0("'", presel_contrasts, "'"), sep="="), collapse=" OR ")
+  }
   
   query <- paste0("SELECT ", select_str, " FROM ", tableSelect,
                   " WHERE NOT gene_id='AMBIGUOUS' AND NOT gene_id='UNMAPPED' AND NOT gene_id='NOFEATURE' AND NOT gene_id='SAFETARGETING' AND NOT gene_id='NONTARGETING' AND gene_id NOT NULL ",
                   "AND (", contrasts_filter_str, ") ")
   
-  df<- NULL
-  # Or a chunk at a time
-  res <- dbSendQuery(con, query)
-  i<-1
-  while(!dbHasCompleted(res)){
-    chunk <- dbFetch(res, n = 5000000)
-    if(is.null(df)){
-      df <- chunk
-    }else{
-      df <- df %>% rbind(chunk)
-    }
-    i<-i+1
-  }
-  dbClearResult(res)
+  print(query)
   
+  df<- NULL
+  
+  for(z in 1:length(query)){
+    # a chunk at a time
+    res <- dbSendQuery(con, query[z])
+    i<-1
+    while(!dbHasCompleted(res)){
+      chunk <- dbFetch(res, n = 5000000)
+      if(is.null(df)){
+        df <- chunk
+      }else{
+        df <- df %>% rbind(chunk)
+      }
+      if(i %% 10==0){
+        gc()
+      }
+      i<-i+1
+    }
+    dbClearResult(res)
+  }
 
   contrast_buff <- contrasts %>%
     dplyr::select(contrast_id, contrast_id_QC, species, library_id) %>% 

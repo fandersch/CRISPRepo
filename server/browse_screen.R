@@ -237,8 +237,6 @@ gwsBrowseScreenDataFrame <- reactive({
                   " WHERE NOT gene_id='AMBIGUOUS' AND NOT gene_id='UNMAPPED' AND NOT gene_id='NOFEATURE' AND NOT gene_id='SAFETARGETING' AND NOT gene_id='NONTARGETING' AND gene_id NOT NULL ",
                   "AND (", contrasts_filter_str, ") ")
   
-  print(query)
-  
   df<- NULL
   
   for(z in 1:length(query)){

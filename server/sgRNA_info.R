@@ -49,17 +49,19 @@ sgRNAInfoTableScreens <- reactive({
   #get gene_stats/guide_stats
   df_screens <- con %>%
     tbl("guide_stats") %>%
+    dplyr::select(contrast_id, guide_id, gene_id, local(input$sgRNAInfoIndexRadio)) %>%
     dplyr::filter(guide_id %in% local(presel_guides)) %>%
-    left_join(features %>% dplyr::select(-library_id, -sequence) %>% distinct) %>%
+    # left_join(features %>% dplyr::select(-library_id, -sequence) %>% distinct) %>%
     collect() %>%
-    mutate_at(c("lfc","effect"), round, 3)
+    left_join(gene_list_screens %>% dplyr::select(gene_id, symbol, entrez_id) %>% distinct) %>%
+    mutate_at(local(input$sgRNAInfoIndexRadio), round, 3)
   
   if (nrow(df_screens) > 0) {
     presel_contrasts <- df_screens$contrast_id %>% unique
 
     df_screens <- df_screens %>%
       dplyr::select(contrast_id, guide_id, entrez_id, symbol,local(input$sgRNAInfoIndexRadio)) %>%
-      spread(contrast_id, input$sgRNAInfoIndexRadio) %>%
+      pivot_wider(names_from=contrast_id, values_from=input$sgRNAInfoIndexRadio) %>%
       distinct()
   }
   df_screens
@@ -208,16 +210,11 @@ sgRNAInfoDataTableScreens <- eventReactive(input$sgRNAInfoLoadButton,{
       })
     }
     
-    effect<-FALSE
-    if(input$sgRNAInfoIndexRadio == "effect"){
-      effect<-TRUE
-    }
-    
     sgRNAInfoDatatable <- df
     
     if (!is.null(sgRNAInfoDatatable) & nrow(sgRNAInfoDatatable) > 0) {
       #make color interval for heatmap
-      if(effect){
+      if(input$sgRNAInfoIndexRadio == "effect"){
         brks_smaller <- seq(-3, 0, length.out = 20)
         brks_bigger <- seq(0, 3, length.out = 20)
       }else{
@@ -248,10 +245,17 @@ sgRNAInfoDataTableScreens <- eventReactive(input$sgRNAInfoLoadButton,{
         }else{
           tooltip <- paste0(tooltip, "'", colnames_sgRNAInfoDatatable[i], "'")
         }
-        
+
         if(colnames_sgRNAInfoDatatable[i] %in% presel_contrasts){
-          colnames_sgRNAInfoDatatable[i] <- contrasts %>% dplyr::select(contrast_id, contrast_id_QC) %>% dplyr::filter(contrast_id == colnames_sgRNAInfoDatatable[i]) %>% .$contrast_id_QC
+          buff<-contrasts %>%
+            dplyr::select(contrast_id, contrast_id_QC) %>%
+            dplyr::filter(contrast_id == colnames_sgRNAInfoDatatable[i]) %>%
+            .$contrast_id_QC
           
+          colnames_sgRNAInfoDatatable[i] <- contrasts %>%
+            dplyr::select(contrast_id, contrast_id_QC) %>%
+            dplyr::filter(contrast_id == colnames_sgRNAInfoDatatable[i]) %>%
+            .$contrast_id_QC
         }
       }
       
@@ -284,6 +288,7 @@ sgRNAInfoDataTableScreens <- eventReactive(input$sgRNAInfoLoadButton,{
         "  }",
         "}"
       )
+      
       sgRNAInfoDatatable %>% datatable(escape = FALSE,
                                        selection = 'none', 
                                        extensions = c('FixedColumns','FixedHeader'),

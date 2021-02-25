@@ -15,9 +15,9 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-library(ensembldb)
-library(EnsDb.Hsapiens.v86)
-library(EnsDb.Mmusculus.v79)
+# library(ensembldb)
+# library(EnsDb.Hsapiens.v86)
+# library(EnsDb.Mmusculus.v79)
 library(shinydashboard)
 library(tidyverse)
 library(stringr)

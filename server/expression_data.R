@@ -91,6 +91,8 @@ expressionDataDataFrame <- reactive({
         query_final <- c(query_final, paste0(query, "AND (", gene_filter_str[i], ") "))
       }
     }
+  }else{
+    query_final <- query
   }
   
   if(!isTRUE(input$expressionDataCheckCellLineAll) | length(presel_gene_entrez)<=50){

@@ -222,12 +222,12 @@ gwsGeneDataFrame <- reactive({
   if(statistics_columns_negative  == "_negative" | statistics_columns_positive == "_positive"){
     select_str <- paste("contrast_id", 
                         search_radio, 
-                        local(input$gwsBrowseScreenIndexRadio), sep= ", ")
+                        local(input$gwsGeneIndexRadio), sep= ", ")
     
   }else{
     select_str <- paste("contrast_id", 
                         search_radio, 
-                        local(input$gwsBrowseScreenIndexRadio), 
+                        local(input$gwsGeneIndexRadio), 
                         paste(statistics_columns_negative, collapse=", "), 
                         paste(statistics_columns_positive, collapse=", "), sep= ", ")
   }
@@ -317,17 +317,17 @@ gwsGeneDataFrame <- reactive({
     #join guide ranks
     df <- df %>%
       left_join(features_buff, by = c("gene_id", "guide_id")) %>%
-      dplyr::select(contrast_id, contrast_id_QC, guide_id, gene_id, local(input$gwsBrowseScreenIndexRadio), symbol, entrez_id, sequence, species) %>%
+      dplyr::select(contrast_id, contrast_id_QC, guide_id, gene_id, local(input$gwsGeneIndexRadio), symbol, entrez_id, sequence, species) %>%
       left_join(sgRNAs, by="guide_id") %>%
       distinct() %>%
-      mutate_at(c(local(input$gwsBrowseScreenIndexRadio)), round, 3) %>%
+      mutate_at(c(local(input$gwsGeneIndexRadio)), round, 3) %>%
       arrange(symbol)
     
   }else{
     df <- df %>%
       left_join(gene_list_screens %>% dplyr::select(-library_id) %>% distinct, by ="gene_id") %>%
-      dplyr::select(contrast_id, contrast_id_QC, gene_id, local(input$gwsBrowseScreenIndexRadio), symbol, entrez_id, species, dplyr::one_of(statistics_columns_negative), dplyr::one_of(statistics_columns_positive)) %>%
-      mutate_at(c(local(input$gwsBrowseScreenIndexRadio)), round, 3) %>%
+      dplyr::select(contrast_id, contrast_id_QC, gene_id, local(input$gwsGeneIndexRadio), symbol, entrez_id, species, dplyr::one_of(statistics_columns_negative), dplyr::one_of(statistics_columns_positive)) %>%
+      mutate_at(c(local(input$gwsGeneIndexRadio)), round, 3) %>%
       arrange(symbol)
   }
 
@@ -416,8 +416,11 @@ gwsGeneDataFrame <- reactive({
               rename_at(vars(-contains("entrez_id"), -contains("symbol"), -contains("Symbol_human"), -contains("EntrezID_human"), -contains("Symbol_mouse"), -contains("EntrezID_mouse")), ~ paste0(., '_GUIDES_GOOD'))
           )
       }
+      
       dt <- dt %>%
-        dplyr::select(sort(tidyselect::peek_vars()))
+        dplyr::select(sort(tidyselect::peek_vars())) %>%
+        dplyr::select(matches("entrez_id"), matches("symbol"), matches("sequence"), 
+                      matches("Length"), matches("guide_id"), matches("VBC-score"), matches("rank_overall"), matches("rank_validation"), everything())
     }
     
     if(input$gwsGeneSpeciesSelect == "all"){
@@ -981,7 +984,7 @@ observeEvent(input$gwsGeneDatasetSelect, {
   #update tissue selectbox
   updateSelectizeInput(session, 'gwsGeneTissueSelect', choices = gwsGeneTissueList(), server = TRUE)
   if(input$gwsGeneDatasetSelect %in% c("drug_modifier", "facs_based")){
-    updateRadioButtons(session, 'gwsGeneIndexRadio',selected = "lfc")
+    updateRadioButtons(session, 'gwsGeneIndexRadio', selected = "lfc")
     disable("gwsGeneIndexRadio")
     disable("gwsGeneQuality")
   }else{

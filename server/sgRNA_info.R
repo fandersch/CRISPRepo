@@ -42,19 +42,31 @@ sgRNAInfoTableScreens <- reactive({
   
   if(isTRUE(input$sgRNAInfoCheckGuideAll)){
     presel_guides <- sgRNAInfoGuideList()
+    
+    #get gene_stats/guide_stats
+    df_screens <- con %>%
+      tbl("guide_stats") %>%
+      dplyr::select(contrast_id, guide_id, gene_id, local(input$sgRNAInfoIndexRadio)) %>%
+      dplyr::filter(gene_id %in% local(presel_entrez)) %>%
+      # left_join(features %>% dplyr::select(-library_id, -sequence) %>% distinct) %>%
+      collect() %>%
+      left_join(gene_list_screens %>% dplyr::select(gene_id, symbol, entrez_id) %>% distinct) %>%
+      mutate_at(local(input$sgRNAInfoIndexRadio), round, 3)
+    
   }else{
     presel_guides <- input$sgRNAInfoSelectGuide
+    
+    #get gene_stats/guide_stats
+    df_screens <- con %>%
+      tbl("guide_stats") %>%
+      dplyr::select(contrast_id, guide_id, gene_id, local(input$sgRNAInfoIndexRadio)) %>%
+      dplyr::filter(guide_id %in% local(presel_guides)) %>%
+      # left_join(features %>% dplyr::select(-library_id, -sequence) %>% distinct) %>%
+      collect() %>%
+      left_join(gene_list_screens %>% dplyr::select(gene_id, symbol, entrez_id) %>% distinct) %>%
+      mutate_at(local(input$sgRNAInfoIndexRadio), round, 3)
+    
   }
-  
-  #get gene_stats/guide_stats
-  df_screens <- con %>%
-    tbl("guide_stats") %>%
-    dplyr::select(contrast_id, guide_id, gene_id, local(input$sgRNAInfoIndexRadio)) %>%
-    dplyr::filter(guide_id %in% local(presel_guides)) %>%
-    # left_join(features %>% dplyr::select(-library_id, -sequence) %>% distinct) %>%
-    collect() %>%
-    left_join(gene_list_screens %>% dplyr::select(gene_id, symbol, entrez_id) %>% distinct) %>%
-    mutate_at(local(input$sgRNAInfoIndexRadio), round, 3)
   
   if (nrow(df_screens) > 0) {
     presel_contrasts <- df_screens$contrast_id %>% unique

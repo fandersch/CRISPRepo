@@ -1,6 +1,8 @@
 # ----------------------------------------------------------------------------
 # ExpressionData
 # ----------------------------------------------------------------------------
+expressionData_geneInputFile <- reactiveValues(data = NULL)
+
 
 expressionDataUpdateText <- function(){
   output$expressionDataInfo <- renderText({
@@ -10,8 +12,10 @@ expressionDataUpdateText <- function(){
       if(is.null(input$expressionDataCellLineSelect) & !isTRUE(input$expressionDataCheckCellLineAll)){
         invisible("INFO: Please select the cell line(s) in the right panel!")
       }else{
-        if(is.null(input$expressionDataGeneSelect) & !isTRUE(input$expressionDataCheckGeneAll)){
-          invisible("INFO: Please select the gene(s) you want to browse in the right panel!")
+        if(is.null(input$expressionDataGeneSelect) & !isTRUE(input$expressionDataCheckGeneAll) & is.null(expressionData_geneInputFile$data)){
+          invisible(paste0(" INFO: Please select the gene(s) you want to browse in the right panel! ", HTML('<br/>'),
+                    " You can also upload a list of genes with the provided file browser on the right side! ", HTML('<br/>'),
+                    " The file must have one gene per row (one single column): either entrez-IDs or gene-symbol (no header, no mixed IDs)!"))
         }else{
           invisible("INFO: Click Load data!")
         }
@@ -54,10 +58,16 @@ expressionDataDataFrame <- reactive({
     dplyr::select(sample_id) %>%
     .$sample_id
   
-  if(isTRUE(input$expressionDataCheckGeneAll)){
-    presel_genes <- expressionDataGeneList()
+  if(!is.null(expressionData_geneInputFile$data)){
+    presel_genes_buff <- expressionDataGeneList()
+    genes_fileUpload <- c(paste0("\\(", (expressionData_geneInputFile$data$X1 %>% as.character), "\\)"), paste0("^", (expressionData_geneInputFile$data$X1 %>% as.character), "\\s"))
+    presel_genes <- grep(paste(genes_fileUpload,collapse="|"), presel_genes_buff %>% as.character, value=TRUE)
   }else{
-    presel_genes <- local(input$expressionDataGeneSelect)
+    if(isTRUE(input$expressionDataCheckGeneAll)){
+      presel_genes <- expressionDataGeneList()
+    }else{
+      presel_genes <- local(input$expressionDataGeneSelect)
+    }
   }
   
   presel_genes<- presel_genes %>% strsplit(split="\\(|\\)")
@@ -438,9 +448,11 @@ observeEvent(input$expressionDataCellLineSelect, {
   
   if((isTRUE(input$expressionDataCheckCellLineAll) | (!is.null(input$expressionDataCellLineSelect))) & (isTRUE(input$expressionDataCheckTissueAll) | (!is.null(input$expressionDataTissueSelect)))) {
     enable("expressionDataGeneSelect")
+    enable("expressionData_inputFile")
     enable("expressionDataCheckGeneAll")
   }else{
     disable("expressionDataGeneSelect")
+    disable("expressionData_inputFile")
     disable("expressionDataCheckGeneAll")
   }
   expressionDataUpdateText()
@@ -499,9 +511,11 @@ observeEvent(input$expressionDataCheckCellLineAll, {
   
   if((isTRUE(input$expressionDataCheckCellLineAll) | (!is.null(input$expressionDataCellLineSelect))) & (isTRUE(input$expressionDataCheckTissueAll) | (!is.null(input$expressionDataTissueSelect)))) {
     enable("expressionDataGeneSelect")
+    enable("expressionData_inputFile")
     enable("expressionDataCheckGeneAll")
   }else{
     disable("expressionDataGeneSelect")
+    disable("expressionData_inputFile")
     disable("expressionDataCheckGeneAll")
   }
   expressionDataUpdateText()
@@ -514,11 +528,30 @@ observeEvent(input$expressionDataCancelModal, {
 })
 
 observeEvent(input$expressionDataGeneSelect, {
-  #unselect library checkbox
   if(!is.null(input$expressionDataGeneSelect)){
     updateCheckboxInput(session, 'expressionDataCheckGeneAll', value = FALSE)
+    reset('expressionData_inputFile')
+    expressionData_geneInputFile$data <- NULL
   }
-  if(isTRUE(input$expressionDataCheckGeneAll) | (!is.null(input$expressionDataGeneSelect))){
+  if(isTRUE(input$expressionDataCheckGeneAll) | (!is.null(input$expressionDataGeneSelect)) | !is.null(expressionData_geneInputFile$data)){
+    enable("expressionDataLoadButton")
+  }else{
+    disable("expressionDataLoadButton")
+  }
+  expressionDataUpdateText()
+  
+}, ignoreNULL = FALSE)
+
+observeEvent(input$expressionData_inputFile, {
+  if(!is.null(input$expressionData_inputFile)){
+    updateSelectizeInput(session, 'expressionDataGeneSelect', choices = expressionDataGeneList(), server = TRUE)
+    updateCheckboxInput(session, 'expressionDataCheckGeneAll', value = FALSE)
+    req(input$expressionData_inputFile)
+    expressionData_geneInputFile$data <- read_tsv(input$expressionData_inputFile$datapath, col_names = F)
+  }else{
+    expressionData_geneInputFile$data <- NULL
+  }
+  if(isTRUE(input$expressionDataCheckGeneAll) | (!is.null(input$expressionDataGeneSelect)) | !is.null(expressionData_geneInputFile$data)){
     enable("expressionDataLoadButton")
   }else{
     disable("expressionDataLoadButton")
@@ -528,12 +561,13 @@ observeEvent(input$expressionDataGeneSelect, {
 }, ignoreNULL = FALSE)
 
 observeEvent(input$expressionDataCheckGeneAll, {
-  #unselect library selectbox
   if(isTRUE(input$expressionDataCheckGeneAll)){
     geneList <- expressionDataGeneList()
     updateSelectizeInput(session, 'expressionDataGeneSelect', choices = geneList, server = TRUE)
+    reset('expressionData_inputFile')
+    expressionData_geneInputFile$data <- NULL
   }
-  if(isTRUE(input$expressionDataCheckGeneAll) | (!is.null(input$expressionDataGeneSelect))){
+  if(isTRUE(input$expressionDataCheckGeneAll) | (!is.null(input$expressionDataGeneSelect)) | !is.null(expressionData_geneInputFile$data)){
     enable("expressionDataLoadButton")
   }else{
     disable("expressionDataLoadButton")
@@ -580,5 +614,35 @@ output$expressionDataButtonDownload <- downloadHandler(
       
       dt %>% write_tsv(file)
     }
+  }
+)
+
+output$expressionDataButtonDownloadPrimaryTables <- downloadHandler(
+  filename = function() {
+    "expression_data.zip"
+  },
+  content = function(file) {
+    shiny::withProgress(
+      message = paste0("Downloading", input$dataset, " Data"),
+      value = 0,
+      {
+        files <- NULL;
+        if("Human" %in% input$expressionDataDownloadPrimaryTablesCheck){
+          fileName <- "expression_values_per_tissue/all_tissues_human_spread.tsv"
+          files <- c(fileName,files)
+        }
+        if("Mouse" %in% input$expressionDataDownloadPrimaryTablesCheck){
+          fileName <- "expression_values_per_tissue/all_tissues_mouse_spread.tsv"
+          files <- c(fileName,files)
+        }
+        shiny::incProgress(1/2)
+        if(!is.null(files)){
+          #create the zip file
+          zip(file,files)
+        }else{
+          NULL
+        }
+      }
+    )
   }
 )

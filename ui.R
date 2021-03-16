@@ -35,7 +35,8 @@ sidebar <- dashboardSidebar(
               menuItemOutput("sgRNAsSidebar"),
               menuItemOutput("dualSgRNAsSidebar"),
               menuItemOutput("expressionDataSidebar"),
-              menuItemOutput("essentialomeSidebar")
+              menuItemOutput("essentialomeSidebar"),
+              menuItemOutput("correlationsSidebar")
   )
 )
 
@@ -182,9 +183,25 @@ body <- dashboardBody(
                        downloadButton(
                          width = NULL,
                          outputId = "gwsBrowseScreenButtonDownload",
-                         label = "Download"
+                         label = "Download displayed table"
                        )
-                     )
+                     ),
+                     box(
+                       width = NULL,
+                       solidHeader = TRUE,
+                       checkboxGroupInput(
+                         "gwsBrowseScreenDownloadPrimaryTablesCheck",
+                         label = "Download HQ dropout screen data (scaled LFCs table):",
+                         choices = list("Human" = "Human", "Mouse" = "Mouse"),
+                         selected = c("Human", "Mouse"),
+                         inline = F
+                       ),
+                       downloadButton(
+                         width = NULL,
+                         outputId = "gwsBrowseScreenButtonDownloadPrimaryTables",
+                         label = "Download primary data"
+                       ))
+                     
               )
             )),
     
@@ -193,7 +210,7 @@ body <- dashboardBody(
     tabItem(tabName = "gwsGeneTab", width = NULL,
             fluidRow(tags$head(tags$style(HTML('#gwsGeneInfo{color:tomato; font-weight: bold;}'))),
                      column(width = 12,
-                            box(width = NULL, solidHeader = TRUE, textOutput(outputId="gwsGeneInfo")))),
+                            box(width = NULL, solidHeader = TRUE, htmlOutput(outputId="gwsGeneInfo")))),
             fluidRow(
               column(width = 9,
                      box(title = "Screens", status = "success", width = NULL, solidHeader = TRUE, collapsible = TRUE, withSpinner(dataTableOutput("gwsGeneTable"))),
@@ -323,6 +340,12 @@ body <- dashboardBody(
                            )
                          ),
                          disabled(
+                           fileInput(
+                             "gwsGeneGeneInputFile", "Upload list of genes:",
+                             accept = c("text/csv","text/comma-separated-values,text/plain")
+                           )
+                         ),
+                         disabled(
                            actionButton(inputId = "gwsGeneLoadButton", 
                                         label = "Load data!"
                            )
@@ -334,7 +357,7 @@ body <- dashboardBody(
                        downloadButton(
                          width = NULL,
                          outputId = "gwsGeneButtonDownload",
-                         label = "Download"
+                         label = "Download displayed table"
                        )
                      )
               )
@@ -394,7 +417,7 @@ body <- dashboardBody(
                          )),
                      downloadButton(width = NULL, 
                                     outputId = "sgRNAInfoButtonDownload",
-                                    label = "Download")
+                                    label = "Download displayed tables")
               )
             )
     ),
@@ -422,7 +445,7 @@ body <- dashboardBody(
                      infoBoxOutput(width = NULL, "libBoxGenesTotal"),
                      downloadButton(width = NULL, 
                                     outputId = "libButtonDownload",
-                                    label = "Download")
+                                    label = "Download displayed table")
               )
             )
     ),
@@ -431,7 +454,7 @@ body <- dashboardBody(
     tabItem(tabName = "sgRNAsSidebar", width = NULL, 
             fluidRow(tags$head(tags$style(HTML('#sgRNAsInfo{color:tomato; font-weight: bold;}'))),
                      column(width = 12,
-                            box(width = NULL, solidHeader = TRUE, textOutput(outputId="sgRNAsInfo")))),
+                            box(width = NULL, solidHeader = TRUE, htmlOutput(outputId="sgRNAsInfo")))),
             fluidRow(
               column(width = 9, 
                      box(width = NULL, solidHeader = TRUE, withSpinner(dataTableOutput("sgRNAsTableOutput")))
@@ -456,6 +479,10 @@ body <- dashboardBody(
                              multiple = TRUE,
                              selected = NULL
                            ), 
+                           fileInput(
+                             "sgRNAsGeneInputFile", "Upload list of genes:",
+                             accept = c("text/csv","text/comma-separated-values,text/plain")
+                           ),
                           disabled(
                              actionButton(inputId = "sgRNAsLoadButton", 
                                           label = "Load data!"
@@ -468,7 +495,7 @@ body <- dashboardBody(
                        downloadButton(
                          width = NULL,
                          outputId = "sgRNAsButtonDownload",
-                         label = "Download"
+                         label = "Download displayed table"
                        )
                      )
               )
@@ -501,11 +528,9 @@ body <- dashboardBody(
                                      "text/comma-separated-values,text/plain",
                                      ".csv")
                          ),
-                         
-                           actionButton(inputId = "dualSgRNALoadButton", 
-                                        label = "Load data!"
-                           )
-                         
+                         actionButton(inputId = "dualSgRNALoadButton", 
+                                      label = "Load data!"
+                         )
                      ),
                      box(
                        width = NULL,
@@ -513,7 +538,7 @@ body <- dashboardBody(
                        downloadButton(
                          width = NULL,
                          outputId = "dualSgRNAsButtonDownload",
-                         label = "Download"
+                         label = "Download displayed table"
                        )
                      )
               )
@@ -523,7 +548,7 @@ body <- dashboardBody(
     tabItem(tabName = "expressionDataSidebar", width = NULL, 
             fluidRow(tags$head(tags$style(HTML('#expressionDataInfo{color:tomato; font-weight: bold;}'))),
                      column(width = 12,
-                            box(width = NULL, solidHeader = TRUE, textOutput(outputId="expressionDataInfo")))),
+                            box(width = NULL, solidHeader = TRUE, htmlOutput((outputId="expressionDataInfo"))))),
             fluidRow(
               column(width = 9,
                      box(width = NULL, solidHeader = TRUE, withSpinner(dataTableOutput("expressionDataTable")))),
@@ -576,6 +601,11 @@ body <- dashboardBody(
                              selected = NULL
                            )
                          ),
+                         disabled(fileInput("expressionData_inputFile", "Upload list of genes:",
+                                   accept = c(
+                                     "text/csv",
+                                     "text/comma-separated-values,text/plain")
+                         )),
                          disabled(
                            checkboxInput(
                              inputId = "expressionDataCheckGeneAll",
@@ -595,13 +625,28 @@ body <- dashboardBody(
                        downloadButton(
                          width = NULL,
                          outputId = "expressionDataButtonDownload",
-                         label = "Download"
+                         label = "Download displayed table"
                        )
-                     )
+                     ),
+                     box(
+                       width = NULL,
+                       solidHeader = TRUE,
+                       checkboxGroupInput(
+                         "expressionDataDownloadPrimaryTablesCheck",
+                         label = "Download primary data (expression value table of all tissues):",
+                         choices = list("Human" = "Human", "Mouse" = "Mouse"),
+                         selected = c("Human", "Mouse"),
+                         inline = F
+                       ),
+                       downloadButton(
+                         width = NULL,
+                         outputId = "expressionDataButtonDownloadPrimaryTables",
+                         label = "Download primary data"
+                       ))
               )
             ) 
     ),
-    # Library
+    # Essentialome
     tabItem(tabName = "essentialomeSidebar", width = NULL, 
             fluidRow(
               column(width = 9, 
@@ -634,7 +679,78 @@ body <- dashboardBody(
                                     label = "Download")
               )
             )
-    )
+    ),
+    # correlations
+    tabItem(tabName = "correlationsSidebar", width = NULL, 
+            fluidRow(tags$head(tags$style(HTML('#correlationsInfo{color:tomato; font-weight: bold;}'))),
+                     column(width = 12,
+                            box(width = NULL, solidHeader = TRUE, htmlOutput(outputId="correlationsInfo")))),
+            fluidRow(
+              column(width = 9, 
+                     box(title = "Dependency <> Expression", status = "success", width = NULL, solidHeader = TRUE, collapsible = TRUE, withSpinner(dataTableOutput(outputId="correlationsDependencyExpressionTableOutput"))),
+                     box(title = "Co-essentiality", status = "warning", width = NULL, solidHeader = TRUE, collapsible = TRUE, withSpinner(dataTableOutput(outputId="correlationsCoEssentialityTableOutput"))),
+                     box(title = "Co-expression", status = "danger", width = NULL, solidHeader = TRUE, collapsible = TRUE, withSpinner(dataTableOutput(outputId="correlationsCoExpressionTableOutput")))
+              ), 
+              column(width = 3,
+                     box(width = NULL, solidHeader = TRUE,
+                       selectizeInput(
+                         inputId = "correlationsGeneSelect",
+                         label = "Gene:",
+                         choices = NULL,
+                         multiple = TRUE,
+                         selected = NULL
+                       ),
+                       fileInput(
+                         "correlationsGeneInputFile", "Upload list of genes:",
+                         accept = c("text/csv","text/comma-separated-values,text/plain")
+                       ),
+                       sliderInput(
+                         "correlationsSliderCoeff", 
+                         "Show top 20 correlations per gene or correlations with a pearson coeff above:",
+                         min = 0.3,
+                         max = 0.8,
+                         value = 0.6
+                       ),
+                       disabled(
+                         actionButton(inputId = "correlationsLoadButton", 
+                                      label = "Load data!"
+                         )
+                       )
+                     ),
+                     box(
+                       width = NULL,
+                       solidHeader = TRUE,
+                       checkboxGroupInput(
+                         "correlationsDownloadCheck",
+                         label = "Download result tables:",
+                         choices = list("Dependency <> Expression" = "Dependency <> Expression", "Co-Essentiality" = "Co-Essentiality", "Co-Expression" = "Co-Expression"),
+                         selected = c("Dependency <> Expression", "Co-Expression", "Co-Essentiality"),
+                         inline = F
+                       ),
+                       downloadButton(
+                         width = NULL,
+                         outputId = "correlationsButtonDownload",
+                         label = "Download"
+                       )
+                     ),
+                     box(
+                       width = NULL,
+                       solidHeader = TRUE,
+                       checkboxGroupInput(
+                         "correlationsDownloadPrimaryTablesCheck",
+                         label = "Download primary data (top 20 correlation per gene or correlations with a pearson coeff > 0.6):",
+                         choices = list("Dependency <> Expression" = "Dependency <> Expression", "Co-Essentiality" = "Co-Essentiality", "Co-Expression" = "Co-Expression"),
+                         selected = c("Dependency <> Expression", "Co-Expression", "Co-Essentiality"),
+                         inline = F
+                       ),
+                       downloadButton(
+                         width = NULL,
+                         outputId = "correlationsButtonDownloadPrimaryTables",
+                         label = "Download primary data"
+                     ))
+              )
+          )
+      )
   )
 )
   

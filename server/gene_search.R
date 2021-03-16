@@ -1,6 +1,7 @@
 # ----------------------------------------------------------------------------
 # Gene Search
 # ----------------------------------------------------------------------------
+gwsGeneGeneInputFile <- reactiveValues(data = NULL)
 
 #necessary for reactive buttons, numerates buttons
 shinyInput <- function(FUN, len, id, ...) {
@@ -25,8 +26,10 @@ gwsGeneUpdateText <- function(){
           if(is.null(input$gwsGeneContrastSelect) & !isTRUE(input$gwsGeneCheckContrastAll)){
             "INFO: Please select the contrasts(s) you want to browse in the right panel!"
           }else{
-            if(is.null(input$gwsGeneGeneSelect)){
-              "INFO: Please select the gene(s) you want to browse in the right panel!"
+            if(is.null(input$gwsGeneGeneSelect)& is.null(gwsGeneGeneInputFile$data)){
+              invisible(paste0(" INFO: Please select the gene(s) you want to browse in the right panel! ", HTML('<br/>'),
+                               " You can also upload a list of genes with the provided file browser on the right side! ", HTML('<br/>'),
+                               " The file must have one gene per row (one single column): either entrez-IDs or gene-symbol (no header, no mixed IDs)!"))
             }else{
               "INFO: Click Load data!"
             }
@@ -202,8 +205,16 @@ gwsGeneDataFrame <- reactive({
     tableSgRNAs <- "sgRNAs_mouse"
   }
   
+  if(!is.null(gwsGeneGeneInputFile$data)){
+    presel_genes_buff <- gwsGeneGeneList()
+    genes_fileUpload <- c(paste0("\\(", (gwsGeneGeneInputFile$data$X1 %>% as.character), "\\)"), paste0("^", (gwsGeneGeneInputFile$data$X1 %>% as.character), "\\s"))
+    presel_genes_both <- grep(paste(genes_fileUpload,collapse="|"), presel_genes_buff %>% as.character, value=TRUE)
+  }else{
+    presel_genes_both<- input$gwsGeneGeneSelect
+  }
+  
   #retrieve selected genes
-  presel_genes_both<- input$gwsGeneGeneSelect %>% strsplit(split="\\(|\\)")
+  presel_genes_both<- presel_genes_both %>% strsplit(split="\\(|\\)")
   presel_genes <- unlist(presel_genes_both)[c(TRUE, FALSE)] %>% trimws()
   presel_entrez <- unlist(presel_genes_both)[c(FALSE, TRUE)]
   
@@ -1174,8 +1185,10 @@ observeEvent(input$gwsGeneContrastSelect, {
   
   if(isTRUE(input$gwsGeneCheckContrastAll) | (!is.null(input$gwsGeneContrastSelect))){
     enable("gwsGeneGeneSelect")
+    enable("gwsGeneGeneInputFile")
   }else{
     disable("gwsGeneGeneSelect")
+    disable("gwsGeneGeneInputFile")
   }
   gwsGeneUpdateText()
   
@@ -1204,8 +1217,10 @@ observeEvent(input$gwsGeneCheckContrastAll, {
   
   if(isTRUE(input$gwsGeneCheckContrastAll) | (!is.null(input$gwsGeneContrastSelect))){
     enable("gwsGeneGeneSelect")
+    enable("gwsGeneGeneInputFile")
   }else{
     disable("gwsGeneGeneSelect")
+    disable("gwsGeneGeneInputFile")
   }
   gwsGeneUpdateText()
   
@@ -1217,7 +1232,28 @@ observeEvent(input$gwsGeneCancelModal, {
 })
 
 observeEvent(input$gwsGeneGeneSelect, {
-  if((!is.null(input$gwsGeneGeneSelect))){
+  if((!is.null(input$gwsGeneGeneSelect)) | !is.null(gwsGeneGeneInputFile$data)){
+    enable("gwsGeneLoadButton")
+    if(!is.null(input$gwsGeneGeneSelect)){
+      reset('gwsGeneGeneInputFile')
+      gwsGeneGeneInputFile$data <- NULL
+    }
+  }else{
+    disable("gwsGeneLoadButton")
+  }
+  gwsGeneUpdateText()
+  
+}, ignoreNULL = FALSE)
+
+observeEvent(input$gwsGeneGeneInputFile, {
+  if(!is.null(input$gwsGeneGeneInputFile)){
+    updateSelectizeInput(session, 'gwsGeneGeneSelect', choices = gwsGeneGeneList(), server = TRUE)
+    req(input$gwsGeneGeneInputFile)
+    gwsGeneGeneInputFile$data <- read_tsv(input$gwsGeneGeneInputFile$datapath, col_names = F)
+  }else{
+    gwsGeneGeneInputFile$data <- NULL
+  }
+  if((!is.null(input$gwsGeneGeneSelect)) | !is.null(gwsGeneGeneInputFile$data)){
     enable("gwsGeneLoadButton")
   }else{
     disable("gwsGeneLoadButton")

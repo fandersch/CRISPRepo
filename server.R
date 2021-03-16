@@ -42,6 +42,11 @@ function(input, output, session) {
       menuItem(text = "Essentialome", tabName = "essentialomeSidebar")
   })
   
+  output$correlationsSidebar <- renderMenu({
+    if(view == "internal")
+      menuItem(text = "Correlations", tabName = "correlationsSidebar")
+  })
+  
   # ----------------------------------------------------------------------------
   # Browse Screen
   # ----------------------------------------------------------------------------
@@ -89,6 +94,13 @@ function(input, output, session) {
   # ----------------------------------------------------------------------------
   
   source(file = "server/essentialome.R", local = T)
+  
+  # ----------------------------------------------------------------------------
+  # Correlations
+  # ----------------------------------------------------------------------------
+  
+  source(file = "server/correlations.R", local = T)
+  updateSelectizeInput(session, 'correlationsGeneSelect', choices = gene_list_correlations, server = TRUE)
   
   # ----------------------------------------------------------------------------
   # Header callback

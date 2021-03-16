@@ -335,7 +335,7 @@ gwsBrowseScreenDataTable <- eventReactive(input$gwsBrowseScreenLoadButton,{
     }else{
       dt <- df %>%
         dplyr::select(contrast_id, contains("guide_id"), gene_id, entrez_id, symbol, input$gwsBrowseScreenIndexRadio) %>%
-        pivot_wider(names_from=contrast_id, values_from=local(input$gwsBrowseScreenIndexRadio)) %>%
+        pivot_wider(names_from=contrast_id, values_from=local(input$gwsBrowseScreenIndexRadio), values_fn = length) %>%
         arrange(symbol)
       
     }
@@ -1103,5 +1103,35 @@ output$gwsBrowseScreenButtonDownload <- downloadHandler(
       
       dt %>% write_tsv(file)
     }
+  }
+)
+
+output$gwsBrowseScreenButtonDownloadPrimaryTables <- downloadHandler(
+  filename = function() {
+    "screen_data.zip"
+  },
+  content = function(file) {
+    shiny::withProgress(
+      message = paste0("Downloading", input$dataset, " Data"),
+      value = 0,
+      {
+        files <- NULL;
+        if("Human" %in% input$gwsBrowseScreenDownloadPrimaryTablesCheck){
+          fileName <- "essentiality_data/human_scaledLFC_geneLevel_HQscreens.tsv"
+          files <- c(fileName,files)
+        }
+        if("Mouse" %in% input$gwsBrowseScreenDownloadPrimaryTablesCheck){
+          fileName <- "essentiality_data/mouse_scaledLFC_geneLevel_HQscreens.tsv"
+          files <- c(fileName,files)
+        }
+        shiny::incProgress(1/2)
+        if(!is.null(files)){
+          #create the zip file
+          zip(file,files)
+        }else{
+          NULL
+        }
+      }
+    )
   }
 )

@@ -36,6 +36,8 @@ con_expression <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "expression_d
 
 con_sgRNAs <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "sgRNAs.db")
 
+con_correlations <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "correlations.db")
+
 
 pheno <- con %>%
   tbl("pheno")
@@ -105,6 +107,12 @@ gene_list_expressionData <- con_expression %>%
   tbl("expression_data_genes")
 
 loadExpressionDataTissueList <- F
+
+#correlations
+gene_list_correlations <- con_correlations %>%
+  tbl("genes") %>%
+  collect %>%
+  .$gene
 
 #load dictionary
 dict_joined <- read_tsv("dict/dict_joined.txt") %>%

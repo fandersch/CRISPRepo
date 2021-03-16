@@ -1,10 +1,15 @@
 # ----------------------------------------------------------------------------
 # genome-wide sgRNA predictions
 # ----------------------------------------------------------------------------
+sgRNAsGeneInputFile <- reactiveValues(data = NULL)
+
+
 sgRNAsUpdateText <- function(){
   output$sgRNAsInfo <- renderText({
-    if(is.null(input$sgRNAsGeneSelect)){
-      "INFO: Please select the gene(s) you want to browse in the right panel!"
+    if(is.null(input$sgRNAsGeneSelect) & is.null(sgRNAsGeneInputFile$data)){
+      invisible(paste0(" INFO: Please select the gene(s) you want to browse in the right panel! ", HTML('<br/>'),
+                       " You can also upload a list of genes with the provided file browser on the right side! ", HTML('<br/>'),
+                       " The file must have one gene per row (one single column): either entrez-IDs or gene-symbol (no header, no mixed IDs)!"))
     }else{
       "INFO: Click Load data!"
     }
@@ -19,7 +24,16 @@ output$sgRNAsTableOutput <- renderDataTable({
 })
 
 sgRNAsTable <- reactive({
-  presel_genes <- input$sgRNAsGeneSelect %>% strsplit(split="\\(|\\)")
+  
+  if(!is.null(sgRNAsGeneInputFile$data)){
+    presel_genes_buff <- sgRNAsGeneList()
+    genes_fileUpload <- c(paste0("\\(", (sgRNAsGeneInputFile$data$X1 %>% as.character), "\\)"), paste0("^", (sgRNAsGeneInputFile$data$X1 %>% as.character), "\\s"))
+    presel_genes <- grep(paste(genes_fileUpload,collapse="|"), presel_genes_buff %>% as.character, value=TRUE)
+  }else{
+    presel_genes <- input$sgRNAsGeneSelect
+  }
+  
+  presel_genes <- presel_genes %>% strsplit(split="\\(|\\)")
   presel_gene_symbol <- unlist(presel_genes)[c(TRUE, FALSE)] %>% trimws()
   presel_gene_entrez <- unlist(presel_genes)[c(FALSE, TRUE)] %>% as.numeric
   
@@ -162,7 +176,28 @@ observeEvent(input$sgRNAsSpeciesSelect, {
 })
 
 observeEvent(input$sgRNAsGeneSelect, {
-  if((!is.null(input$sgRNAsGeneSelect))){
+  if((!is.null(input$sgRNAsGeneSelect)) | !is.null(sgRNAsGeneInputFile$data)){
+    enable("sgRNAsLoadButton")
+    if(!is.null(input$sgRNAsGeneSelect)){
+      sgRNAsGeneInputFile$data <- NULL
+      reset('sgRNAsGeneInputFile')
+    }
+  }else{
+    disable("sgRNAsLoadButton")
+  }
+  sgRNAsUpdateText()
+  
+}, ignoreNULL = FALSE)
+
+observeEvent(input$sgRNAsGeneInputFile, {
+  if(!is.null(input$sgRNAsGeneInputFile)){
+    updateSelectizeInput(session, 'sgRNAsGeneSelect', choices = sgRNAsGeneList(), server = TRUE)
+    req(input$sgRNAsGeneInputFile)
+    sgRNAsGeneInputFile$data <- read_tsv(input$sgRNAsGeneInputFile$datapath, col_names = F)
+  }else{
+    sgRNAsGeneInputFile$data <- NULL
+  }
+  if((!is.null(input$sgRNAsGeneSelect)) | !is.null(sgRNAsGeneInputFile$data)){
     enable("sgRNAsLoadButton")
   }else{
     disable("sgRNAsLoadButton")

@@ -58,6 +58,7 @@ correlationsDependencyExpressionTable <- reactive({
     mutate(hit = ifelse(hit==1, "TRUE", "FALSE")) %>%
     dplyr::rename(number_Hits=nHits) %>%
     arrange(desc(number_Hits), symbol_y)
+  
 
 
   correlationsDependencyExpression
@@ -78,16 +79,25 @@ correlationsCoEssentialityTable <- reactive({
   presel_gene_symbol <- unlist(presel_genes)[c(TRUE, FALSE)] %>% trimws()
   presel_gene_entrez <- unlist(presel_genes)[c(FALSE, TRUE)] %>% as.numeric
   
+  co_essentiality_datapoints <- con_correlations %>%
+    tbl("co_essentiality_datapoints") %>%
+    collect
+  
   correlationsCoEssentiality <- con_correlations %>%
     tbl("co_essentiality") %>%
     dplyr::filter(entrez_id_x %in% presel_gene_entrez) %>%
     collect() %>%
     group_by(entrez_id_x) %>%
+    mutate(n_coeff_above_0.6 = sum(abs(cor_coeff) >= 0.6)) %>% 
     arrange(desc(abs(cor_coeff))) %>%
     mutate(rank = row_number()) %>%
     filter(rank <= 20 | abs(cor_coeff) >= input$correlationsSliderCoeff) %>%
     select(-rank) %>%
-    ungroup
+    ungroup %>%
+    left_join(co_essentiality_datapoints, by=c("entrez_id_x"="entrez_id", "symbol_x"="symbol")) %>%
+    left_join(co_essentiality_datapoints, by=c("entrez_id_y"="entrez_id", "symbol_y"="symbol")) %>%
+    dplyr::rename(datapoints_gene_x = datapoints.x, datapoints_gene_y = datapoints.y) %>%
+    filter(!is.na(datapoints_gene_x), !is.na(datapoints_gene_y))
   
   
   correlationsCoEssentiality
@@ -108,17 +118,26 @@ correlationsCoExpressionTable <- reactive({
   presel_gene_symbol <- unlist(presel_genes)[c(TRUE, FALSE)] %>% trimws()
   presel_gene_entrez <- unlist(presel_genes)[c(FALSE, TRUE)] %>% as.numeric
   
+  co_expression_datapoints <- con_correlations %>%
+    tbl("co_expression_datapoints") %>%
+    collect
+  
   correlationsCoExpression <- con_correlations %>%
     tbl("co_expression") %>%
     dplyr::filter(entrez_id_x %in% presel_gene_entrez) %>%
     collect() %>%
     group_by(entrez_id_x) %>%
+    mutate(n_coeff_above_0.6 = sum(abs(cor_coeff) >= 0.6)) %>% 
     arrange(desc(abs(cor_coeff))) %>%
     mutate(rank = row_number()) %>%
     filter(rank <= 20 | abs(cor_coeff) >= input$correlationsSliderCoeff) %>%
     select(-rank) %>%
-    ungroup
-  
+    ungroup %>%
+    left_join(co_expression_datapoints, by=c("entrez_id_x"="entrez_id", "symbol_x"="symbol")) %>%
+    left_join(co_expression_datapoints, by=c("entrez_id_y"="entrez_id", "symbol_y"="symbol")) %>%
+    dplyr::rename(datapoints_gene_x = datapoints.x, datapoints_gene_y = datapoints.y) %>%
+    filter(!is.na(datapoints_gene_x), !is.na(datapoints_gene_y))
+
   
   correlationsCoExpression
 })
@@ -324,15 +343,15 @@ output$correlationsButtonDownloadPrimaryTables <- downloadHandler(
       {
         files <- NULL;
         if("Dependency <> Expression" %in% input$correlationsDownloadPrimaryTablesCheck){
-          fileName <- "correlations_primary_data/correlations_primary_data_dependency_expression.txt"
+          fileName <- "correlations_primary_data/final_table_dependecy_expression_filtered.tsv"
           files <- c(fileName,files)
         }
         if("Co-Essentiality" %in% input$correlationsDownloadPrimaryTablesCheck){
-          fileName <- "correlations_primary_data/correlations_primary_data_co_essentiality.txt"
+          fileName <- "correlations_primary_data/final_table_co_essentiality_filtered.tsv"
           files <- c(fileName,files)
         }
         if("Co-Expression" %in% input$correlationsDownloadPrimaryTablesCheck){
-          fileName <- "correlations_primary_data/correlations_primary_data_co_expression.txt"
+          fileName <- "correlations_primary_data/final_table_co_expression_filtered.tsv"
           files <- c(fileName,files)
         }
         shiny::incProgress(1/2)

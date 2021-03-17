@@ -582,11 +582,7 @@ observeEvent(input$expressionDataCheckGeneAll, {
 
 output$expressionDataButtonDownload <- downloadHandler(
   filename = function() {
-    if(isTRUE(input$expressionDataCheckGeneAll)){
-      paste0(paste(c("expresssion_all_genes_", local(input$expressionDataTissueSelect), local(input$expressionDataCellLineSelect)),  collapse="_"), ".txt")
-    }else{
-      str_replace_all(string = paste0("expression_", paste(local(input$expressionDataGeneSelect),collapse="_"), ".txt"), pattern = " ", replacement = "_")
-    }
+    "crisprepo_expression_data.txt"
   },
   content = function(file) {
     df <- expressionDataDataFrame()
@@ -638,7 +634,7 @@ output$expressionDataButtonDownloadPrimaryTables <- downloadHandler(
         shiny::incProgress(1/2)
         if(!is.null(files)){
           #create the zip file
-          zip(file,files)
+          zip(file,files, compression_level = 2)
         }else{
           NULL
         }

@@ -1268,12 +1268,7 @@ observeEvent(input$gwsGeneGeneInputFile, {
 
 output$gwsGeneButtonDownload <- downloadHandler(
   filename = function() {
-    table <- gwsGeneDataFrame()
-    if(input$gwsGeneSpeciesSelect == "all"){
-      paste0(paste(c(table$Symbol_human %>% unique, table$Symbol_mouse %>% unique),collapse="_"), ".txt")
-    }else{
-      paste0(paste(table$symbol %>% unique,collapse="_"), ".txt")
-    }
+    "crisprepo_gene_search.txt"
   },
   content = function(file) {
     table <- gwsGeneDataFrame()

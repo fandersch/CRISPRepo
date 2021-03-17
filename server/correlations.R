@@ -290,7 +290,7 @@ observeEvent(input$correlationsDownloadCheck, {
 
 output$correlationsButtonDownload <- downloadHandler(
   filename = function() {
-    paste0("correlations_", paste(input$correlationsGeneSelect,collapse="_"), ".zip")
+    "correlations.zip"
   },
   content = function(file) {
     
@@ -302,7 +302,7 @@ output$correlationsButtonDownload <- downloadHandler(
     if("Dependency <> Expression" %in% input$correlationsDownloadCheck & nrow(correlationsDependencyExpressionTable())>0){
       #write each sheet to a csv file, save the name
       table <- correlationsDependencyExpressionTable()
-      fileName <- str_replace(str_replace(paste0(paste(input$correlationsGeneSelect,collapse="_"), "_dependency_expression.txt"), " (", "_"), ")", "")
+      fileName <- "dependency_expression.txt"
       write.table(table,fileName, row.names = F, col.names = T)
       files <- c(fileName,files)
     }
@@ -310,7 +310,7 @@ output$correlationsButtonDownload <- downloadHandler(
     if("Co-Essentiality" %in% input$correlationsDownloadCheck & nrow(correlationsCoEssentialityTable())>0){
       #write each sheet to a csv file, save the name
       table <- correlationsCoEssentialityTable()
-      fileName <- str_replace(str_replace(paste0(paste(input$correlationsGeneSelect,collapse="_"), "_co_essentiality.txt"), " (", "_"), ")", "")
+      fileName <- "co_essentiality.txt"
       write.table(table,fileName, row.names = F, col.names = T)
       files <- c(fileName,files)
     }
@@ -318,7 +318,7 @@ output$correlationsButtonDownload <- downloadHandler(
     if("Co-Expression" %in% input$correlationsDownloadCheck & nrow(correlationsCoExpressionTable())>0){
       #write each sheet to a csv file, save the name
       table <- correlationsCoExpressionTable()
-      fileName <- str_replace(str_replace(paste0(paste(input$correlationsGeneSelect,collapse="_"), "_co_expression.txt"), " (", "_"), ")", "")
+      fileName <- "co_expression.txt"
       write.table(table,fileName, row.names = F, col.names = T)
       files <- c(fileName,files)
     }
@@ -357,7 +357,7 @@ output$correlationsButtonDownloadPrimaryTables <- downloadHandler(
         shiny::incProgress(1/2)
         if(!is.null(files)){
           #create the zip file
-          zip(file,files)
+          zip(file,files, compression_level = 2)
         }else{
           NULL
         }

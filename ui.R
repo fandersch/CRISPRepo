@@ -415,9 +415,12 @@ body <- dashboardBody(
                                         label = "Load data!"
                            )
                          )),
-                     downloadButton(width = NULL, 
-                                    outputId = "sgRNAInfoButtonDownload",
-                                    label = "Download displayed tables")
+                     box(width = NULL, solidHeader = TRUE,
+                         downloadButton(width = NULL, 
+                                        outputId = "sgRNAInfoButtonDownload",
+                                        label = "Download displayed tables"
+                        )
+                     )
               )
             )
     ),

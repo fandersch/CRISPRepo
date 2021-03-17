@@ -29,6 +29,7 @@ library(shinycssloaders)
 library(shinyjs)
 library(readxl)
 library(DBI)
+library(zip)
 
 con <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "screen.db")
 

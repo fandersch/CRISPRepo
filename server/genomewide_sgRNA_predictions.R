@@ -212,7 +212,7 @@ observeEvent(input$sgRNAsGeneInputFile, {
 
 output$sgRNAsButtonDownload <- downloadHandler(
   filename = function() {
-    paste0(paste(input$sgRNAsGeneSelect,collapse="_"), ".txt")
+    "crisprepo_sgRNAs.txt"
   },
   content = function(file) {
     sgRNAsTable() %>% write_tsv(file)

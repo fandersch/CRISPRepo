@@ -985,11 +985,7 @@ observeEvent(input$gwsBrowseScreenCancelModal, {
 
 output$gwsBrowseScreenButtonDownload <- downloadHandler(
   filename = function() {
-    if(isTRUE(input$gwsBrowseScreenCheckContrastAll)){
-      paste0(paste(c("all_contrasts", local(input$gwsBrowseScreenTissueSelect), local(input$gwsBrowseScreenCellLineSelect), local(input$gwsBrowseScreenLibrarySelect)),  collapse="_"), ".txt")
-    }else{
-      paste0(paste(local(input$gwsBrowseScreenContrastSelect),collapse="_"), ".txt")
-    }
+    "crisprepo_browse_screen.txt"
   },
   content = function(file) {
     
@@ -1127,7 +1123,7 @@ output$gwsBrowseScreenButtonDownloadPrimaryTables <- downloadHandler(
         shiny::incProgress(1/2)
         if(!is.null(files)){
           #create the zip file
-          zip(file,files)
+          zip(file,files, compression_level = 2)
         }else{
           NULL
         }

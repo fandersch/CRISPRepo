@@ -579,8 +579,7 @@ observeEvent(input$sgRNAInfoCheckGuideAll, {
 output$sgRNAInfoButtonDownload <- downloadHandler(
   
   filename = function() {
-    table <- sgRNAInfoTableValidations()
-    paste0(paste(input$sgRNAInfoSelectGene %>% unique,collapse="_"), ".zip")
+    "crisprepo_sgRNA_info.zip"
   },
   content = function(file){
     #go to a temp dir to avoid permission issues
@@ -589,21 +588,21 @@ output$sgRNAInfoButtonDownload <- downloadHandler(
     files <- NULL;
     #write each sheet to a csv file, save the name
     table <- sgRNAInfoTableScreens()
-    fileName <- paste0(paste(input$sgRNAInfoSelectGene %>% unique,collapse="_"), "_screens.txt")
+    fileName <- "crisprepo_sgRNA_data.txt"
     write.table(table,fileName, row.names = F, col.names = T)
     files <- c(fileName,files)
     
     table <- sgRNAInfoTablePredictions()
-    fileName <- paste0(paste(input$sgRNAInfoSelectGene %>% unique,collapse="_"), "_predictions.txt")
+    fileName <- "crisprepo_sgRNA_prediction_scores.txt"
     write.table(table,fileName, row.names = F, col.names = T)
     files <- c(fileName,files)
     
     table <- sgRNAInfoTableValidations()
-    fileName <- paste0(paste(input$sgRNAInfoSelectGene %>% unique,collapse="_"), "_validations.txt")
+    fileName <- "crisprepo_sgRNA_validation_scores.txt"
     write.table(table,fileName, row.names = F, col.names = T)
     files <- c(fileName,files)
     #create the zip file
-    zip(file,files)
+    zip(file,files, compression_level = 2)
   }
   
 )

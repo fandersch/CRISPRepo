@@ -29,7 +29,6 @@ library(shinycssloaders)
 library(shinyjs)
 library(readxl)
 library(DBI)
-install.packages("zip", repos="https://cran.wu.ac.at/")
 library(zip)
 
 con <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "screen.db")
@@ -124,12 +123,16 @@ dict_joined <- read_tsv("dict/dict_joined.txt") %>%
 essentialome <- read_tsv("essentialome_file_shiny.txt", col_names = T)
 
 #distinguish between internal and external verson
+all_types <- contrasts %>%
+  collect %>%
+  .$type %>%
+  unique
+
+#distinguish between internal and external verson
 if("hs_gw_zuber_v2" %in% (libraries %>% collect %>% .$library_id)){
   view <- "internal"
-  dataset_selection_all <- list("dropout" = "dropout", "drug_modifier" = "drug_modifier", "facs_based" = "facs_based")
+  dataset_selection_all <- setNames(all_types, all_types)
 }else{
   view <- "external"
   dataset_selection_all <- list("dropout" = "dropout")
 }
-
-

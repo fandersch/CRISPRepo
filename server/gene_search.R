@@ -192,7 +192,7 @@ gwsGeneDataFrame <- reactive({
   #specify which table to select
   if(input$gwsGeneSearchRadio == "guide_id"){
     tableSelect <- "guide_stats"
-    search_radio <- "guide_id, gene_id"
+    search_radio <- "guide_id, id_entrez_23mer, gene_id"
   }else{
     tableSelect <- "gene_stats"
     search_radio <- "gene_id"
@@ -328,8 +328,8 @@ gwsGeneDataFrame <- reactive({
     #join guide ranks
     df <- df %>%
       left_join(features_buff, by = c("gene_id", "guide_id")) %>%
-      dplyr::select(contrast_id, contrast_id_QC, guide_id, gene_id, local(input$gwsGeneIndexRadio), symbol, entrez_id, sequence, species) %>%
-      left_join(sgRNAs, by="guide_id") %>%
+      dplyr::select(contrast_id, contrast_id_QC, guide_id, id_entrez_23mer, gene_id, local(input$gwsGeneIndexRadio), symbol, entrez_id, sequence, species) %>%
+      left_join(sgRNAs, by=c("id_entrez_23mer" = "guide_id")) %>%
       distinct() %>%
       mutate_at(c(local(input$gwsGeneIndexRadio)), round, 3) %>%
       arrange(symbol)
@@ -369,15 +369,21 @@ gwsGeneDataFrame <- reactive({
   df <- df %>%
     anti_join(remove_duplicates)
   
-  if (nrow(df) > 0) {
+  if(nrow(df) > 0) {
     presel_contrasts <- df$contrast_id %>% unique
     
     dt <- df %>%
       dplyr::select(contrast_id, matches("entrez_id"), matches("symbol"), matches("Symbol_human"), matches("EntrezID_human"), 
                     matches("Symbol_mouse"), matches("EntrezID_mouse"), local(input$gwsGeneIndexRadio), matches("sequence"), 
-             matches("Length"), matches("guide_id"), matches("VBC-score"), matches("rank_overall"), matches("rank_validation")) %>%
+             matches("Length"), matches("guide_id"), matches("id_entrez_23mer"), matches("VBC-score"), matches("rank_overall"), matches("rank_validation")) %>%
       pivot_wider(names_fro="contrast_id", values_from=local(input$gwsGeneIndexRadio))
       # distinct() %>%
+    
+    if(input$gwsBrowseScreenSearchRadio == "guide_id"){
+      dt <- dt %>%
+        mutate(guide_id = id_entrez_23mer)
+        dplyr::select(-id_entrez_23mer)
+    }
     
     if(input$gwsGeneSearchRadio == "gene_id" & !is.null(local(input$gwsGeneInclude)) & length(local(input$gwsGeneInclude))!=0){
       column <- local(input$gwsGeneInclude)
@@ -618,7 +624,7 @@ gwsGeneTissueList <- reactive({
     speciesList <- input$gwsGeneSpeciesSelect
   }
   
-  pheno %>%
+  contrasts %>%
     dplyr::filter(species %in% speciesList, type %in% input$gwsGeneDatasetSelect) %>%
     dplyr::select(tissue_name) %>%
     distinct() %>%
@@ -636,21 +642,21 @@ gwsGeneCellLineList <- reactive({
     }
     
     #get selected tissue
-    preselTissue <- pheno %>%
+    preselTissue <- contrasts %>%
       dplyr::filter(species %in%  speciesList, type %in% input$gwsGeneDatasetSelect) %>%
       dplyr::select(tissue_name) %>%
       distinct() %>%
       .$tissue_name
     
     if(!isTRUE(input$gwsGeneCheckTissueAll) & !is.null(input$gwsGeneTissueSelect)){
-      preselTissue <- pheno %>%
+      preselTissue <- contrasts %>%
         dplyr::filter(species %in%  speciesList, type %in% input$gwsGeneDatasetSelect, tissue_name %in% input$gwsGeneTissueSelect) %>%
         dplyr::select(tissue_name) %>%
         distinct() %>%
         .$tissue_name
     }
     
-    pheno %>%
+    contrasts %>%
       dplyr::filter(species %in% speciesList, type %in% input$gwsGeneDatasetSelect, tissue_name %in% preselTissue) %>%
       dplyr::select(cellline_name) %>%
       distinct %>%
@@ -669,14 +675,14 @@ gwsGeneLibraryList <- reactive({
     }
     
     #get selected tissue
-    preselTissue <- pheno %>%
+    preselTissue <- contrasts %>%
       dplyr::filter(species %in%  speciesList, type %in% input$gwsGeneDatasetSelect) %>%
       dplyr::select(tissue_name) %>%
       distinct() %>%
       .$tissue_name
     
     if(!isTRUE(input$gwsGeneCheckTissueAll) & !is.null(input$gwsGeneTissueSelect)){
-      preselTissue <- pheno %>%
+      preselTissue <- contrasts %>%
         dplyr::filter(species %in%  speciesList, type %in% input$gwsGeneDatasetSelect, tissue_name %in% input$gwsGeneTissueSelect) %>%
         dplyr::select(tissue_name) %>%
         distinct() %>%
@@ -684,7 +690,7 @@ gwsGeneLibraryList <- reactive({
     }
     
     #get selected cell line
-    preselCellline <- pheno %>%
+    preselCellline <- contrasts %>%
       dplyr::filter(species %in% speciesList, type %in% input$gwsGeneDatasetSelect, tissue_name %in% preselTissue) %>%
       dplyr::select(cellline_name) %>%
       arrange(cellline_name) %>%
@@ -692,7 +698,7 @@ gwsGeneLibraryList <- reactive({
       .$cellline_name
     
     if(!isTRUE(input$gwsGeneCheckCellLineAll) & !is.null(input$gwsGeneCellLineSelect)){
-      preselCellline  <- pheno %>%
+      preselCellline  <- contrasts %>%
         dplyr::filter(species %in% speciesList, type %in% input$gwsGeneDatasetSelect, tissue_name %in% preselTissue, cellline_name %in% input$gwsGeneCellLineSelect) %>%
         dplyr::select(cellline_name) %>%
         distinct %>%
@@ -722,14 +728,14 @@ gwsGeneContrastList <- reactive({
     }
     
     #get selected tissue
-    preselTissue <- pheno %>%
+    preselTissue <- contrasts %>%
       dplyr::filter(species %in%  speciesList, type %in% input$gwsGeneDatasetSelect) %>%
       dplyr::select(tissue_name) %>%
       distinct() %>%
       .$tissue_name
     
     if(!isTRUE(input$gwsGeneCheckTissueAll) & !is.null(input$gwsGeneTissueSelect)){
-      preselTissue <- pheno %>%
+      preselTissue <- contrasts %>%
         dplyr::filter(species %in%  speciesList, type %in% input$gwsGeneDatasetSelect, tissue_name %in% input$gwsGeneTissueSelect) %>%
         dplyr::select(tissue_name) %>%
         distinct() %>%
@@ -737,14 +743,14 @@ gwsGeneContrastList <- reactive({
     }
     
     #get selected cell line
-    preselCellline <- pheno %>%
+    preselCellline <- contrasts %>%
       dplyr::filter(species %in% speciesList, type %in% input$gwsGeneDatasetSelect, tissue_name %in% preselTissue) %>%
       dplyr::select(cellline_name) %>%
       arrange(cellline_name) %>%
       .$cellline_name
     
     if(!isTRUE(input$gwsGeneCheckCellLineAll) & !is.null(input$gwsGeneCellLineSelect)){
-      preselCellline  <- pheno %>%
+      preselCellline  <- contrasts %>%
         dplyr::filter(species %in% speciesList, type %in% input$gwsGeneDatasetSelect, tissue_name %in% preselTissue, cellline_name %in% input$gwsGeneCellLineSelect) %>%
         dplyr::select(cellline_name) %>%
         arrange(cellline_name) %>%
@@ -806,14 +812,14 @@ gwsGeneGeneList <- reactive({
     }
     
     #get selected tissue
-    preselTissue <- pheno %>%
+    preselTissue <- contrasts %>%
       dplyr::filter(species %in%  speciesList, type %in% input$gwsGeneDatasetSelect) %>%
       dplyr::select(tissue_name) %>%
       distinct() %>%
       .$tissue_name
     
     if(!isTRUE(input$gwsGeneCheckTissueAll) & !is.null(input$gwsGeneTissueSelect)){
-      preselTissue <- pheno %>%
+      preselTissue <- contrasts %>%
         dplyr::filter(species %in%  speciesList, type %in% input$gwsGeneDatasetSelect, tissue_name %in% input$gwsGeneTissueSelect) %>%
         dplyr::select(tissue_name) %>%
         distinct() %>%
@@ -821,14 +827,14 @@ gwsGeneGeneList <- reactive({
     }
     
     #get selected cell line
-    preselCellline <- pheno %>%
+    preselCellline <- contrasts %>%
       dplyr::filter(species %in% speciesList, type %in% input$gwsGeneDatasetSelect, tissue_name %in% preselTissue) %>%
       dplyr::select(cellline_name) %>%
       arrange(cellline_name) %>%
       .$cellline_name
     
     if(!isTRUE(input$gwsGeneCheckCellLineAll) & !is.null(input$gwsGeneCellLineSelect)){
-      preselCellline  <- pheno %>%
+      preselCellline  <- contrasts %>%
         dplyr::filter(species %in% speciesList, type %in% input$gwsGeneDatasetSelect, tissue_name %in% preselTissue, cellline_name %in% input$gwsGeneCellLineSelect) %>%
         dplyr::select(cellline_name) %>%
         arrange(cellline_name) %>%

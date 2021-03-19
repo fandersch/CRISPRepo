@@ -97,7 +97,7 @@ correlationsCoEssentialityTable <- reactive({
     left_join(co_essentiality_datapoints, by=c("entrez_id_x"="entrez_id", "symbol_x"="symbol")) %>%
     left_join(co_essentiality_datapoints, by=c("entrez_id_y"="entrez_id", "symbol_y"="symbol")) %>%
     dplyr::rename(datapoints_gene_x = datapoints.x, datapoints_gene_y = datapoints.y) %>%
-    filter(!is.na(datapoints_gene_x), !is.na(datapoints_gene_y))
+    filter(!is.na(datapoints_gene_x), !is.na(datapoints_gene_y), datapoints_gene_x >= input$correlationsSliderDatapoints, datapoints_gene_y >= input$correlationsSliderDatapoints)
   
   
   correlationsCoEssentiality
@@ -136,7 +136,7 @@ correlationsCoExpressionTable <- reactive({
     left_join(co_expression_datapoints, by=c("entrez_id_x"="entrez_id", "symbol_x"="symbol")) %>%
     left_join(co_expression_datapoints, by=c("entrez_id_y"="entrez_id", "symbol_y"="symbol")) %>%
     dplyr::rename(datapoints_gene_x = datapoints.x, datapoints_gene_y = datapoints.y) %>%
-    filter(!is.na(datapoints_gene_x), !is.na(datapoints_gene_y))
+    filter(!is.na(datapoints_gene_x), !is.na(datapoints_gene_y) ,datapoints_gene_x >= input$correlationsSliderDatapoints, datapoints_gene_y >= input$correlationsSliderDatapoints)
 
   
   correlationsCoExpression

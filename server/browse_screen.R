@@ -185,7 +185,7 @@ gwsBrowseScreenDataFrame <- reactive({
   
   if(input$gwsBrowseScreenSearchRadio == "guide_id"){
     tableSelect <- "guide_stats"
-    search_radio <- "guide_id, gene_id"
+    search_radio <- "guide_id, id_entrez_23mer, gene_id"
   }else{
     tableSelect <- "gene_stats"
     search_radio <- "gene_id"
@@ -266,7 +266,7 @@ gwsBrowseScreenDataFrame <- reactive({
   df <- df %>%
     left_join(contrast_buff, by = "contrast_id") %>%
     left_join(gene_list_screens, by = c("gene_id", "library_id")) %>%
-    dplyr::select(contrast_id, contrast_id_QC, contains("guide_id"), gene_id, local(input$gwsBrowseScreenIndexRadio), symbol, entrez_id, species, dplyr::one_of(statistics_columns_negative), dplyr::one_of(statistics_columns_positive)) %>%
+    dplyr::select(contrast_id, contrast_id_QC, contains("guide_id"), contains("id_entrez_23mer"), gene_id, local(input$gwsBrowseScreenIndexRadio), symbol, entrez_id, species, dplyr::one_of(statistics_columns_negative), dplyr::one_of(statistics_columns_positive)) %>%
     distinct()
   
   if(input$gwsBrowseScreenSpeciesSelect == "all"){
@@ -275,13 +275,13 @@ gwsBrowseScreenDataFrame <- reactive({
       dplyr::filter(species == "human") %>%
       left_join(dict_joined, by=c("symbol" = "Symbol_human")) %>%
       mutate(EntrezID_human = entrez_id) %>%
-      dplyr::select(contrast_id, contrast_id_QC, contains("guide_id"), gene_id, local(input$gwsBrowseScreenIndexRadio), Symbol_human = symbol, EntrezID_human, Symbol_mouse,  EntrezID_mouse, dplyr::one_of(statistics_columns_negative), dplyr::one_of(statistics_columns_positive))
+      dplyr::select(contrast_id, contrast_id_QC, contains("guide_id"), contains("id_entrez_23mer"), gene_id, local(input$gwsBrowseScreenIndexRadio), Symbol_human = symbol, EntrezID_human, Symbol_mouse,  EntrezID_mouse, dplyr::one_of(statistics_columns_negative), dplyr::one_of(statistics_columns_positive))
     
     df_mouse <- df %>% 
       dplyr::filter(species == "mouse") %>%
       left_join(dict_joined, by=c("symbol" = "Symbol_mouse")) %>%
       mutate(EntrezID_mouse = entrez_id) %>%
-      dplyr::select(contrast_id, contrast_id_QC, contains("guide_id"), gene_id, local(input$gwsBrowseScreenIndexRadio), Symbol_human, EntrezID_human, Symbol_mouse = symbol, EntrezID_mouse, dplyr::one_of(statistics_columns_negative), dplyr::one_of(statistics_columns_positive))
+      dplyr::select(contrast_id, contrast_id_QC, contains("guide_id"), contains("id_entrez_23mer"), gene_id, local(input$gwsBrowseScreenIndexRadio), Symbol_human, EntrezID_human, Symbol_mouse = symbol, EntrezID_mouse, dplyr::one_of(statistics_columns_negative), dplyr::one_of(statistics_columns_positive))
     
     df <- df_human %>% rbind(df_mouse)
     
@@ -325,7 +325,7 @@ gwsBrowseScreenDataTable <- eventReactive(input$gwsBrowseScreenLoadButton,{
     
     if(local(input$gwsBrowseScreenSpeciesSelect) == "all"){
       dt <- df %>%
-        dplyr::select(contrast_id, contains("guide_id"), gene_id, Symbol_human, EntrezID_human, Symbol_mouse, EntrezID_mouse, input$gwsBrowseScreenIndexRadio) %>%
+        dplyr::select(contrast_id, contains("guide_id"), contains("id_entrez_23mer"), gene_id, Symbol_human, EntrezID_human, Symbol_mouse, EntrezID_mouse, input$gwsBrowseScreenIndexRadio) %>%
         pivot_wider(names_from=contrast_id, values_from=input$gwsBrowseScreenIndexRadio) %>%
         arrange(Symbol_human, Symbol_mouse) %>%
         dplyr::select(Symbol_human, EntrezID_human, Symbol_mouse, EntrezID_mouse=EntrezID_mouse, everything())
@@ -334,10 +334,15 @@ gwsBrowseScreenDataTable <- eventReactive(input$gwsBrowseScreenLoadButton,{
     
     }else{
       dt <- df %>%
-        dplyr::select(contrast_id, contains("guide_id"), gene_id, entrez_id, symbol, input$gwsBrowseScreenIndexRadio) %>%
-        pivot_wider(names_from=contrast_id, values_from=local(input$gwsBrowseScreenIndexRadio), values_fn = length) %>%
+        dplyr::select(contrast_id, contains("guide_id"), contains("id_entrez_23mer"), gene_id, entrez_id, symbol, input$gwsBrowseScreenIndexRadio) %>%
+        pivot_wider(names_from=contrast_id, values_from=local(input$gwsBrowseScreenIndexRadio)) %>%
         arrange(symbol)
-      
+    }
+    
+    if(input$gwsBrowseScreenSearchRadio == "guide_id"){
+      dt <- dt %>%
+        dplyr::mutate(guide_id = id_entrez_23mer) %>%
+        dplyr::select(-id_entrez_23mer)
     }
     
     genes_filter <- dt$gene_id %>% unique
@@ -524,7 +529,7 @@ gwsBrowseScreenTissueList <- reactive({
     speciesList <- input$gwsBrowseScreenSpeciesSelect
   }
   
-  pheno %>%
+  contrasts %>%
     dplyr::filter(species %in% speciesList, type %in% input$gwsBrowseScreenDatasetSelect) %>%
     dplyr::select(tissue_name) %>%
     distinct() %>%
@@ -543,21 +548,21 @@ gwsBrowseScreenCellLineList <- reactive({
     }
     
     #get selected tissue
-    preselTissue <- pheno %>%
+    preselTissue <- contrasts %>%
       dplyr::filter(species %in%  speciesList, type %in% input$gwsBrowseScreenDatasetSelect) %>%
       dplyr::select(tissue_name) %>%
       distinct() %>%
       .$tissue_name
     
     if(!isTRUE(input$gwsBrowseScreenCheckTissueAll) & !is.null(input$gwsBrowseScreenTissueSelect)){
-      preselTissue <- pheno %>%
+      preselTissue <- contrasts %>%
         dplyr::filter(species %in%  speciesList, type %in% input$gwsBrowseScreenDatasetSelect, tissue_name %in% input$gwsBrowseScreenTissueSelect) %>%
         dplyr::select(tissue_name) %>%
         distinct() %>%
         .$tissue_name
     }
     
-    pheno %>%
+    contrasts %>%
       dplyr::filter(species %in% speciesList, type %in% input$gwsBrowseScreenDatasetSelect, tissue_name %in% preselTissue) %>%
       dplyr::select(cellline_name) %>%
       distinct %>%
@@ -575,14 +580,14 @@ gwsBrowseScreenLibraryList <- reactive({
     }
     
     #get selected tissue
-    preselTissue <- pheno %>%
+    preselTissue <- contrasts %>%
       dplyr::filter(species %in%  speciesList, type %in% input$gwsBrowseScreenDatasetSelect) %>%
       dplyr::select(tissue_name) %>%
       distinct() %>%
       .$tissue_name
     
     if(!isTRUE(input$gwsBrowseScreenCheckTissueAll) & !is.null(input$gwsBrowseScreenTissueSelect)){
-      preselTissue <- pheno %>%
+      preselTissue <- contrasts %>%
         dplyr::filter(species %in%  speciesList, type %in% input$gwsBrowseScreenDatasetSelect, tissue_name %in% input$gwsBrowseScreenTissueSelect) %>%
         dplyr::select(tissue_name) %>%
         distinct() %>%
@@ -590,7 +595,7 @@ gwsBrowseScreenLibraryList <- reactive({
     }
     
     #get selected cell line
-    preselCellline <- pheno %>%
+    preselCellline <- contrasts %>%
       dplyr::filter(species %in% speciesList, type %in% input$gwsBrowseScreenDatasetSelect, tissue_name %in% preselTissue) %>%
       dplyr::select(cellline_name) %>%
       arrange(cellline_name) %>%
@@ -598,7 +603,7 @@ gwsBrowseScreenLibraryList <- reactive({
       .$cellline_name
       
     if(!isTRUE(input$gwsBrowseScreenCheckCellLineAll) & !is.null(input$gwsBrowseScreenCellLineSelect)){
-      preselCellline  <- pheno %>%
+      preselCellline  <- contrasts %>%
         dplyr::filter(species %in% speciesList, type %in% input$gwsBrowseScreenDatasetSelect, tissue_name %in% preselTissue, cellline_name %in% input$gwsBrowseScreenCellLineSelect) %>%
         dplyr::select(cellline_name) %>%
         distinct %>%
@@ -628,14 +633,14 @@ gwsBrowseScreenContrastList <- reactive({
     }
     
     #get selected tissue
-    preselTissue <- pheno %>%
+    preselTissue <- contrasts %>%
       dplyr::filter(species %in%  speciesList, type %in% input$gwsBrowseScreenDatasetSelect) %>%
       dplyr::select(tissue_name) %>%
       distinct() %>%
       .$tissue_name
     
     if(!isTRUE(input$gwsBrowseScreenCheckTissueAll) & !is.null(input$gwsBrowseScreenTissueSelect)){
-      preselTissue <- pheno %>%
+      preselTissue <- contrasts %>%
         dplyr::filter(species %in%  speciesList, type %in% input$gwsBrowseScreenDatasetSelect, tissue_name %in% input$gwsBrowseScreenTissueSelect) %>%
         dplyr::select(tissue_name) %>%
         distinct() %>%
@@ -643,14 +648,14 @@ gwsBrowseScreenContrastList <- reactive({
     }
     
     #get selected cell line
-    preselCellline <- pheno %>%
+    preselCellline <- contrasts %>%
       dplyr::filter(species %in% speciesList, type %in% input$gwsBrowseScreenDatasetSelect, tissue_name %in% preselTissue) %>%
       dplyr::select(cellline_name) %>%
       arrange(cellline_name) %>%
       .$cellline_name
     
     if(!isTRUE(input$gwsBrowseScreenCheckCellLineAll) & !is.null(input$gwsBrowseScreenCellLineSelect)){
-      preselCellline  <- pheno %>%
+      preselCellline  <- contrasts %>%
         dplyr::filter(species %in% speciesList, type %in% input$gwsBrowseScreenDatasetSelect, tissue_name %in% preselTissue, cellline_name %in% input$gwsBrowseScreenCellLineSelect) %>%
         dplyr::select(cellline_name) %>%
         arrange(cellline_name) %>%

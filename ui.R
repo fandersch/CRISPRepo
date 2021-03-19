@@ -714,6 +714,14 @@ body <- dashboardBody(
                          max = 0.8,
                          value = 0.6
                        ),
+                       sliderInput(
+                         "correlationsSliderDatapoints", 
+                         "Minimum amount of available datapoints for correlation:",
+                         min = 10,
+                         max = 500,
+                         value = 150,
+                         step = 1
+                       ),
                        disabled(
                          actionButton(inputId = "correlationsLoadButton", 
                                       label = "Load data!"

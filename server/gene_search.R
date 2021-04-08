@@ -379,9 +379,9 @@ gwsGeneDataFrame <- reactive({
       pivot_wider(names_fro="contrast_id", values_from=local(input$gwsGeneIndexRadio))
       # distinct() %>%
     
-    if(input$gwsBrowseScreenSearchRadio == "guide_id"){
+    if(input$gwsGeneSearchRadio == "guide_id"){
       dt <- dt %>%
-        mutate(guide_id = id_entrez_23mer)
+        mutate(guide_id = id_entrez_23mer) %>%
         dplyr::select(-id_entrez_23mer)
     }
     

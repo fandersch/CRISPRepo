@@ -79,13 +79,9 @@ correlationsCoEssentialityTable <- reactive({
   presel_gene_symbol <- unlist(presel_genes)[c(TRUE, FALSE)] %>% trimws()
   presel_gene_entrez <- unlist(presel_genes)[c(FALSE, TRUE)] %>% as.numeric
   
-  co_essentiality_datapoints <- con_correlations %>%
-    tbl("co_essentiality_datapoints") %>%
-    collect
-  
   correlationsCoEssentiality <- con_correlations %>%
     tbl("co_essentiality") %>%
-    dplyr::filter(entrez_id_x %in% presel_gene_entrez) %>%
+    dplyr::filter(entrez_id_x %in% presel_gene_entrez, obs >= local(input$correlationsSliderDatapoints)) %>%
     collect() %>%
     group_by(entrez_id_x) %>%
     mutate(n_coeff_above_0.6 = sum(abs(cor_coeff) >= 0.6)) %>% 
@@ -93,12 +89,7 @@ correlationsCoEssentialityTable <- reactive({
     mutate(rank = row_number()) %>%
     filter(rank <= 20 | abs(cor_coeff) >= input$correlationsSliderCoeff) %>%
     select(-rank) %>%
-    ungroup %>%
-    left_join(co_essentiality_datapoints, by=c("entrez_id_x"="entrez_id", "symbol_x"="symbol")) %>%
-    left_join(co_essentiality_datapoints, by=c("entrez_id_y"="entrez_id", "symbol_y"="symbol")) %>%
-    dplyr::rename(datapoints_gene_x = datapoints.x, datapoints_gene_y = datapoints.y) %>%
-    filter(!is.na(datapoints_gene_x), !is.na(datapoints_gene_y), datapoints_gene_x >= input$correlationsSliderDatapoints, datapoints_gene_y >= input$correlationsSliderDatapoints)
-  
+    ungroup
   
   correlationsCoEssentiality
 })
@@ -118,26 +109,17 @@ correlationsCoExpressionTable <- reactive({
   presel_gene_symbol <- unlist(presel_genes)[c(TRUE, FALSE)] %>% trimws()
   presel_gene_entrez <- unlist(presel_genes)[c(FALSE, TRUE)] %>% as.numeric
   
-  co_expression_datapoints <- con_correlations %>%
-    tbl("co_expression_datapoints") %>%
-    collect
-  
   correlationsCoExpression <- con_correlations %>%
     tbl("co_expression") %>%
-    dplyr::filter(entrez_id_x %in% presel_gene_entrez) %>%
+    dplyr::filter(entrez_id_x %in% presel_gene_entrez, obs >= local(input$correlationsSliderDatapoints)) %>%
     collect() %>%
-    group_by(entrez_id_x) %>%
+    group_by(entrez_id_x, dataset) %>%
     mutate(n_coeff_above_0.6 = sum(abs(cor_coeff) >= 0.6)) %>% 
     arrange(desc(abs(cor_coeff))) %>%
     mutate(rank = row_number()) %>%
     filter(rank <= 20 | abs(cor_coeff) >= input$correlationsSliderCoeff) %>%
     select(-rank) %>%
-    ungroup %>%
-    left_join(co_expression_datapoints, by=c("entrez_id_x"="entrez_id", "symbol_x"="symbol")) %>%
-    left_join(co_expression_datapoints, by=c("entrez_id_y"="entrez_id", "symbol_y"="symbol")) %>%
-    dplyr::rename(datapoints_gene_x = datapoints.x, datapoints_gene_y = datapoints.y) %>%
-    filter(!is.na(datapoints_gene_x), !is.na(datapoints_gene_y) ,datapoints_gene_x >= input$correlationsSliderDatapoints, datapoints_gene_y >= input$correlationsSliderDatapoints)
-
+    ungroup
   
   correlationsCoExpression
 })

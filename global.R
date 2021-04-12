@@ -39,6 +39,9 @@ con_sgRNAs <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "sgRNAs.db")
 
 con_correlations <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "correlations.db")
 
+con_correlations_tissue <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "correlations_tissue.db")
+
+
 
 pheno <- con %>%
   tbl("pheno")
@@ -114,6 +117,18 @@ gene_list_correlations <- con_correlations %>%
   tbl("genes") %>%
   collect %>%
   .$gene
+
+gene_list_correlations_tissue <- con_correlations_tissue %>%
+  tbl("genes") %>%
+  collect %>%
+  .$gene
+
+tissue_list_correlations_tissue <- con_correlations_tissue %>%
+  tbl("tissues") %>%
+  collect %>%
+  .$tissue
+
+tissue_list_correlations_tissue <- c("All", tissue_list_correlations_tissue)
 
 #load dictionary
 dict_joined <- read_tsv("dict/dict_joined.txt") %>%

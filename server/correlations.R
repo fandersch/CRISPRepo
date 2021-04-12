@@ -45,9 +45,17 @@ correlationsDependencyExpressionTable <- reactive({
   presel_gene_symbol <- unlist(presel_genes)[c(TRUE, FALSE)] %>% trimws()
   presel_gene_entrez <- unlist(presel_genes)[c(FALSE, TRUE)] %>% as.numeric
   
-  correlationsDependencyExpression <- con_correlations %>%
-    tbl("dependency_to_expression") %>%
-    dplyr::filter(entrez_id_x %in% presel_gene_entrez) %>%
+  if(input$correlationsTissueSelect == "All"){
+    correlationsDependencyExpression <- con_correlations %>%
+      tbl("dependency_to_expression") %>%
+      dplyr::filter(entrez_id_x %in% presel_gene_entrez, obs >= local(input$correlationsSliderDatapoints))
+  }else{
+    correlationsDependencyExpression <- con_correlations_tissue %>%
+      tbl("dependency_to_expression") %>%
+      dplyr::filter(tissue %in% local(input$correlationsTissueSelect), entrez_id_x %in% presel_gene_entrez, obs >= local(input$correlationsSliderDatapoints))
+  }
+  
+  correlationsDependencyExpression <- correlationsDependencyExpression %>%
     collect() %>%
     group_by(entrez_id_x, dataset) %>%
     arrange(desc(abs(cor_coeff))) %>%
@@ -79,9 +87,17 @@ correlationsCoEssentialityTable <- reactive({
   presel_gene_symbol <- unlist(presel_genes)[c(TRUE, FALSE)] %>% trimws()
   presel_gene_entrez <- unlist(presel_genes)[c(FALSE, TRUE)] %>% as.numeric
   
-  correlationsCoEssentiality <- con_correlations %>%
-    tbl("co_essentiality") %>%
-    dplyr::filter(entrez_id_x %in% presel_gene_entrez, obs >= local(input$correlationsSliderDatapoints)) %>%
+  if(input$correlationsTissueSelect == "All"){
+    correlationsCoEssentiality <- con_correlations %>%
+      tbl("co_essentiality") %>%
+      dplyr::filter(entrez_id_x %in% presel_gene_entrez, obs >= local(input$correlationsSliderDatapoints))
+  }else{
+    correlationsCoEssentiality <- con_correlations_tissue %>%
+      tbl("co_essentiality") %>%
+      dplyr::filter(tissue %in% local(input$correlationsTissueSelect), entrez_id_x %in% presel_gene_entrez, obs >= local(input$correlationsSliderDatapoints))
+  }
+  
+  correlationsCoEssentiality <- correlationsCoEssentiality %>%
     collect() %>%
     group_by(entrez_id_x) %>%
     mutate(n_coeff_above_0.6 = sum(abs(cor_coeff) >= 0.6)) %>% 
@@ -109,9 +125,17 @@ correlationsCoExpressionTable <- reactive({
   presel_gene_symbol <- unlist(presel_genes)[c(TRUE, FALSE)] %>% trimws()
   presel_gene_entrez <- unlist(presel_genes)[c(FALSE, TRUE)] %>% as.numeric
   
-  correlationsCoExpression <- con_correlations %>%
-    tbl("co_expression") %>%
-    dplyr::filter(entrez_id_x %in% presel_gene_entrez, obs >= local(input$correlationsSliderDatapoints)) %>%
+  if(input$correlationsTissueSelect == "All"){
+    correlationsCoExpression <- con_correlations %>%
+      tbl("co_expression") %>%
+      dplyr::filter(entrez_id_x %in% presel_gene_entrez, obs >= local(input$correlationsSliderDatapoints))
+  }else{
+    correlationsCoExpression <- con_correlations_tissue %>%
+      tbl("co_expression") %>%
+      dplyr::filter(tissue %in% local(input$correlationsTissueSelect), entrez_id_x %in% presel_gene_entrez, obs >= local(input$correlationsSliderDatapoints))
+  }
+  
+  correlationsCoExpression <- correlationsCoExpression %>%
     collect() %>%
     group_by(entrez_id_x, dataset) %>%
     mutate(n_coeff_above_0.6 = sum(abs(cor_coeff) >= 0.6)) %>% 
@@ -226,6 +250,17 @@ observeEvent(input$correlationsLoadButton, {
     correlationsCoExpressionTableOutput()
   })
 })
+
+observeEvent(input$correlationsTissueSelect, {
+  if(input$correlationsTissueSelect == "All"){
+    updateSelectizeInput(session, 'correlationsGeneSelect', choices = gene_list_correlations_tissue, server = TRUE)
+    updateSliderInput(session, "correlationsSliderDatapoints", min = 10, max = 500, value = 150, step = 1)
+  }else{
+    updateSelectizeInput(session, 'correlationsGeneSelect', choices = gene_list_correlations, server = TRUE)
+    updateSliderInput(session, "correlationsSliderDatapoints", min = 10, max = 500, value = 10, step = 1)
+  }
+  
+}, ignoreNULL = FALSE)
 
 observeEvent(input$correlationsGeneSelect, {
   if((!is.null(input$correlationsGeneSelect)) | !is.null(correlationsGeneInputFile$data)){

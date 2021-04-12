@@ -101,6 +101,7 @@ function(input, output, session) {
   
   source(file = "server/correlations.R", local = T)
   updateSelectizeInput(session, 'correlationsGeneSelect', choices = gene_list_correlations, server = TRUE)
+  updateSelectizeInput(session, 'correlationsTissueSelect', choices = tissue_list_correlations_tissue, server = TRUE)
   
   # ----------------------------------------------------------------------------
   # Header callback

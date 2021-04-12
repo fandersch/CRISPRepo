@@ -697,6 +697,13 @@ body <- dashboardBody(
               column(width = 3,
                      box(width = NULL, solidHeader = TRUE,
                        selectizeInput(
+                         inputId = "correlationsTissueSelect",
+                         label = "Tissue:",
+                         choices = NULL,
+                         multiple = FALSE,
+                         selected = NULL
+                       ),
+                       selectizeInput(
                          inputId = "correlationsGeneSelect",
                          label = "Gene:",
                          choices = NULL,

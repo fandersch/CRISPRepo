@@ -259,7 +259,7 @@ observeEvent(input$correlationsTissueSelect, {
     updateSelectizeInput(session, 'correlationsGeneSelect', choices = gene_list_correlations, server = TRUE)
     updateSliderInput(session, "correlationsSliderDatapoints", min = 10, max = 500, value = 10, step = 1)
   }
-  
+  correlationsUpdateText()
 }, ignoreNULL = FALSE)
 
 observeEvent(input$correlationsGeneSelect, {

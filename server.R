@@ -29,7 +29,9 @@ function(input, output, session) {
   
   output$dualSgRNAsSidebar <- renderMenu({
     if(view == "internal")
-      menuItem(text = "Dual sgRNA design", tabName = "dualSgRNAsSidebar")
+      menuItem(text = "Dual sgRNA design", tabName = "dualSgRNAsSidebar", startExpanded=TRUE,
+             menuSubItem(text = "Predict combinations", tabName = "dualSgRNAsPredictCombinationsSidebar", selected = TRUE), 
+             menuSubItem(text = "Top combinations per gene", tabName = "dualSgRNAsTopCombinationsSidebar"))
   })
   
   output$expressionDataSidebar <- renderMenu({
@@ -82,6 +84,7 @@ function(input, output, session) {
   # ----------------------------------------------------------------------------
   
   source(file = "server/dual_sgRNA_design.R", local = T)
+  source(file = "server/dual_sgRNA_design_top_pairs.R", local = T)
 
   # ----------------------------------------------------------------------------
   # ExpressionData
@@ -131,5 +134,20 @@ function(input, output, session) {
     "  });",
     "}"
   )
+  
+  # ----------------------------------------------------------------------------
+  # update species select boxes
+  # ----------------------------------------------------------------------------
+  
+  updateSpecies <- function(species){
+    updateSelectizeInput(session, 'gwsBrowseScreenSpeciesSelect', choices = list("Human" = "human", "Mouse" = "mouse"), selected = species, server = TRUE)
+    updateSelectizeInput(session, 'gwsGeneSpeciesSelect', choices = list("Human" = "human", "Mouse" = "mouse", "All"="all"), selected = species, server = TRUE)
+    updateSelectizeInput(session, 'libSpeciesSelect', choices = list("Human" = "human", "Mouse" = "mouse", "All"="all"), selected = species, server = TRUE)
+    updateSelectizeInput(session, 'sgRNAInfoSpeciesSelect', choices = list("Human" = "human", "Mouse" = "mouse", "All"="all"), selected = species, server = TRUE)
+    updateSelectizeInput(session, 'sgRNAsSpeciesSelect', choices = list("Human" = "human", "Mouse" = "mouse", "All"="all"), selected = species, server = TRUE)
+    updateSelectizeInput(session, 'dualSgRNAsTopCombinationsSpeciesSelect', choices = list("Human" = "human", "Mouse" = "mouse", "All"="all"), selected = species, server = TRUE)
+    updateSelectizeInput(session, 'expressionDataSpeciesSelect', choices = list("Human" = "human", "Mouse" = "mouse", "All"="all"), selected = species, server = TRUE)
+    updateSelectizeInput(session, 'essentialomeSpeciesSelect', choices = list("Human" = "human", "Mouse" = "mouse", "All"="all"), selected = species, server = TRUE)
+  }
   
 }

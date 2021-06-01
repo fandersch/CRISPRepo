@@ -92,7 +92,7 @@ if("hs_gw_zuber_v2" %in% (libraries %>% collect %>% .$library_id)){
     distinct %>%
     arrange(Symbol) %>%
     collect
-  
+
   gene_list_mouse <- con_sgRNAs %>%
     tbl("genes_mouse") %>%
     dplyr::select(Symbol, EntrezID) %>%

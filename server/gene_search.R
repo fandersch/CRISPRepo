@@ -955,8 +955,22 @@ observeEvent(input$gwsGeneSearchRadio, {
   if(input$gwsGeneSearchRadio == "guide_id"){
     disable("gwsGeneInclude")
     updateCheckboxInput(session, 'gwsGeneInclude', value="")
+    updateRadioButtons(session,
+                       "gwsGeneIndexRadio",
+                       label = "Display data as:",
+                       choices = list("Log-fold change" = "lfc", "Effect" = "effect"),
+                       selected = "lfc",
+                       inline = F
+    )
   }else{
     enable("gwsGeneInclude")
+    updateRadioButtons(session,
+                       "gwsGeneIndexRadio",
+                       label = "Display data as:",
+                       choices = list("Log-fold change" = "lfc", "Effect" = "effect", "FDR-adjusted effect" = "essentiality_effect"),
+                       selected = "lfc",
+                       inline = F
+    )
   }
 })
 
@@ -977,9 +991,7 @@ observeEvent(input$gwsGeneSpeciesSelect, {
   #update gene selectbox
   updateSelectizeInput(session, 'gwsGeneGeneSelect', choices = gwsGeneGeneList(), server = TRUE)
   #update other species selects
-  updateSelectizeInput(session, 'sgRNAsSpeciesSelect', choices = list("Human" = "human", "Mouse" = "mouse", "All"="all"), selected = input$gwsGeneSpeciesSelect, server = TRUE)
-  updateSelectizeInput(session, 'gwsBrowseScreenSpeciesSelect', choices = list("Human" = "human", "Mouse" = "mouse", "All"="all"), selected = input$gwsGeneSpeciesSelect, server = TRUE)
-  updateSelectizeInput(session, 'sgRNAInfoSpeciesSelect', choices = list("Human" = "human", "Mouse" = "mouse", "All"="all"), selected = input$gwsGeneSpeciesSelect, server = TRUE)
+  updateSpecies(input$gwsGeneSpeciesSelect)
   #disable load button
   disable("gwsGeneLoadButton")
   gwsGeneUpdateText()

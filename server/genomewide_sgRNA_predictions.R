@@ -168,11 +168,11 @@ observeEvent(input$sgRNAsLoadButton, {
 })
 
 observeEvent(input$sgRNAsSpeciesSelect, {
-  #update gene selectbox
   #update other species selects
-  updateSelectizeInput(session, 'gwsGeneSpeciesSelect', choices = list("Human" = "human", "Mouse" = "mouse"), selected = input$sgRNAsSpeciesSelect, server = TRUE)
-  updateSelectizeInput(session, 'gwsBrowseScreenSpeciesSelect', choices = list("Human" = "human", "Mouse" = "mouse"), selected = input$sgRNAsSpeciesSelect, server = TRUE)
+  updateSpecies(input$sgRNAsSpeciesSelect)
+  #update gene selectbox
   updateSelectizeInput(session, 'sgRNAsGeneSelect', choices = sgRNAsGeneList(), server = TRUE)
+  
 })
 
 observeEvent(input$sgRNAsGeneSelect, {

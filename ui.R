@@ -78,9 +78,9 @@ body <- dashboardBody(
                          radioButtons(
                            "gwsBrowseScreenIndexRadio",
                            label = "Display data as:",
-                           choices = list("Log-fold change" = "lfc", "Effect" = "effect"),
+                           choices = list("Log-fold change" = "lfc", "Effect" = "effect", "FDR-adjusted effect" = "essentiality_effect"),
                            selected = "lfc",
-                           inline = T
+                           inline = F
                          ),
                          
                          radioButtons(
@@ -238,9 +238,9 @@ body <- dashboardBody(
                          radioButtons(
                            "gwsGeneIndexRadio",
                            label = "Display data as:",
-                           choices = list("Log-fold change" = "lfc", "Effect" = "effect"),
+                           choices = list("Log-fold change" = "lfc", "Effect" = "effect", "FDR-adjusted effect" = "essentiality_effect"),
                            selected = "lfc",
-                           inline = T
+                           inline = F
                          ),
                          
                          radioButtons(
@@ -504,8 +504,8 @@ body <- dashboardBody(
               )
             )),
     
-    # dual sgRNAs
-    tabItem(tabName = "dualSgRNAsSidebar", width = NULL,
+    # dual sgRNAs predictions
+    tabItem(tabName = "dualSgRNAsPredictCombinationsSidebar", width = NULL,
             fluidRow(tags$head(tags$style(HTML('#dualSgRNAsInfo{color:tomato; font-weight: bold;}'))),
                      column(width = 12,
                             box(width = NULL, solidHeader = TRUE, htmlOutput(outputId="dualSgRNAsInfo")))),
@@ -541,6 +541,57 @@ body <- dashboardBody(
                        downloadButton(
                          width = NULL,
                          outputId = "dualSgRNAsButtonDownload",
+                         label = "Download displayed table"
+                       )
+                     )
+              )
+            )),
+    
+    # dual sgRNAs top predicted Combinations
+    tabItem(tabName = "dualSgRNAsTopCombinationsSidebar", width = NULL, 
+            fluidRow(tags$head(tags$style(HTML('#dualSgRNAsTopCombinationsInfo{color:tomato; font-weight: bold;}'))),
+                     column(width = 12,
+                            box(width = NULL, solidHeader = TRUE, htmlOutput(outputId="dualSgRNAsTopCombinationsInfo")))),
+            fluidRow(
+              column(width = 9, 
+                     box(width = NULL, solidHeader = TRUE, withSpinner(dataTableOutput("dualSgRNAsTopCombinationsTableOutput")))
+              ), 
+              column(width = 3,
+                     box(width = NULL, solidHeader = TRUE,
+                         
+                         radioButtons(
+                           "dualSgRNAsTopCombinationsSpeciesSelect",
+                           label = "Species:",
+                           choices = list("Human" = "human", "Mouse" = "mouse", "All"="all"),
+                           selected = "",
+                           inline = T
+                         )
+                     ),
+                     box(width = NULL, solidHeader = TRUE,
+                         
+                         selectizeInput(
+                           inputId = "dualSgRNAsTopCombinationsGeneSelect",
+                           label = "Gene:",
+                           choices = NULL,
+                           multiple = TRUE,
+                           selected = NULL
+                         ), 
+                         fileInput(
+                           "dualSgRNAsTopCombinationsGeneInputFile", "Upload list of genes:",
+                           accept = c("text/csv","text/comma-separated-values,text/plain")
+                         ),
+                         disabled(
+                           actionButton(inputId = "dualSgRNAsTopCombinationsLoadButton", 
+                                        label = "Load data!"
+                           )
+                         )
+                     ),
+                     box(
+                       width = NULL,
+                       solidHeader = TRUE,
+                       downloadButton(
+                         width = NULL,
+                         outputId = "dualSgRNAsTopCombinationsButtonDownload",
                          label = "Download displayed table"
                        )
                      )

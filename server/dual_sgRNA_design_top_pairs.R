@@ -49,33 +49,107 @@ dualSgRNAsTopCombinationsTable <- reactive({
     sgRNAs <- con_sgRNAs %>%
       tbl("top10_dual_guides_human") %>%
       dplyr::filter(EntrezID %in% presel_gene_entrez) %>%
-      # dplyr::select(`Entrez ID` = EntrezID, Symbol, `20-mer + NGG` = sgRNA_23mer, `30-mer Position` = Position, Exon = exon, `Mature sgRNA` = mature_sgRNA,
-      #        `VBC-Score`=VBC.score, `Frameshift ratio inDelphi` = inDelphi, `Cleavage activity` = cleavage_activity, Length = len_cloning_sgRNA, `Off-target predictions` = Off_target, 
-      #        Length = len_cloning_sgRNA, `Prediction rank`= final_rank, `Validation rank` = final_validated_rank, `SNP targeting` = SNP_targeting,
-      #        `Restriction-site- / Poly-A- / Multi-T-containing` = RS_PolyA_multiT_containing, `Failed validation / Single outlier validation` = failed_outlier_validation, 
-      #        `Trans-species (human/mouse)` = transspecies, `Maps to genome` = check) %>%
+      dplyr::select(`Entrez ID` = EntrezID, 
+                    Symbol,
+                    first_sgRNA_sequence_23mer=original_sgRNA,
+                    first_sgRNA_position_30mer=original_sgRNA_position,
+                    first_sgRNA_exon_number=original_sgRNA_exon_number,
+                    first_sgRNA_final_rank=original_final_rank,
+                    first_sgRNA_validated_rank=original_final_validated_rank,
+                    second_sgRNA_sequence_23mer=matching_sgRNA,
+                    second_sgRNA_position_30mer=Position,
+                    second_sgRNA_exon_number=exon,
+                    second_sgRNA_final_rank=final_rank,
+                    second_sgRNA_validated_rank=final_validated_rank,
+                    second_sgRNA_VBCscore=`VBC.score`,
+                    second_sgRNA_cleavage_activity=cleavage_activity,
+                    second_sgRNA_Offtarget=Off_target,
+                    targets_same_exon,
+                    produces_frameshift,
+                    proximity_1kb,
+                    VBCscore_quartile=`VBC.score_top_group`,
+                    cleavage_activity_quartile=`cleavage_act_top_group`,
+                    produces_frameshift_in_most_transcripts,
+                    produces_frameshift_in_all_transcripts,
+                    most_common_dist,
+                    transcripts_in_frame=TranscriptsInFrame,
+                    n_transcripts_in_frame=nTranscriptsInFrame,
+                    transcripts_out_of_frame=TranscriptsOutOfFrame,
+                    n_transcripts_out_of_frame=nTranscriptsOutOfFrame,
+                    combination_info=case,
+                    penalty_score=score_penalty2,
+                    combination_rank=score_rank) %>%
       collect() %>%
       rbind(
         con_sgRNAs %>%
           tbl("top10_dual_guides_mouse") %>%
           dplyr::filter(EntrezID %in% presel_gene_entrez) %>%
-          # dplyr::select(`Entrez ID` = EntrezID, Symbol, `20-mer + NGG` = sgRNA_23mer, `30-mer Position` = Position, Exon = exon, `Mature sgRNA` = mature_sgRNA,
-          #        `VBC-Score`=VBC.score, `Frameshift ratio inDelphi` = inDelphi, `Cleavage activity` = cleavage_activity, Length = len_cloning_sgRNA, `Off-target predictions` = Off_target, 
-          #        Length = len_cloning_sgRNA, `Prediction rank`= final_rank, `Validation rank` = final_validated_rank, `SNP targeting` = SNP_targeting,
-          #        `Restriction-site- / Poly-A- / Multi-T-containing` = RS_PolyA_multiT_containing, `Failed validation / Single outlier validation` = failed_outlier_validation, 
-          #        `Trans-species (human/mouse)` = transspecies, `Maps to genome` = check) %>%
+          dplyr::select(`Entrez ID` = EntrezID, 
+                        Symbol,
+                        first_sgRNA_sequence_23mer=original_sgRNA,
+                        first_sgRNA_position_30mer=original_sgRNA_position,
+                        first_sgRNA_exon_number=original_sgRNA_exon_number,
+                        first_sgRNA_final_rank=original_final_rank,
+                        first_sgRNA_validated_rank=original_final_validated_rank,
+                        second_sgRNA_sequence_23mer=matching_sgRNA,
+                        second_sgRNA_position_30mer=Position,
+                        second_sgRNA_exon_number=exon,
+                        second_sgRNA_final_rank=final_rank,
+                        second_sgRNA_validated_rank=final_validated_rank,
+                        second_sgRNA_VBCscore=`VBC.score`,
+                        second_sgRNA_cleavage_activity=cleavage_activity,
+                        second_sgRNA_Offtarget=Off_target,
+                        targets_same_exon,
+                        produces_frameshift,
+                        proximity_1kb,
+                        VBCscore_quartile=`VBC.score_top_group`,
+                        cleavage_activity_quartile=`cleavage_act_top_group`,
+                        produces_frameshift_in_most_transcripts,
+                        produces_frameshift_in_all_transcripts,
+                        most_common_dist,
+                        transcripts_in_frame=TranscriptsInFrame,
+                        n_transcripts_in_frame=nTranscriptsInFrame,
+                        transcripts_out_of_frame=TranscriptsOutOfFrame,
+                        n_transcripts_out_of_frame=nTranscriptsOutOfFrame,
+                        combination_info=case,
+                        penalty_score=score_penalty2,
+                        combination_rank=score_rank) %>%
           collect()
-        
       )
   }else{
     sgRNAs <- con_sgRNAs %>%
       tbl(tabledualSgRNAsTopCombinations) %>%
       dplyr::filter(EntrezID %in% presel_gene_entrez) %>% 
-      # dplyr::select(`Entrez ID` = EntrezID, Symbol, `20-mer + NGG` = sgRNA_23mer, `30-mer Position` = Position, Exon = exon, `Mature sgRNA` = mature_sgRNA,
-      #        `VBC-Score`=VBC.score, `Frameshift ratio inDelphi` = inDelphi, `Cleavage activity` = cleavage_activity, Length = len_cloning_sgRNA, `Off-target predictions` = Off_target, 
-      #        Length = len_cloning_sgRNA, `Prediction rank`= final_rank, `Validation rank` = final_validated_rank, `SNP targeting` = SNP_targeting,
-      #        `Restriction-site- / Poly-A- / Multi-T-containing` = RS_PolyA_multiT_containing, `Failed validation / Single outlier validation` = failed_outlier_validation, 
-      #        `Trans-species (human/mouse)` = transspecies, `Maps to genome` = check) %>%
+      dplyr::select(`Entrez ID` = EntrezID, 
+                    Symbol,
+                    first_sgRNA_sequence_23mer=original_sgRNA,
+                    first_sgRNA_position_30mer=original_sgRNA_position,
+                    first_sgRNA_exon_number=original_sgRNA_exon_number,
+                    first_sgRNA_final_rank=original_final_rank,
+                    first_sgRNA_validated_rank=original_final_validated_rank,
+                    second_sgRNA_sequence_23mer=matching_sgRNA,
+                    second_sgRNA_position_30mer=Position,
+                    second_sgRNA_exon_number=exon,
+                    second_sgRNA_final_rank=final_rank,
+                    second_sgRNA_validated_rank=final_validated_rank,
+                    second_sgRNA_VBCscore=`VBC.score`,
+                    second_sgRNA_cleavage_activity=cleavage_activity,
+                    second_sgRNA_Offtarget=Off_target,
+                    targets_same_exon,
+                    produces_frameshift,
+                    proximity_1kb,
+                    VBCscore_quartile=`VBC.score_top_group`,
+                    cleavage_activity_quartile=`cleavage_act_top_group`,
+                    produces_frameshift_in_most_transcripts,
+                    produces_frameshift_in_all_transcripts,
+                    most_common_dist,
+                    transcripts_in_frame=TranscriptsInFrame,
+                    n_transcripts_in_frame=nTranscriptsInFrame,
+                    transcripts_out_of_frame=TranscriptsOutOfFrame,
+                    n_transcripts_out_of_frame=nTranscriptsOutOfFrame,
+                    combination_info=case,
+                    penalty_score=score_penalty2,
+                    combination_rank=score_rank) %>%
       collect()
   }
   

@@ -1148,3 +1148,33 @@ output$gwsBrowseScreenButtonDownloadPrimaryTables <- downloadHandler(
     )
   }
 )
+
+output$gwsBrowseScreenButtonDownloadAdjustedPrimaryTables <- downloadHandler(
+  filename = function() {
+    "screen_data_adjusted.zip"
+  },
+  content = function(file) {
+    shiny::withProgress(
+      message = paste0("Downloading", input$dataset, " Data"),
+      value = 0,
+      {
+        files <- NULL;
+        if("Human" %in% input$gwsBrowseScreenDownloadPrimaryTablesCheck){
+          fileName <- "essentiality_data/human_scaledLFC_fdr_adjusted_geneLevel_HQscreens.tsv"
+          files <- c(fileName,files)
+        }
+        if("Mouse" %in% input$gwsBrowseScreenDownloadPrimaryTablesCheck){
+          fileName <- "essentiality_data/mouse_scaledLFC_fdr_adjusted_geneLevel_HQscreens.tsv"
+          files <- c(fileName,files)
+        }
+        shiny::incProgress(1/2)
+        if(!is.null(files)){
+          #create the zip file
+          zip(file,files, compression_level = 2)
+        }else{
+          NULL
+        }
+      }
+    )
+  }
+)

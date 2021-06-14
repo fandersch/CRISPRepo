@@ -199,7 +199,22 @@ body <- dashboardBody(
                        downloadButton(
                          width = NULL,
                          outputId = "gwsBrowseScreenButtonDownloadPrimaryTables",
-                         label = "Download primary data"
+                         label = "Download essentiality data"
+                       )),
+                     box(
+                       width = NULL,
+                       solidHeader = TRUE,
+                       checkboxGroupInput(
+                         "gwsBrowseScreenDownloadAdjustedPrimaryTablesCheck",
+                         label = "Download fdr-adjusted HQ dropout screen data (fdr-adjusted scaled LFCs table):",
+                         choices = list("Human" = "Human", "Mouse" = "Mouse"),
+                         selected = c("Human", "Mouse"),
+                         inline = F
+                       ),
+                       downloadButton(
+                         width = NULL,
+                         outputId = "gwsBrowseScreenButtonDownloadAdjustedPrimaryTables",
+                         label = "Download fdr-adjusted essentiality data"
                        ))
                      
               )

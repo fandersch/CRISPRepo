@@ -23,6 +23,10 @@ output$correlationsDependencyExpressionTableOutput <- renderDataTable({
 })
 
 #upon load display nothing
+output$correlationsExpressionDependencyTableOutput <- renderDataTable({
+})
+
+#upon load display nothing
 output$correlationsCoEssentialityTableOutput <- renderDataTable({
 })
 
@@ -70,6 +74,48 @@ correlationsDependencyExpressionTable <- reactive({
 
 
   correlationsDependencyExpression
+})
+
+# Expression <> Dependency
+correlationsExpressionDependencyTable <- reactive({
+  
+  if(!is.null(correlationsGeneInputFile$data)){
+    presel_genes_buff <- gene_list_correlations
+    genes_fileUpload <- c(paste0("\\(", (correlationsGeneInputFile$data$X1 %>% as.character), "\\)"), paste0("^", (correlationsGeneInputFile$data$X1 %>% as.character), "\\s"))
+    presel_genes <- grep(paste(genes_fileUpload,collapse="|"), presel_genes_buff %>% as.character, value=TRUE)
+  }else{
+    presel_genes <- input$correlationsGeneSelect
+  }
+  
+  presel_genes <- presel_genes %>% strsplit(split="\\(|\\)")
+  presel_gene_symbol <- unlist(presel_genes)[c(TRUE, FALSE)] %>% trimws()
+  presel_gene_entrez <- unlist(presel_genes)[c(FALSE, TRUE)] %>% as.numeric
+  
+  if(input$correlationsTissueSelect == "All"){
+    correlationsExpressionDependency <- con_correlations %>%
+      tbl("expression_to_dependency") %>%
+      dplyr::filter(entrez_id_x %in% presel_gene_entrez, obs >= local(input$correlationsSliderDatapoints))
+  }else{
+    correlationsExpressionDependency <- con_correlations_tissue %>%
+      tbl("expression_to_dependency") %>%
+      dplyr::filter(tissue %in% local(input$correlationsTissueSelect), entrez_id_x %in% presel_gene_entrez, obs >= local(input$correlationsSliderDatapoints))
+  }
+  
+  correlationsExpressionDependency <- correlationsExpressionDependency %>%
+    collect() %>%
+    group_by(entrez_id_x, dataset) %>%
+    arrange(desc(abs(cor_coeff))) %>%
+    mutate(rank = row_number()) %>%
+    filter(rank <= 20 | abs(cor_coeff) >= input$correlationsSliderCoeff) %>%
+    select(-rank) %>%
+    ungroup %>%
+    mutate(hit = ifelse(hit==1, "TRUE", "FALSE")) %>%
+    dplyr::rename(number_Hits=nHits) %>%
+    arrange(desc(number_Hits), symbol_y)
+  
+  
+  
+  correlationsExpressionDependency
 })
 
 #Co-essentiality
@@ -175,6 +221,33 @@ correlationsDependencyExpressionTableOutput <- eventReactive(input$correlationsL
   }
 })
 
+correlationsExpressionDependencyTableOutput <- eventReactive(input$correlationsLoadButton,{
+  correlationsExpressionDependency <- correlationsExpressionDependencyTable()
+  
+  if (nrow(correlationsExpressionDependency) > 0) {
+    output$correlationsInfo <- renderText({
+      "INFO: Loading completed!"
+    })
+    
+    correlationsExpressionDependency %>% 
+      datatable(extensions = c('FixedColumns','FixedHeader'),
+                options = list(
+                  autoWidth = FALSE,
+                  headerCallback = JS(headerCallback),
+                  scrollX=TRUE,
+                  # fixedColumns = list(leftColumns = 3),
+                  columnDefs = list(list(className = 'dt-center', targets = "_all")),
+                  pageLength = 25,
+                  lengthMenu = c(25, 50, 100, 200),
+                  searchHighlight = TRUE
+                ),
+                filter = list(position = 'top', clear = FALSE),
+                rownames= FALSE)
+  }else{
+    NULL
+  }
+})
+
 correlationsCoEssentialityTableOutput <- eventReactive(input$correlationsLoadButton,{
   correlationsCoEssentiality <- correlationsCoEssentialityTable()
   
@@ -240,6 +313,10 @@ correlationsCoExpressionTableOutput <- eventReactive(input$correlationsLoadButto
 observeEvent(input$correlationsLoadButton, {
   output$correlationsDependencyExpressionTableOutput <- renderDataTable({
     correlationsDependencyExpressionTableOutput()
+  })
+  
+  output$correlationsExpressionDependencyTableOutput <- renderDataTable({
+    correlationsExpressionDependencyTableOutput()
   })
   
   output$correlationsCoEssentialityTableOutput <- renderDataTable({
@@ -319,6 +396,14 @@ output$correlationsButtonDownload <- downloadHandler(
     if("Dependency <> Expression" %in% input$correlationsDownloadCheck & nrow(correlationsDependencyExpressionTable())>0){
       #write each sheet to a csv file, save the name
       table <- correlationsDependencyExpressionTable()
+      fileName <- "dependency_expression.txt"
+      write.table(table,fileName, row.names = F, col.names = T)
+      files <- c(fileName,files)
+    }
+    
+    if("Expression <> Dependency" %in% input$correlationsDownloadCheck & nrow(correlationsExpressionDependencyTable())>0){
+      #write each sheet to a csv file, save the name
+      table <- correlationsExpressionDependencyTable()
       fileName <- "dependency_expression.txt"
       write.table(table,fileName, row.names = F, col.names = T)
       files <- c(fileName,files)

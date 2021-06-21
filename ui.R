@@ -757,6 +757,7 @@ body <- dashboardBody(
             fluidRow(
               column(width = 9, 
                      box(title = "Dependency <> Expression", status = "success", width = NULL, solidHeader = TRUE, collapsible = TRUE, withSpinner(dataTableOutput(outputId="correlationsDependencyExpressionTableOutput"))),
+                     box(title = "Expression <> Dependency", status = "success", width = NULL, solidHeader = TRUE, collapsible = TRUE, withSpinner(dataTableOutput(outputId="correlationsExpressionDependencyTableOutput"))),
                      box(title = "Co-essentiality", status = "warning", width = NULL, solidHeader = TRUE, collapsible = TRUE, withSpinner(dataTableOutput(outputId="correlationsCoEssentialityTableOutput"))),
                      box(title = "Co-expression", status = "danger", width = NULL, solidHeader = TRUE, collapsible = TRUE, withSpinner(dataTableOutput(outputId="correlationsCoExpressionTableOutput")))
               ), 
@@ -807,8 +808,8 @@ body <- dashboardBody(
                        checkboxGroupInput(
                          "correlationsDownloadCheck",
                          label = "Download result tables:",
-                         choices = list("Dependency <> Expression" = "Dependency <> Expression", "Co-Essentiality" = "Co-Essentiality", "Co-Expression" = "Co-Expression"),
-                         selected = c("Dependency <> Expression", "Co-Expression", "Co-Essentiality"),
+                         choices = list("Dependency <> Expression" = "Dependency <> Expression", "Expression <> Dependency" = "Expression <> Dependency", "Co-Essentiality" = "Co-Essentiality", "Co-Expression" = "Co-Expression"),
+                         selected = c("Dependency <> Expression", "Expression <> Dependency", "Co-Expression", "Co-Essentiality"),
                          inline = F
                        ),
                        downloadButton(
@@ -823,8 +824,8 @@ body <- dashboardBody(
                        checkboxGroupInput(
                          "correlationsDownloadPrimaryTablesCheck",
                          label = "Download primary data (top 20 correlation per gene or correlations with a pearson coeff > 0.6):",
-                         choices = list("Dependency <> Expression" = "Dependency <> Expression", "Co-Essentiality" = "Co-Essentiality", "Co-Expression" = "Co-Expression"),
-                         selected = c("Dependency <> Expression", "Co-Expression", "Co-Essentiality"),
+                         choices = list("Dependency <> Expression" = "Dependency <> Expression","Expression <> Dependency" = "Expression <> Dependency", "Co-Essentiality" = "Co-Essentiality", "Co-Expression" = "Co-Expression"),
+                         selected = c("Dependency <> Expression", "Expression <> Dependency", "Co-Expression", "Co-Essentiality"),
                          inline = F
                        ),
                        downloadButton(

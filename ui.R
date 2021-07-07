@@ -74,12 +74,14 @@ body <- dashboardBody(
                            selected = "human",
                            inline = T
                          ),
+                         
+                         bsTooltip("gwsBrowseScreenIndexRadio", HTML("Effect: scaled LFCs between -1 (essential) and 0 (nonessential) <br/><br/> FDR-adjusted effect: scaled LFCs gets adjusted (weakened) for false positive (high FDR) genes. Scaled LFCs incoorpoprate its gene-level FDR and good-guides ratio (calculated by mageck) to reduce amount of false positives."), placement = "left", trigger = "hover"),
 
                          radioButtons(
                            "gwsBrowseScreenIndexRadio",
                            label = "Display data as:",
                            choices = list("Log-fold change" = "lfc", "Effect" = "effect", "FDR-adjusted effect" = "essentiality_effect"),
-                           selected = "lfc",
+                           selected = "essentiality_effect",
                            inline = F
                          ),
                          
@@ -254,7 +256,7 @@ body <- dashboardBody(
                            "gwsGeneIndexRadio",
                            label = "Display data as:",
                            choices = list("Log-fold change" = "lfc", "Effect" = "effect", "FDR-adjusted effect" = "essentiality_effect"),
-                           selected = "lfc",
+                           selected = "essentiality_effect",
                            inline = F
                          ),
                          

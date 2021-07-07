@@ -30,6 +30,7 @@ library(shinyjs)
 library(readxl)
 library(DBI)
 library(zip)
+library(shinyBS)
 
 con <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "screen.db")
 
@@ -147,6 +148,8 @@ all_types <- contrasts %>%
 if("hs_gw_zuber_v2" %in% (libraries %>% collect %>% .$library_id)){
   view <- "internal"
   dataset_selection_all <- setNames(all_types, all_types)
+  #load default df
+  default_df <- read_tsv(file="essentiality_data/human_scaledLFC_fdr_adjusted_geneLevel_HQscreens.tsv", col_names = T)
 }else{
   view <- "external"
   dataset_selection_all <- list("dropout" = "dropout")

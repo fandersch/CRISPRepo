@@ -5,7 +5,7 @@
 gwsBrowseScreenUpdateText <- function(){
   output$gwsBrowseScreenInfo <- renderText({
     if(is.null(input$gwsBrowseScreenTissueSelect) & !isTRUE(input$gwsBrowseScreenCheckTissueAll)){
-      invisible("INFO: Please select the tissue(s) of considered screens in the right panel!")
+      invisible("INFO: Default table loaded (FDR-adjusted scaled gene level LFC of HQ screens). Please select the tissue(s) of considered screens in the right panel to start new query!")
     }else{
       if(is.null(input$gwsBrowseScreenCellLineSelect) & !isTRUE(input$gwsBrowseScreenCheckCellLineAll)){
         invisible("INFO: Please select the cell lines(s) of considered screens in the right panel!")
@@ -26,6 +26,45 @@ gwsBrowseScreenUpdateText <- function(){
 
 #upon load display nothing
 output$gwsBrowseScreenTable <- renderDataTable({
+  if(!is.null(default_df)){
+    df<-default_df
+
+    vals<-df[,3:ncol(df)]
+    values_min <- vals %>% min(na.rm = TRUE)
+    values_max <- vals %>% max(na.rm = TRUE)
+    
+    brks_smaller <- seq(values_min, 0, .05)
+    brks_bigger <- seq(0, values_max, .05)
+    
+    clrs_smaller <- round(seq(40, 255, length.out = (length(brks_smaller) + 1)), 0) %>%
+    {paste0("rgb(255,", ., ",", ., ")")}
+    clrs_bigger <- round(seq(255, 40, length.out = (length(brks_bigger))), 0) %>%
+    {paste0("rgb(", ., ",", ., ",255)")}
+    
+    brks <- c(as.vector(brks_smaller), as.vector(brks_bigger))
+    clrs <- c(as.vector(clrs_smaller), as.vector(clrs_bigger))
+    
+    dt <- df %>%
+      DT::datatable(extensions = c('FixedColumns','FixedHeader'), 
+                    options = list(
+                      autoWidth = FALSE,
+                      headerCallback = JS(headerCallback),
+                      scrollX=TRUE,
+                      fixedColumns = list(leftColumns = 2),
+                      columnDefs = list(list(className = 'dt-center', targets = "_all")),
+                      pageLength = 25,
+                      lengthMenu = c(25, 50, 100, 200),
+                      searchHighlight = TRUE
+                      #fixedHeader = TRUE
+                    ),
+                    filter = list(position = 'top', clear = FALSE),
+                    rownames= FALSE) %>%
+      formatStyle(seq(3, ncol(df),1),
+                  backgroundColor = styleInterval(brks, clrs))
+    
+    #display default datatable
+    dt 
+  }
 })
 
 #upon load display nothing
@@ -733,7 +772,7 @@ observeEvent(input$gwsBrowseScreenSearchRadio, {
                        "gwsBrowseScreenIndexRadio",
                        label = "Display data as:",
                        choices = list("Log-fold change" = "lfc", "Effect" = "effect", "FDR-adjusted effect" = "essentiality_effect"),
-                       selected = "lfc",
+                       selected = "essentiality_effect",
                        inline = F
     )
   }

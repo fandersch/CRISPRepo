@@ -15,9 +15,6 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-# library(ensembldb)
-# library(EnsDb.Hsapiens.v86)
-# library(EnsDb.Mmusculus.v79)
 library(shinydashboard)
 library(tidyverse)
 library(stringr)
@@ -32,15 +29,15 @@ library(DBI)
 library(zip)
 library(shinyBS)
 
-con <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "screen.db")
+con <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "databases/screen.db")
 
-con_expression <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "expression_data.db")
+con_expression <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "databases/expression_data.db")
 
-con_sgRNAs <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "sgRNAs.db")
+con_sgRNAs <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "databases/sgRNAs.db")
 
-con_correlations <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "correlations.db")
+con_correlations <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "databases/correlations.db")
 
-con_correlations_tissue <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "correlations_tissue.db")
+con_correlations_tissue <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "databases/correlations_tissue.db")
 
 
 
@@ -136,16 +133,15 @@ dict_joined <- read_tsv("dict/dict_joined.txt") %>%
   dplyr::select(EntrezID_human=entrezID_human, Symbol_human, EntrezID_mouse=entrezID_mouse, Symbol_mouse)
 
 #load essentialome
-essentialome <- read_tsv("essentialome_file_shiny.txt", col_names = T)
+essentialome <- read_tsv("essentialome_file_crisprepo.txt", col_names = T)
 
-#distinguish between internal and external verson
 all_types <- contrasts %>%
   collect %>%
   .$type %>%
   unique
 
 default_df<-NULL
-#distinguish between internal and external verson
+#distinguish between internal and external version
 if("hs_gw_zuber_v2" %in% (libraries %>% collect %>% .$library_id)){
   view <- "internal"
   dataset_selection_all <- setNames(all_types, all_types)

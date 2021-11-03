@@ -68,7 +68,7 @@ dualSgRNAsTable <- reactive({
           dplyr::filter(EntrezID == local(firstSgRNA_entrez)) %>%
           collect() %>%
           mutate_at(c("Symbol", "sgRNA_23mer", "sgRNA_ID", "Position", "mature_sgRNA", "Off_target", "guide_origin"), as.character)
-        
+
         entrez_old <- firstSgRNA_entrez
         species <- "human"
         
@@ -78,7 +78,6 @@ dualSgRNAsTable <- reactive({
           collect %>%
           separate(sgRNA_id, into=c("dummy", "sequence"), sep = "_", remove = F) %>%
           select(-dummy)
-        
       }else{
         if(firstSgRNA_entrez %in% entrez_list_mouse){
           sgRNA_candidates <- con_sgRNAs %>%
@@ -108,7 +107,7 @@ dualSgRNAsTable <- reactive({
         }
       }
     }
-    
+
     if(!is.null(sgRNA_candidates) & !is.null(species)){
       #get mature sgRNA from matching 23mer
       firstSgRNA_mature <- sgRNA_candidates[sgRNA_candidates$sgRNA_23mer == firstSgRNA_sequence, "mature_sgRNA"] %>% as.character
@@ -120,7 +119,7 @@ dualSgRNAsTable <- reactive({
       }else{
         firstSgRNA_position <- NA
       }
-      
+
       if(is.na(firstSgRNA_position) | firstSgRNA_position == ""){
         position_not_found_counter<-position_not_found_counter + 1
       }else{
@@ -177,16 +176,18 @@ dualSgRNAsTable <- reactive({
           sgRNAs_selected[x,"nTranscriptsInFrame"] <- NaN
           sgRNAs_selected[x,"TranscriptsOutOfFrame"] <- ""
           sgRNAs_selected[x,"nTranscriptsOutOfFrame"] <- NaN
-          
+
           if(is.na(sgRNAs_selected[x,"produces_frameshift"]) & sgRNAs_selected[x,"first_sgRNA_sequence_23mer"] != sgRNAs_selected[x,"second_sgRNA_sequence_23mer"]){
             matching_transcript_cutting_site <- transcript_cutting_distance %>%
               dplyr::filter(sgRNA_id == local(paste0(sgRNAs_selected[x,"EntrezID"], "_", sgRNAs_selected[x,"second_sgRNA_sequence_23mer"])))
+
             
             sgRNAs_output_transcript_distances <- sgRNAs_selected[x,] %>%
               left_join(firstSgRNA_transcript_cutting_distance %>% select(sequence, cutting_site, tx_id), by=c("first_sgRNA_sequence_23mer"="sequence")) %>%
               left_join(matching_transcript_cutting_site %>% select(cutting_site, tx_id), by=c("tx_id")) %>%
               mutate(distance = cutting_site.x - cutting_site.y)
-            if(!is.null(sgRNAs_output_transcript_distances) & nrow(sgRNAs_output_transcript_distances) >= 1){
+
+          if(!is.null(sgRNAs_output_transcript_distances) & nrow(sgRNAs_output_transcript_distances) >= 1){
               first_sgRNA_transcripts <- firstSgRNA_transcript_cutting_distance %>% .$tx_id
               nfirst_sgRNA_transcripts <- first_sgRNA_transcripts %>% length
               second_sgRNA_transcripts <- matching_transcript_cutting_site %>% .$tx_id
@@ -232,7 +233,7 @@ dualSgRNAsTable <- reactive({
         
         sgRNAs_selected <- sgRNAs_selected %>%
           arrange(EntrezID, desc(proximity_1kb), desc(produces_frameshift), final_rank)
-        
+
         #Limit number of reported dual-sgRNA-combinations per gene
         if(input$dualSgRNAs_LimitOutput == TRUE){
           limit <- ifelse(nrow(sgRNAs_selected) > input$dualSgRNAs_nOutput, input$dualSgRNAs_nOutput, nrow(sgRNAs_selected))

@@ -385,12 +385,15 @@ gwsGeneDataFrame <- reactive({
         dplyr::select(-id_entrez_23mer)
     }
     
+<<<<<<< HEAD
     #rename index column
     screen_names <- df$contrast_id %>% unique
     screen_names_new <- paste0(screen_names, "_", toupper(local(input$gwsGeneIndexRadio)))
     dt <- dt %>%
       rename_at(vars(screen_names), ~screen_names_new)
     
+=======
+>>>>>>> refs/remotes/origin/master
     if(input$gwsGeneSearchRadio == "gene_id" & !is.null(local(input$gwsGeneInclude)) & length(local(input$gwsGeneInclude))!=0){
       column <- local(input$gwsGeneInclude)
       if("p"  %in% local(input$gwsGeneInclude)){
@@ -399,6 +402,10 @@ gwsGeneDataFrame <- reactive({
             df %>%
               mutate(p = ifelse(p_positive < p_negative, p_positive, p_negative)) %>%
               dplyr::select(contrast_id, contains("entrez_id"), contains("symbol"), contains("Symbol_human"), contains("EntrezID_human"), contains("Symbol_mouse"), contains("EntrezID_mouse"), p) %>%
+<<<<<<< HEAD
+=======
+              # distinct %>%
+>>>>>>> refs/remotes/origin/master
               pivot_wider(names_from="contrast_id", values_from="p") %>%
               mutate_if(is.numeric, round, 3) %>%
               rename_at(vars(-contains("entrez_id"), -contains("symbol"), -contains("Symbol_human"), -contains("EntrezID_human"), -contains("Symbol_mouse"), -contains("EntrezID_mouse")), ~ paste0(., '_P'))
@@ -410,6 +417,10 @@ gwsGeneDataFrame <- reactive({
             df %>%
               mutate(fdr = ifelse(fdr_positive < fdr_negative, fdr_positive, fdr_negative)) %>%
               dplyr::select(contrast_id, contains("entrez_id"), contains("symbol"), contains("Symbol_human"), contains("EntrezID_human"), contains("Symbol_mouse"), contains("EntrezID_mouse"), fdr) %>%
+<<<<<<< HEAD
+=======
+              # distinct %>%
+>>>>>>> refs/remotes/origin/master
               pivot_wider(names_from="contrast_id", values_from="fdr") %>%
               mutate_if(is.numeric, round, 3) %>%
               rename_at(vars(-contains("entrez_id"), -contains("symbol"), -contains("Symbol_human"), -contains("EntrezID_human"), -contains("Symbol_mouse"), -contains("EntrezID_mouse")), ~ paste0(., '_FDR'))
@@ -438,6 +449,7 @@ gwsGeneDataFrame <- reactive({
           )
       }
       
+<<<<<<< HEAD
       # dt <- dt %>%
       #   dplyr::select(sort(tidyselect::peek_vars())) %>%
       #   dplyr::select(matches("entrez_id"), matches("symbol"), matches("sequence"), 
@@ -458,6 +470,12 @@ gwsGeneDataFrame <- reactive({
       
       dt<-dt_buff
       
+=======
+      dt <- dt %>%
+        dplyr::select(sort(tidyselect::peek_vars())) %>%
+        dplyr::select(matches("entrez_id"), matches("symbol"), matches("sequence"), 
+                      matches("Length"), matches("guide_id"), matches("VBC-score"), matches("rank_overall"), matches("rank_validation"), everything())
+>>>>>>> refs/remotes/origin/master
     }
     
     if(input$gwsGeneSpeciesSelect == "all"){

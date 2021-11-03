@@ -15,6 +15,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+
 library(shinydashboard)
 library(tidyverse)
 library(stringr)
@@ -38,7 +39,6 @@ con_sgRNAs <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "databases/sgRNAs
 con_correlations <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "databases/correlations.db")
 
 con_correlations_tissue <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "databases/correlations_tissue.db")
-
 
 
 pheno <- con %>%
@@ -142,6 +142,7 @@ all_types <- contrasts %>%
 
 default_df<-NULL
 #distinguish between internal and external version
+
 if("hs_gw_zuber_v2" %in% (libraries %>% collect %>% .$library_id)){
   view <- "internal"
   dataset_selection_all <- setNames(all_types, all_types)

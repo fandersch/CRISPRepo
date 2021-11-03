@@ -461,7 +461,6 @@ gwsBrowseScreenDataTable <- eventReactive(input$gwsBrowseScreenLoadButton,{
           colnames_dt[i] <- str_replace(colnames_dt[i], colname_buff, (contrasts %>% dplyr::select(contrast_id, contrast_id_QC) %>% dplyr::filter(contrast_id == colname_buff) %>% .$contrast_id_QC))
         }
       }
-      
       colnames(dt) <-  make.unique(colnames_dt)
     }
     
@@ -1112,7 +1111,7 @@ output$gwsBrowseScreenButtonDownload <- downloadHandler(
       
       dt <- dt %>%
         rename_at(vars(screen_names), ~screen_names_new)
-      
+
       if(input$gwsBrowseScreenSearchRadio == "gene_id" & !is.null(local(input$gwsBrowseScreenInclude)) & length(local(input$gwsBrowseScreenInclude))!=0){
         column <- local(input$gwsBrowseScreenInclude)
         if("p"  %in% local(input$gwsBrowseScreenInclude)){
@@ -1215,7 +1214,6 @@ output$gwsBrowseScreenButtonDownload <- downloadHandler(
             colnames_dt[i] <- str_replace(colnames_dt[i], colname_buff, (contrasts %>% dplyr::select(contrast_id, contrast_id_QC) %>% dplyr::filter(contrast_id == colname_buff) %>% .$contrast_id_QC))
           }
         }
-        
         colnames(dt) <-  make.unique(colnames_dt)
       }
       

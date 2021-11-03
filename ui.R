@@ -80,13 +80,8 @@ body <- dashboardBody(
                          radioButtons(
                            "gwsBrowseScreenIndexRadio",
                            label = "Display data as:",
-<<<<<<< HEAD
                            choices = list("Log-fold change" = "lfc", "Effect" = "effect", "FDR-adjusted effect" = "adjusted_effect"),
                            selected = "adjusted_effect",
-=======
-                           choices = list("Log-fold change" = "lfc", "Effect" = "effect", "FDR-adjusted effect" = "essentiality_effect"),
-                           selected = "essentiality_effect",
->>>>>>> refs/remotes/origin/master
                            inline = F
                          ),
                          
@@ -260,13 +255,8 @@ body <- dashboardBody(
                          radioButtons(
                            "gwsGeneIndexRadio",
                            label = "Display data as:",
-<<<<<<< HEAD
                            choices = list("Log-fold change" = "lfc", "Effect" = "effect", "FDR-adjusted effect" = "adjusted_effect"),
                            selected = "adjusted_effect",
-=======
-                           choices = list("Log-fold change" = "lfc", "Effect" = "effect", "FDR-adjusted effect" = "essentiality_effect"),
-                           selected = "essentiality_effect",
->>>>>>> refs/remotes/origin/master
                            inline = F
                          ),
                          

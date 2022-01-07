@@ -632,6 +632,13 @@ body <- dashboardBody(
                            choices = list(""),
                            selected = "",
                            inline = T
+                         ),
+                         radioButtons(
+                           "expressionDataUnitSelect",
+                           label = "Expression metric:",
+                           choices = list(""),
+                           selected = "",
+                           inline = T
                          )
                      ),
                      box(width = NULL, solidHeader = TRUE,

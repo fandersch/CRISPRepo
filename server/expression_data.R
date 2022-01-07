@@ -71,7 +71,7 @@ expressionDataDataFrame <- reactive({
   }
   
   presel_genes<- presel_genes %>% strsplit(split="\\(|\\)")
-  presel_gene_symbol <- unlist(presel_genes)[c(TRUE, FALSE)] %>% trimws() 
+  presel_symbol <- unlist(presel_genes)[c(TRUE, FALSE)] %>% trimws() 
   presel_gene_entrez <- unlist(presel_genes)[c(FALSE, TRUE)] %>% as.numeric
   
   if(length(sample_ids)>=900){
@@ -89,7 +89,7 @@ expressionDataDataFrame <- reactive({
     sample_ids_filter_string <- paste(paste("sample_id", paste0("'", sample_ids, "'"), sep="="), collapse=" OR ")
   }
 
-  query <- paste0("SELECT sample_id, gene_symbol, entrez_id, ensembl_id, expression_value FROM expression_data_values ",
+  query <- paste0("SELECT sample_id, symbol, entrez_id, ", input$expressionDataUnitSelect," FROM expression_data_values ",
                   "WHERE (", sample_ids_filter_string, ") ")
   
   if(!isTRUE(input$expressionDataCheckGeneAll)){
@@ -142,12 +142,36 @@ expressionDataDataFrame <- reactive({
     }else{
       for(i in 1:length(presel_tissue)){
         if(i==1){
-          df <- readRDS(file = paste0("expression_values_per_tissue/", presel_tissue[i], ".rds")) %>%
-            filter(species %in% speciesList)
+          if(input$expressionDataSpeciesSelect == "all"){
+            if(file.exists(paste0("expression_values_per_tissue/", presel_tissue[i], "_human.rds"))){
+              df <- readRDS(file = paste0("expression_values_per_tissue/", presel_tissue[i], "_human.rds"))
+              if(file.exists(paste0("expression_values_per_tissue/", presel_tissue[i], "_mouse.rds"))){
+                df <- df %>%
+                  rbind(readRDS(file = paste0("expression_values_per_tissue/", presel_tissue[i], "_mouse.rds")))
+              }
+            }else{
+              if(file.exists(paste0("expression_values_per_tissue/", presel_tissue[i], "_mouse.rds"))){
+                df <- readRDS(file = paste0("expression_values_per_tissue/", presel_tissue[i], "_mouse.rds"))
+              }
+            }
+          }else{
+            df <- readRDS(file = paste0("expression_values_per_tissue/", presel_tissue[i], "_", input$expressionDataSpeciesSelect, ".rds"))
+          }
         }else{
-          df <- df %>% 
-            rbind(readRDS(file = paste0("expression_values_per_tissue/", presel_tissue[i], ".rds"))) %>%
-            filter(species %in% speciesList)
+          if(input$expressionDataSpeciesSelect == "all"){
+            if(file.exists(paste0("expression_values_per_tissue/", presel_tissue[i], "_human.rds"))){
+              df <- df %>% 
+                rbind(readRDS(file = paste0("expression_values_per_tissue/", presel_tissue[i], "_human.rds")))
+            }
+            if(file.exists(paste0("expression_values_per_tissue/", presel_tissue[i], "_mouse.rds"))){
+              df <- df %>% 
+                rbind(readRDS(file = paste0("expression_values_per_tissue/", presel_tissue[i], "_mouse.rds")))
+            }
+              
+          }else{
+            df <- df %>% 
+              rbind(readRDS(file = paste0("expression_values_per_tissue/", presel_tissue[i], "_", input$expressionDataSpeciesSelect, ".rds")))
+          }
         }
       }
     }
@@ -155,33 +179,36 @@ expressionDataDataFrame <- reactive({
       df <- df %>%
         filter(entrez_id %in% presel_gene_entrez)
     }
+    df <- df %>%
+      left_join(cellline_list_expressionData %>% dplyr::select(sample_id, species))
   }
   
   df <- df %>% 
-    distinct
+    distinct %>%
+    dplyr::rename(expression_value = input$expressionDataUnitSelect)
   
   if(input$expressionDataSpeciesSelect == "all" & !is.null(df)){
     
     dict_joined <- dict_joined %>%
       left_join(df %>% 
                   dplyr::filter(species == "human") %>%
-                  dplyr::select(gene_symbol, entrez_id, EnsemblID_human = ensembl_id) %>% distinct, by=c("EntrezID_human" = "entrez_id")) %>%
+                  dplyr::select(symbol, entrez_id) %>% distinct, by=c("EntrezID_human" = "entrez_id")) %>%
       left_join(df %>% 
                   dplyr::filter(species == "mouse") %>%
-                  dplyr::select(gene_symbol, entrez_id, EnsemblID_mouse = ensembl_id) %>% distinct, by=c("EntrezID_mouse" = "entrez_id")) %>%
+                  dplyr::select(symbol, entrez_id) %>% distinct, by=c("EntrezID_mouse" = "entrez_id")) %>%
       distinct
     
     df_human <- df %>%
       dplyr::filter(species == "human") %>%
-      left_join(dict_joined %>% dplyr::select(Symbol_human, Symbol_mouse, EntrezID_mouse, EnsemblID_mouse) %>% 
-                  dplyr::filter(!is.na(Symbol_human)), by=c("gene_symbol" = "Symbol_human")) %>%
-      dplyr::rename(Symbol_human = gene_symbol, EntrezID_human = entrez_id, EnsemblID_human = ensembl_id)
+      left_join(dict_joined %>% dplyr::select(Symbol_human, Symbol_mouse, EntrezID_mouse) %>% 
+                  dplyr::filter(!is.na(Symbol_human)), by=c("symbol" = "Symbol_human")) %>%
+      dplyr::rename(Symbol_human = symbol, EntrezID_human = entrez_id)
     
     df_mouse <- df %>%
       dplyr::filter(species == "mouse") %>%
-      left_join(dict_joined %>% dplyr::select(Symbol_human, Symbol_mouse, EntrezID_human, EnsemblID_human) %>% 
-                  dplyr::filter(!is.na(Symbol_mouse)), by=c("gene_symbol" = "Symbol_mouse")) %>%
-      dplyr::rename(Symbol_mouse = gene_symbol, EntrezID_mouse = entrez_id, EnsemblID_mouse = ensembl_id)
+      left_join(dict_joined %>% dplyr::select(Symbol_human, Symbol_mouse, EntrezID_human) %>% 
+                  dplyr::filter(!is.na(Symbol_mouse)), by=c("symbol" = "Symbol_mouse")) %>%
+      dplyr::rename(Symbol_mouse = symbol, EntrezID_mouse = entrez_id)
     
     df <- df_human %>% rbind(df_mouse) %>% distinct
     #clean up
@@ -199,28 +226,30 @@ expressionDataDataTable <- eventReactive(input$expressionDataLoadButton,{
   df <- expressionDataDataFrame()
   
   if(!is.null(df)){
-    
-    brks <- seq(0, 20, length.out = 40)
-    clrs <- round(seq(255, 5, length.out = (length(brks) + 1)), 0) %>%
-    {paste0("rgb(255,", ., ",", ., ")")}
 
-    nfreezeColumns <- 3
+    nfreezeColumns <- 2
     
     if(input$expressionDataSpeciesSelect == "all"){
 
       dt <- df %>%
-        dplyr::select(sample_id, expression_value, Symbol_human, EntrezID_human, EnsemblID_human, Symbol_mouse, EntrezID_mouse, EnsemblID_mouse) %>%
+        dplyr::select(sample_id, expression_value, Symbol_human, EntrezID_human, Symbol_mouse, EntrezID_mouse) %>%
         pivot_wider(names_from=sample_id, values_from=expression_value) %>%
         arrange(Symbol_human, Symbol_mouse) %>%
-        dplyr::select(Symbol_human, EntrezID_human, EnsemblID_human, Symbol_mouse, EntrezID_mouse, EnsemblID_mouse, everything())
+        dplyr::select(Symbol_human, EntrezID_human, Symbol_mouse, EntrezID_mouse, everything())
       
-      nfreezeColumns <- nfreezeColumns + 3
+      nfreezeColumns <- nfreezeColumns + 2
     }else{
       dt <- df %>%
-        dplyr::select(sample_id, gene_symbol, entrez_id, ensembl_id, expression_value) %>%
+        dplyr::select(sample_id, symbol, entrez_id, expression_value) %>%
         pivot_wider(names_from=sample_id, values_from=expression_value) %>%
-        arrange(gene_symbol)
+        arrange(symbol)
     }
+    
+    max_value <- max(as.numeric(as.matrix((df[,(nfreezeColumns+1):ncol(df)]))), na.rm=T)
+    brks <- exp(seq(0, log(max_value), length.out = 40))
+    clrs <- round(seq(255, 5, length.out = (length(brks) + 1)), 0) %>%
+    {paste0("rgb(255,", ., ",", ., ")")}
+    
     df<-NULL
     dt <- dt %>%
       DT::datatable(extensions = c('FixedColumns','FixedHeader'),
@@ -240,10 +269,16 @@ expressionDataDataTable <- eventReactive(input$expressionDataLoadButton,{
     formatStyle(seq(nfreezeColumns+1, length(colnames(dt)),1),
                 backgroundColor = styleInterval(brks, clrs))
     
-    if(!is.null(input$expressionDataGeneSelect) | isTRUE(input$expressionDataCheckGeneAll)){
-      output$expressionDataInfo <- renderText({
-        "Info: Loading completed! Table shows log2-transformed TPM values (+1 pseudocount)"
-      })
+    if(!is.null(input$expressionDataGeneSelect) | isTRUE(input$expressionDataCheckGeneAll | !is.null(input$expressionData_inputFile))){
+      if(input$expressionDataUnitSelect == "tpm"){
+        output$expressionDataInfo <- renderText({
+          "Info: Loading completed! Table shows TPM values."
+        })
+      }else{
+        output$expressionDataInfo <- renderText({
+          "Info: Loading completed! Table shows raw read count values."
+        })
+      }
     }
     gc()
     #display datatable
@@ -328,10 +363,10 @@ expressionDataGeneList <- reactive({
     
     gene_list_expressionData %>%
       dplyr::filter(species %in% speciesList) %>%
-      dplyr::select(gene_symbol, entrez_id) %>%
+      dplyr::select(symbol=symbol, entrez_id) %>%
       collect() %>%
       arrange(entrez_id) %>%
-      dplyr::mutate(gene = ifelse(is.na(gene_symbol), paste0("No symbol found (", entrez_id, ")"), paste0(gene_symbol , " (", entrez_id, ")"))) %>%
+      dplyr::mutate(gene = ifelse(is.na(symbol), paste0("No symbol found (", entrez_id, ")"), paste0(symbol , " (", entrez_id, ")"))) %>%
       .$gene
   }
 })
@@ -348,6 +383,12 @@ observe(
     }else{
       select = input$expressionDataSpeciesSelect
     }
+    if(input$expressionDataUnitSelect == ""){
+      select_unit = "tpm"
+    }else{
+      select_unit = input$expressionDataUnitSelect
+    }
+    updateRadioButtons(session, 'expressionDataUnitSelect', choices = list("TPMs" = "tpm", "Counts" = "read_count"), selected = select_unit, inline = T)
     updateRadioButtons(session, 'expressionDataSpeciesSelect', choices = list("Human" = "human", "Mouse" = "mouse", "All"="all"), selected = select, inline = T)
   }
 )
@@ -599,12 +640,11 @@ output$expressionDataButtonDownload <- downloadHandler(
           arrange(Symbol_human, Symbol_mouse) %>%
           dplyr::select(Symbol_human, EntrezID_human, Symbol_mouse, EntrezID_mouse, everything())
         
-        nfreezeColumns <- nfreezeColumns + 3
       }else{
         dt <- df %>%
-          dplyr::select(sample_id, gene_symbol, entrez_id, ensembl_id, expression_value) %>%
+          dplyr::select(sample_id, symbol, entrez_id, expression_value) %>%
           pivot_wider(names_from=sample_id, values_from=expression_value) %>%
-          arrange(gene_symbol)
+          arrange(symbol)
       }
       #clean up
       df<-NULL
@@ -626,11 +666,21 @@ output$expressionDataButtonDownloadPrimaryTables <- downloadHandler(
       {
         files <- NULL;
         if("Human" %in% input$expressionDataDownloadPrimaryTablesCheck){
-          fileName <- "expression_values_per_tissue/all_tissues_human_spread.tsv"
+          print(input$expressionDataUnitSelect)
+          if("read_count" %in% input$expressionDataUnitSelect){
+            fileName <- "expression_values_per_tissue/all_tissues_counts_human_spread.tsv"
+          }else{
+            fileName <- "expression_values_per_tissue/all_tissues_tpms_human_spread.tsv"
+          }
+          
           files <- c(fileName,files)
         }
         if("Mouse" %in% input$expressionDataDownloadPrimaryTablesCheck){
-          fileName <- "expression_values_per_tissue/all_tissues_mouse_spread.tsv"
+          if("read_count" %in% input$expressionDataUnitSelect){
+            fileName <- "expression_values_per_tissue/all_tissues_counts_mouse_spread.tsv"
+          }else{
+            fileName <- "expression_values_per_tissue/all_tissues_tpms_mouse_spread.tsv"
+          }
           files <- c(fileName,files)
         }
         shiny::incProgress(1/2)

@@ -32,7 +32,7 @@ library(shinyBS)
 
 con <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "databases/screen.db")
 
-con_expression <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "databases/expression_data.db")
+con_expression <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "databases/expression_data_counts_tpm.db")
 
 con_sgRNAs <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "databases/sgRNAs.db")
 
@@ -101,7 +101,7 @@ if("hs_gw_zuber_v2" %in% (libraries %>% collect %>% .$library_id)){
 
 cellline_list_expressionData <- con_expression %>%
   tbl("expression_data_meta_info") %>%
-  dplyr::select(sample_id, cell_line_name, tissue_name, species, unit) %>%
+  dplyr::select(sample_id, cell_line_name = cell_line_name_stripped, tissue_name, species) %>%
   distinct() %>%
   arrange(cell_line_name)
 

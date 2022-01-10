@@ -245,10 +245,17 @@ expressionDataDataTable <- eventReactive(input$expressionDataLoadButton,{
         arrange(symbol)
     }
     
-    max_value <- max(as.numeric(as.matrix((df[,(nfreezeColumns+1):ncol(df)]))), na.rm=T)
-    brks <- exp(seq(0, log(max_value), length.out = 40))
+    values<-dt %>% drop_na()
+    max_value <- max((values[,(nfreezeColumns+1):ncol(values)]), na.rm=T)
+    min_value <- min((values[,(nfreezeColumns+1):ncol(values)]), na.rm=T)
+
+    if("log2_TMM" %in% input$expressionDataUnitSelect){
+      brks <- seq(min_value, max_value, length.out = 40)
+    }else{
+      brks <- exp(seq(0, log(max_value), length.out = 40))
+    }
     clrs <- round(seq(255, 5, length.out = (length(brks) + 1)), 0) %>%
-    {paste0("rgb(255,", ., ",", ., ")")}
+      {paste0("rgb(255,", ., ",", ., ")")}
     
     df<-NULL
     dt <- dt %>%
@@ -274,9 +281,15 @@ expressionDataDataTable <- eventReactive(input$expressionDataLoadButton,{
         output$expressionDataInfo <- renderText({
           "Info: Loading completed! Table shows TPM values."
         })
-      }else{
+      }
+      if(input$expressionDataUnitSelect == "read_count"){
         output$expressionDataInfo <- renderText({
           "Info: Loading completed! Table shows raw read count values."
+        })
+      }
+      if(input$expressionDataUnitSelect == "log2_TMM"){
+        output$expressionDataInfo <- renderText({
+          "Info: Loading completed! Table shows log2-transformed TMM normalized counts."
         })
       }
     }
@@ -388,7 +401,7 @@ observe(
     }else{
       select_unit = input$expressionDataUnitSelect
     }
-    updateRadioButtons(session, 'expressionDataUnitSelect', choices = list("TPMs" = "tpm", "Counts" = "read_count"), selected = select_unit, inline = T)
+    updateRadioButtons(session, 'expressionDataUnitSelect', choices = list("TPMs" = "tpm", "Counts" = "read_count", "log2-TMMs" = "log2_TMM"), selected = select_unit, inline = T)
     updateRadioButtons(session, 'expressionDataSpeciesSelect', choices = list("Human" = "human", "Mouse" = "mouse", "All"="all"), selected = select, inline = T)
   }
 )
@@ -669,8 +682,12 @@ output$expressionDataButtonDownloadPrimaryTables <- downloadHandler(
           print(input$expressionDataUnitSelect)
           if("read_count" %in% input$expressionDataUnitSelect){
             fileName <- "expression_values_per_tissue/all_tissues_counts_human_spread.tsv"
-          }else{
+          }
+          if("tpm" %in% input$expressionDataUnitSelect){
             fileName <- "expression_values_per_tissue/all_tissues_tpms_human_spread.tsv"
+          }
+          if("log2_TMM" %in% input$expressionDataUnitSelect){
+            fileName <- "expression_values_per_tissue/all_tissues_log2_TMM_human_spread.tsv"
           }
           
           files <- c(fileName,files)
@@ -678,8 +695,12 @@ output$expressionDataButtonDownloadPrimaryTables <- downloadHandler(
         if("Mouse" %in% input$expressionDataDownloadPrimaryTablesCheck){
           if("read_count" %in% input$expressionDataUnitSelect){
             fileName <- "expression_values_per_tissue/all_tissues_counts_mouse_spread.tsv"
-          }else{
+          }
+          if("tpm" %in% input$expressionDataUnitSelect){
             fileName <- "expression_values_per_tissue/all_tissues_tpms_mouse_spread.tsv"
+          }
+          if("log2_TMM" %in% input$expressionDataUnitSelect){
+            fileName <- "expression_values_per_tissue/all_tissues_log2_TMM_mouse_spread.tsv"
           }
           files <- c(fileName,files)
         }

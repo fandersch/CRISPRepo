@@ -244,10 +244,10 @@ expressionDataDataTable <- eventReactive(input$expressionDataLoadButton,{
         pivot_wider(names_from=sample_id, values_from=expression_value) %>%
         arrange(symbol)
     }
-    
-    values<-dt %>% drop_na()
-    max_value <- max((values[,(nfreezeColumns+1):ncol(values)]), na.rm=T)
-    min_value <- min((values[,(nfreezeColumns+1):ncol(values)]), na.rm=T)
+
+    values<-df$expression_value
+    max_value <- max(values, na.rm=T)
+    min_value <- min(values, na.rm=T)
 
     if("log2_TMM" %in% input$expressionDataUnitSelect){
       brks <- seq(min_value, max_value, length.out = 40)
@@ -679,7 +679,6 @@ output$expressionDataButtonDownloadPrimaryTables <- downloadHandler(
       {
         files <- NULL;
         if("Human" %in% input$expressionDataDownloadPrimaryTablesCheck){
-          print(input$expressionDataUnitSelect)
           if("read_count" %in% input$expressionDataUnitSelect){
             fileName <- "expression_values_per_tissue/all_tissues_counts_human_spread.tsv"
           }

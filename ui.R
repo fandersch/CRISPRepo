@@ -36,7 +36,8 @@ sidebar <- dashboardSidebar(
               menuItemOutput("dualSgRNAsSidebar"),
               menuItemOutput("expressionDataSidebar"),
               menuItemOutput("essentialomeSidebar"),
-              menuItemOutput("correlationsSidebar")
+              menuItemOutput("correlationsSidebar"),
+              menuItemOutput("cellLineSidebar")
   )
 )
 
@@ -844,7 +845,94 @@ body <- dashboardBody(
                      ))
               )
           )
-      )
+      ),
+    # Cell line meta data 
+    tabItem(tabName = "cellLineSidebar", width = NULL, 
+            fluidRow(tags$head(tags$style(HTML('#cellLineInfo{color:tomato; font-weight: bold;}'))),
+                     column(width = 12,
+                            box(width = NULL, solidHeader = TRUE, htmlOutput((outputId="cellLineInfo"))))),
+            fluidRow(
+              column(width = 9,
+                     box(title = "Cellline meta data", status = "info", width = NULL, solidHeader = TRUE, collapsible = TRUE, collapsed=F, withSpinner(dataTableOutput(outputId="cellLineDataTableMeta"))),
+                     box(title = "Gene mutations ", status = "success", width = NULL, solidHeader = TRUE, collapsible = TRUE, collapsed=F, withSpinner(dataTableOutput(outputId="cellLineDataTableMutations"))),
+                     box(title = "Gene fusions ", status = "warning", width = NULL, solidHeader = TRUE, collapsible = TRUE, collapsed=F, withSpinner(dataTableOutput(outputId="cellLineDataTableFusions"))),
+                     box(title = "Gene CNVs", status = "danger", width = NULL, solidHeader = TRUE, collapsible = TRUE, collapsed=F, withSpinner(dataTableOutput(outputId="cellLineDataTableCNVs")))),
+              column(width = 3,
+                     box(width = NULL, solidHeader = TRUE,
+                         selectizeInput(
+                           inputId = "cellLineTissueSelect",
+                           label = "Tissue:",
+                           choices = NULL,
+                           multiple = TRUE,
+                           selected = NULL
+                         ),
+                         checkboxInput(
+                           inputId = "cellLineCheckTissueAll",
+                           label = "Search All Tissues",
+                           value = FALSE
+                         ),
+                         disabled(
+                           selectizeInput(
+                             inputId = "cellLineCellLineSelect",
+                             label = "Cell Line:",
+                             choices = NULL,
+                             multiple = TRUE,
+                             selected = NULL
+                           )
+                         ),
+                         disabled(
+                           checkboxInput(
+                             inputId = "cellLineCheckCellLineAll",
+                             label = "Search All Cell Lines",
+                             value = FALSE
+                           )
+                         ),
+                         disabled(
+                           selectizeInput(
+                             inputId = "cellLineGeneSelect",
+                             label = "Gene:",
+                             choices = NULL,
+                             multiple = TRUE,
+                             selected = NULL
+                           )
+                         ),
+                         disabled(fileInput("cellLine_inputFile", "Upload list of genes:",
+                                            accept = c(
+                                              "text/csv",
+                                              "text/comma-separated-values,text/plain")
+                         )),
+                         disabled(
+                           checkboxInput(
+                             inputId = "cellLineCheckGeneAll",
+                             label = "Search All Genes",
+                             value = FALSE
+                           )
+                         ),
+                         disabled(
+                           actionButton(inputId = "cellLineLoadButton", 
+                                        label = "Load data!"
+                           )
+                         )
+                     ),
+                     box(
+                       width = NULL,
+                       solidHeader = TRUE,
+                       checkboxGroupInput(
+                         "cellLineDownloadCheck",
+                         label = "Download result tables:",
+                         choices = list("Cellline meta data" = "Cellline meta data", "Gene mutations" = "Gene mutations", "Gene fusions" = "Gene fusions", "Gene CNVs" = "Gene CNVs"),
+                         selected = c("Cellline meta data", "Gene mutations", "Gene fusions", "Gene CNVs"),
+                         inline = F
+                       ),
+                       downloadButton(
+                         width = NULL,
+                         outputId = "cellLineButtonDownload",
+                         label = "Download"
+                       )
+                     )
+              )
+            ) 
+    )
   )
 )
   

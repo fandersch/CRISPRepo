@@ -49,6 +49,11 @@ function(input, output, session) {
       menuItem(text = "Correlations", tabName = "correlationsSidebar")
   })
   
+  output$cellLineSidebar <- renderMenu({
+    if(view == "internal")
+      menuItem(text = "Cellline meta data", tabName = "cellLineSidebar")
+  })
+  
   # ----------------------------------------------------------------------------
   # Browse Screen
   # ----------------------------------------------------------------------------
@@ -105,6 +110,13 @@ function(input, output, session) {
   source(file = "server/correlations.R", local = T)
   updateSelectizeInput(session, 'correlationsGeneSelect', choices = gene_list_correlations, server = TRUE)
   updateSelectizeInput(session, 'correlationsTissueSelect', choices = tissue_list_correlations_tissue, server = TRUE)
+  
+  # ----------------------------------------------------------------------------
+  # Cell line meta  data
+  # ----------------------------------------------------------------------------
+  
+  source(file = "server/cell_line_meta_data.R", local = T)
+  updateSelectizeInput(session, 'cellLineTissueSelect', choices = tissue_list_cellLine, server = TRUE)
   
   # ----------------------------------------------------------------------------
   # Header callback

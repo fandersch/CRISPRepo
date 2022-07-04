@@ -40,6 +40,7 @@ con_correlations <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "databases/
 
 con_correlations_tissue <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "databases/correlations_tissue.db")
 
+con_cell_lines <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "databases/cell_line_meta_data.db")
 
 pheno <- con %>%
   tbl("pheno")
@@ -109,6 +110,25 @@ gene_list_expressionData <- con_expression %>%
   tbl("expression_data_genes")
 
 loadExpressionDataTissueList <- F
+
+#cell line
+cellline_list_cellLine <- con_cell_lines %>%
+  tbl("cell_line_meta") %>%
+  dplyr::select(cell_line_name, tissue_name, SangerCellModelPassports_model_id) %>%
+  distinct() %>%
+  arrange(cell_line_name) %>%
+  collect %>%
+  dplyr::rename(model_id = SangerCellModelPassports_model_id)
+
+gene_list_cellLine <- con_cell_lines %>%
+  tbl("cell_line_genes") %>%
+  collect
+
+tissue_list_cellLine <- cellline_list_cellLine %>%
+  dplyr::select(tissue_name) %>%
+  distinct() %>%
+  arrange(tissue_name) %>%
+  .$tissue_name
 
 #correlations
 gene_list_correlations <- con_correlations %>%

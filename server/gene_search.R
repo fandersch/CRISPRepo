@@ -217,6 +217,7 @@ gwsGeneDataFrame <- reactive({
   presel_genes_both<- presel_genes_both %>% strsplit(split="\\(|\\)")
   presel_genes <- unlist(presel_genes_both)[c(TRUE, FALSE)] %>% trimws()
   presel_entrez <- unlist(presel_genes_both)[c(FALSE, TRUE)]
+  gene_select <- c(presel_entrez, presel_genes)
   
   #retrieve selected contrasts
   if(isTRUE(input$gwsGeneCheckContrastAll)){
@@ -225,22 +226,22 @@ gwsGeneDataFrame <- reactive({
     presel_contrasts <- local(input$gwsGeneContrastSelect)
   }
   
-  statistics_columns_negative <- paste0(local(input$gwsGeneInclude), "_negative")
-  statistics_columns_positive <- paste0(local(input$gwsGeneInclude), "_positive")
+  statistics_columns_negative <- ""
+  statistics_columns_positive <- ""
   
-  gene_select <- presel_entrez
-  
-  if(statistics_columns_negative  == "_negative" | statistics_columns_positive == "_positive"){
-    select_str <- paste("contrast_id", 
-                        search_radio, 
-                        local(input$gwsGeneIndexRadio), sep= ", ")
+  if(length(local(input$gwsGeneInclude)>=1)){
+    statistics_columns_negative <- paste0(local(input$gwsGeneInclude), "_negative")
+    statistics_columns_positive <- paste0(local(input$gwsGeneInclude), "_positive")
     
-  }else{
     select_str <- paste("contrast_id", 
                         search_radio, 
                         local(input$gwsGeneIndexRadio), 
                         paste(statistics_columns_negative, collapse=", "), 
                         paste(statistics_columns_positive, collapse=", "), sep= ", ")
+  }else{
+    select_str <- paste("contrast_id", 
+                        search_radio, 
+                        local(input$gwsGeneIndexRadio), sep= ", ")
   }
   
   if(length(presel_contrasts)>=900){
@@ -258,7 +259,7 @@ gwsGeneDataFrame <- reactive({
     contrasts_filter_str <- paste(paste("contrast_id", paste0("'", presel_contrasts, "'"), sep="="), collapse=" OR ")
   }
   
-  gene_filter_str <- paste(paste("gene_id", paste0(presel_entrez), sep="="), collapse=" OR ")
+  gene_filter_str <- paste(paste("gene_id", paste0("'",gene_select,"'"), sep="="), collapse=" OR ")
   
   query <- paste0("SELECT ", select_str, " FROM ", tableSelect,
                   " WHERE (", gene_filter_str, ") ",
@@ -574,6 +575,8 @@ gwsGeneDataTable <- eventReactive(input$gwsGeneLoadButton,{
         colnames(gwsGeneDatatable) <-  make.unique(colnames_gwsGeneDatatable)
       }
       
+      displayed_table <<- gwsGeneDatatable
+      
       headerCallback <- c(
         "function(thead, data, start, end, display){",
         "  var $ths = $(thead).find('th');",
@@ -811,7 +814,7 @@ gwsGeneContrastList <- reactive({
              cellline_name %in% preselCellline
       ) 
     
-    if(input$gwsGeneDatasetSelect == "dropout"){
+    if(input$gwsGeneDatasetSelect %in% c("dropout")){
       presel_contrasts <- presel_contrasts %>%
         dplyr::filter(abs(dynamic_range) >= input$gwsGeneQuality)
     }
@@ -1004,6 +1007,19 @@ observeEvent(input$gwsGeneSearchRadio, {
 })
 
 observeEvent(input$gwsGeneSpeciesSelect, {
+  if(input$gwsGeneSpeciesSelect == "all"){
+    speciesList <- c("human", "mouse")
+  }else{
+    speciesList <- input$gwsGeneSpeciesSelect
+  }
+  
+  all_types <- contrasts %>%
+    collect %>%
+    dplyr::filter(species %in% speciesList) %>%
+    .$type %>%
+    unique
+  
+  dataset_selection_all<- setNames(all_types, all_types)
   updateSelectizeInput(session, 'gwsGeneDatasetSelect', choices = dataset_selection_all, selected = "dropout", server = TRUE)
   #select checkbox tissue
   updateCheckboxInput(session, 'gwsGeneCheckTissueAll', value = FALSE)
@@ -1041,13 +1057,17 @@ observeEvent(input$gwsGeneDatasetSelect, {
   updateCheckboxInput(session, 'gwsGeneCheckTissueAll', value = FALSE)
   #update tissue selectbox
   updateSelectizeInput(session, 'gwsGeneTissueSelect', choices = gwsGeneTissueList(), server = TRUE)
-  if(input$gwsGeneDatasetSelect %in% c("drug_modifier", "facs_based")){
+  if(input$gwsGeneDatasetSelect %in% c("dropout")){
+    enable("gwsGeneIndexRadio")
+    enable("gwsGeneQuality")
+    updateRadioButtons(session, 'gwsGeneDisplayName', selected = "short")
+    enable("gwsGeneDisplayName")
+  }else{
     updateRadioButtons(session, 'gwsGeneIndexRadio', selected = "lfc")
     disable("gwsGeneIndexRadio")
     disable("gwsGeneQuality")
-  }else{
-    enable("gwsGeneIndexRadio")
-    enable("gwsGeneQuality")
+    updateRadioButtons(session, 'gwsGeneDisplayName', selected = "long")
+    disable("gwsGeneDisplayName")
   }
   #update library selectbox
   updateSelectizeInput(session, 'gwsGeneLibrarySelect', choices = gwsGeneLibraryList(), server = TRUE)
@@ -1318,35 +1338,8 @@ output$gwsGeneButtonDownload <- downloadHandler(
     "crisprepo_gene_search.txt"
   },
   content = function(file) {
-    table <- gwsGeneDataFrame()
-    
-    presel_contrasts <- gwsGeneContrastList()
-    colnames_gwsGeneDatatable <- colnames(table)
-    if(input$gwsGeneDatasetSelect %in% c("dropout") & input$gwsGeneDisplayName == "short"){
-      for(i in 1:length(colnames_gwsGeneDatatable)){
-        colname_buff <- colnames_gwsGeneDatatable[i]
-        if(str_ends(colname_buff, "_P")){
-          colname_buff <- substr(colname_buff,1,nchar(colname_buff)-2)
-        }
-        if(str_ends(colname_buff, "_FDR")){
-          colname_buff <- substr(colname_buff,1,nchar(colname_buff)-4)
-        }
-        if(str_ends(colname_buff, "_GUIDES")){
-          colname_buff <- substr(colname_buff,1,nchar(colname_buff)-7)
-        }
-        if(str_ends(colname_buff, "_GUIDES_GOOD")){
-          colname_buff <- substr(colname_buff,1,nchar(colname_buff)-12)
-        }
-        if(colname_buff %in% presel_contrasts){
-          colnames_gwsGeneDatatable[i] <- str_replace(colnames_gwsGeneDatatable[i], colname_buff, (contrasts %>% dplyr::select(contrast_id, contrast_id_QC) %>% dplyr::filter(contrast_id == colname_buff) %>% .$contrast_id_QC))
-        }
-      }
-      
-      colnames(table) <- make.unique(colnames_gwsGeneDatatable)
-    }
-    
-    
-    table %>% dplyr::select(-contains("Action_sgRNA"), -contains("Action_gene")) %>%
+
+    displayed_table %>% dplyr::select(-contains("Action_sgRNA"), -contains("Action_gene")) %>%
       write_tsv(file)
   }
 )

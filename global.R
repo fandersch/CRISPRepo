@@ -157,6 +157,7 @@ essentialome <- read_tsv("essentialome_file_crisprepo.txt", col_names = T)
 
 all_types <- contrasts %>%
   collect %>%
+  dplyr::filter(species %in% "human") %>%
   .$type %>%
   unique
 
@@ -172,3 +173,5 @@ if("hs_gw_zuber_v2" %in% (libraries %>% collect %>% .$library_id)){
   view <- "external"
   dataset_selection_all <- list("dropout" = "dropout")
 }
+
+displayed_table <- NULL

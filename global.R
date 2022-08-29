@@ -45,10 +45,6 @@ con_cell_lines <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "databases/ce
 pheno <- con %>%
   tbl("pheno")
 
-libraries <- pheno %>%
-  dplyr::select(library_id, cellline_name, tissue_name, species, type) %>%
-  distinct 
-
 species <- pheno %>%
   dplyr::select(species) %>%
   distinct %>%
@@ -68,6 +64,10 @@ features <- con %>%
 contrasts <- con %>%
   tbl("contrasts") %>%
   dplyr::select(contrast_id, contrast_id_QC, library_id, cellline_name, tissue_name, species, type, dynamic_range)
+
+libraries <- contrasts %>%
+  dplyr::select(library_id, cellline_name, tissue_name, species, type) %>%
+  distinct 
 
 gene_list_screens <- con %>%
   tbl("features") %>%

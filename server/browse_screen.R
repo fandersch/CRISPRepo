@@ -820,6 +820,7 @@ observeEvent(input$gwsBrowseScreenDatasetSelect, {
   updateSelectizeInput(session, 'gwsBrowseScreenTissueSelect', choices = gwsBrowseScreenTissueList(), server = TRUE)
   
   if(input$gwsBrowseScreenDatasetSelect %in% c("dropout")){
+    updateRadioButtons(session, 'gwsBrowseScreenIndexRadio',selected = "adjusted_effect")
     enable("gwsBrowseScreenIndexRadio")
     enable("gwsBrowseScreenQuality")
     updateRadioButtons(session, 'gwsBrowseScreenDisplayName', selected = "short")

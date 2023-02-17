@@ -54,6 +54,11 @@ function(input, output, session) {
       menuItem(text = "Cellline meta data", tabName = "cellLineSidebar")
   })
   
+  output$cellLineSelectorSidebar <- renderMenu({
+    if(view == "internal")
+      menuItem(text = "Cellline selector", tabName = "cellLineSelectorSidebar")
+  })
+  
   # ----------------------------------------------------------------------------
   # Browse Screen
   # ----------------------------------------------------------------------------
@@ -117,6 +122,15 @@ function(input, output, session) {
   
   source(file = "server/cell_line_meta_data.R", local = T)
   updateSelectizeInput(session, 'cellLineTissueSelect', choices = tissue_list_cellLine, server = TRUE)
+  
+  # ----------------------------------------------------------------------------
+  # Cell line meta  data
+  # ----------------------------------------------------------------------------
+  
+  source(file = "server/cell_line_selector.R", local = T)
+  updateSelectizeInput(session, 'cellLineSelectorTissueSelect', choices = tissue_list_cellLine, server = TRUE)
+  updateSelectizeInput(session, 'cellLineSelectorGeneMutationSelect', choices = gene_list_cellLine$gene_symbol, server = TRUE)
+  
   
   # ----------------------------------------------------------------------------
   # Header callback

@@ -37,11 +37,13 @@ sidebar <- dashboardSidebar(
               menuItemOutput("expressionDataSidebar"),
               menuItemOutput("essentialomeSidebar"),
               menuItemOutput("correlationsSidebar"),
-              menuItemOutput("cellLineSidebar")
+              menuItemOutput("cellLineSidebar"),
+              menuItemOutput("cellLineSelectorSidebar")
   )
 )
 
 body <- dashboardBody(
+  
 
   tabItems(
     
@@ -927,6 +929,174 @@ body <- dashboardBody(
                        downloadButton(
                          width = NULL,
                          outputId = "cellLineButtonDownload",
+                         label = "Download"
+                       )
+                     )
+              )
+            ) 
+    ),
+    # Cell line selector
+    tabItem(tabName = "cellLineSelectorSidebar", width = NULL, 
+            fluidRow(tags$head(tags$style(HTML('#cellLineSelectorInfo{color:tomato; font-weight: bold;}'))),
+                     column(width = 12,
+                            box(width = NULL, solidHeader = TRUE, htmlOutput((outputId="cellLineSelectorInfo"))))),
+            fluidRow(
+              column(width = 9,
+                     box(title = "Cellline meta data", status = "info", width = NULL, solidHeader = TRUE, collapsible = TRUE, collapsed=F, withSpinner(dataTableOutput(outputId="cellLineSelectorDataTableMeta"))),
+                     box(title = "Screen results", status = "info", width = NULL, solidHeader = TRUE, collapsible = TRUE, collapsed=F, withSpinner(dataTableOutput(outputId="cellLineSelectorDataTableScreens"))),
+                     box(title = "Gene mutations ", status = "success", width = NULL, solidHeader = TRUE, collapsible = TRUE, collapsed=F, withSpinner(dataTableOutput(outputId="cellLineSelectorDataTableMutations"))),
+                     box(title = "Gene fusions ", status = "warning", width = NULL, solidHeader = TRUE, collapsible = TRUE, collapsed=F, withSpinner(dataTableOutput(outputId="cellLineSelectorDataTableFusions"))),
+                     box(title = "Gene CNVs", status = "danger", width = NULL, solidHeader = TRUE, collapsible = TRUE, collapsed=F, withSpinner(dataTableOutput(outputId="cellLineSelectorDataTableCNVs")))),
+              column(width = 3,
+                     box(width = NULL, solidHeader = TRUE,
+                         selectizeInput(
+                           inputId = "cellLineSelectorTissueSelect",
+                           label = "Tissue:",
+                           choices = NULL,
+                           multiple = TRUE,
+                           selected = NULL
+                         ),
+                         checkboxInput(
+                           inputId = "cellLineSelectorCheckTissueAll",
+                           label = "Search All Tissues",
+                           value = FALSE
+                         )
+                      ),
+                      box(width = NULL, solidHeader = TRUE,
+                         disabled(
+                           selectizeInput(
+                             inputId = "cellLineSelectorGeneMutationSelect",
+                             label = "Gene mutation:",
+                             choices = NULL,
+                             multiple = TRUE,
+                             selected = NULL
+                           )
+                         ),
+                         # disabled(
+                         #   selectizeInput(
+                         #     inputId = "cellLineSelectorGeneMutationEffectSelect",
+                         #     label = "Mutation effect:",
+                         #     choices = NULL,
+                         #     multiple = TRUE,
+                         #     selected = NULL
+                         #   )
+                         # ),
+                         # disabled(
+                         #   checkboxInput(
+                         #     inputId = "cellLineSelectorCheckGeneMutationEffectAll",
+                         #     label = "Include all mutation effects",
+                         #     value = FALSE
+                         #   )
+                         # ),
+                         disabled(
+                           selectizeInput(
+                             inputId = "cellLineSelectorGeneMutationProteinSelect",
+                             label = "Protein mutation:",
+                             choices = NULL,
+                             multiple = TRUE,
+                             selected = NULL
+                           )
+                         ),
+                         # disabled(
+                         #   checkboxInput(
+                         #     inputId = "cellLineSelectorCheckGeneMutationProteinAll",
+                         #     label = "Include all protein mutations",
+                         #     value = FALSE
+                         #   )
+                         # )
+                      ),
+                      box(width = NULL, solidHeader = TRUE,
+                         disabled(
+                           selectizeInput(
+                             inputId = "cellLineSelectorGeneDependencySelect",
+                             label = "Gene dependency:",
+                             choices = NULL,
+                             multiple = TRUE,
+                             selected = NULL
+                           )
+                         ),
+                         sliderInput(
+                           "cellLineSelectorGeneDependencySlider", 
+                           "Filter for cell lines with scaled gene dependency (-1 equals to mean essential gene dropout):",
+                           min = -1,
+                           max = 0,
+                           value = -0.5
+                         ),
+                     ),
+                     box(width = NULL, solidHeader = TRUE,
+                         disabled(
+                           selectizeInput(
+                             inputId = "cellLineSelectorGeneFusion3primeSelect",
+                             label = "3' gene fusion :",
+                             choices = NULL,
+                             multiple = TRUE,
+                             selected = NULL
+                           )
+                         ),
+                         # disabled(
+                         #   checkboxInput(
+                         #     inputId = "cellLineSelectorCheckGeneFusion3primeAll",
+                         #     label = "Include all 3' gene fusions",
+                         #     value = FALSE
+                         #   )
+                         # ),
+                         disabled(
+                           selectizeInput(
+                             inputId = "cellLineSelectorGeneFusion5primeSelect",
+                             label = "5' gene fusion :",
+                             choices = NULL,
+                             multiple = TRUE,
+                             selected = NULL
+                           )
+                         ),
+                         # disabled(
+                         #   checkboxInput(
+                         #     inputId = "cellLineSelectorCheckGeneFusion5primeAll",
+                         #     label = "Include all 5' gene fusions",
+                         #     value = FALSE
+                         #   )
+                         # )
+                     ),
+                     box(width = NULL, solidHeader = TRUE,
+                         disabled(
+                           selectizeInput(
+                             inputId = "cellLineSelectorGeneCNVSelect",
+                             label = "Gene CNV:",
+                             choices = NULL,
+                             multiple = TRUE,
+                             selected = NULL
+                           )
+                         ),
+                         disabled(
+                           selectizeInput(
+                             inputId = "cellLineSelectorGeneCNVCategorySelect",
+                             label = "Gene CNV category:",
+                             choices = NULL,
+                             multiple = TRUE,
+                             selected = NULL
+                           )
+                         ),
+                     ),
+                     box(width = NULL, solidHeader = TRUE,
+                         disabled(
+                           actionButton(inputId = "cellLineSelectorLoadButton", 
+                                        label = "Load data!"
+                           )
+                         )
+                     ),
+                     box(
+                       width = NULL,
+                       solidHeader = TRUE,
+                       checkboxGroupInput(
+                         "cellLineSelectorDownloadCheck",
+                         label = "Download result tables:",
+                         choices = list("Cellline meta data" = "Cellline meta data", "Screen results" = "Screen results", "Gene mutations" = "Gene mutations", "Gene fusions" = "Gene fusions", "Gene CNVs" = "Gene CNVs"),
+                         selected = c("Cellline meta data", "Screen results", "Gene mutations", "Gene fusions", "Gene CNVs"),
+                         inline = F
+                       ),
+                       downloadButton(
+                         width = NULL,
+                         outputId = "cellLineSelectorButtonDownload",
                          label = "Download"
                        )
                      )

@@ -29,6 +29,7 @@ library(readxl)
 library(DBI)
 library(zip)
 library(shinyBS)
+library(tableHTML)
 
 con <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "databases/screen.db")
 
@@ -63,7 +64,7 @@ features <- con %>%
 
 contrasts <- con %>%
   tbl("contrasts") %>%
-  dplyr::select(contrast_id, contrast_id_QC, library_id, cellline_name, tissue_name, species, type, dynamic_range)
+  dplyr::select(contrast_id, contrast_id_QC, library_id, cellline_name, tissue_name, species, type, dynamic_range, auc)
 
 libraries <- contrasts %>%
   dplyr::select(library_id, cellline_name, tissue_name, species, type) %>%
@@ -122,7 +123,8 @@ cellline_list_cellLine <- con_cell_lines %>%
 
 gene_list_cellLine <- con_cell_lines %>%
   tbl("cell_line_genes") %>%
-  collect
+  collect %>%
+  arrange(gene_symbol)
 
 tissue_list_cellLine <- cellline_list_cellLine %>%
   dplyr::select(tissue_name) %>%

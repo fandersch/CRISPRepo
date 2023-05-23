@@ -9,12 +9,18 @@ essentialomeTable <- reactive({
     speciesList <- input$essentialomeSpeciesSelect
   }
   
-  essentialome %>% 
-    dplyr::filter(source %in% local(input$essentialomeSelectSource), species %in% speciesList, class %in% input$essentialomeDisplay) %>% 
-    dplyr::select(-source, -species)
+  df <- essentialome %>% 
+    dplyr::filter(species %in% speciesList, class %in% input$essentialomeDisplay)
+  
+  if(!isTRUE(input$essentialomeCheckSourceAll)){
+    df <- df %>%
+      filter(source %in% local(input$essentialomeSelectSource))
+  }
+  
+  df 
 })
 
-output$essentialomeTableOutput <- renderDataTable({
+output$essentialomeTableOutput <- DT::renderDataTable({
   essentialomeTable()
 }, 
 rownames= FALSE,
@@ -65,8 +71,20 @@ essentialomeSourceList <- reactive({
 observeEvent(input$essentialomeSpeciesSelect, {
   #update other species selects
   updateSpecies(input$essentialomeSpeciesSelect)
-  #update library selectbox
+  #update selectbox
   updateSelectizeInput(session, 'essentialomeSelectSource', choices = essentialomeSourceList(), server = TRUE)
+})
+
+observeEvent(input$essentialomeSelectSource, {
+  updateCheckboxInput(session, 'essentialomeCheckSourceAll', value = FALSE)
+})
+
+observeEvent(input$essentialomeCheckSourceAll, {
+  if(isTRUE(input$essentialomeCheckSourceAll)){
+    #reset  selectbox
+    updateSelectizeInput(session, 'essentialomeSelectSource', choices = essentialomeSourceList(), server = TRUE)
+  }
+  
 })
 
 # ----------------------------------------------------------------------------

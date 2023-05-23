@@ -145,6 +145,7 @@ dualSgRNAsTable <- reactive({
                  genomic_cutting_distance = firstSgRNA_genomic_cutting_position - second_sgRNA_genomic_cutting_position,
                  produces_frameshift = ifelse(genomic_cutting_distance %% 3 != 0 & firstSgRNA_exon==exon, TRUE, ifelse(genomic_cutting_distance %% 3 == 0 & firstSgRNA_exon==exon, FALSE, NA)),
                  proximity_1kb = ifelse(abs(genomic_cutting_distance)<=1000, TRUE, FALSE),
+                 minimal_distance = ifelse((second_sgRNA_orientation==firstSgRNA_orientation & abs(genomic_cutting_distance) >= 70) | (second_sgRNA_orientation!=firstSgRNA_orientation & abs(genomic_cutting_distance) >= 50), T, F),
                  targets_same_exon = ifelse(firstSgRNA_exon==exon, TRUE, FALSE),
                  first_sgRNA_sequence_23mer = firstSgRNA_sequence, 
                  first_sgRNA_mature = firstSgRNA_mature,
@@ -157,7 +158,7 @@ dualSgRNAsTable <- reactive({
           dplyr::select(EntrezID, Symbol, 
                         first_sgRNA_sequence_23mer, first_sgRNA_mature, first_sgRNA_position_30mer, first_sgRNA_exon_number, first_sgRNA_genomic_cutting_position,
                         second_sgRNA_sequence_23mer=sgRNA_23mer, second_sgRNA_mature=mature_sgRNA, second_sgRNA_position_30mer=Position, second_sgRNA_exon=exon, second_sgRNA_genomic_cutting_position, 
-                        genomic_cutting_distance, targets_same_exon, proximity_1kb, produces_frameshift, 
+                        genomic_cutting_distance, targets_same_exon, minimal_distance, proximity_1kb, produces_frameshift, 
                         VBC.score, Off_target, inDelphi, cleavage_activity, everything()) %>%
           dplyr::select(-sgRNA_ID, -guide_origin, -second_sgRNA_orientation, -second_sgRNA_chr, -second_sgRNA_start, -second_sgRNA_end, -check)
         
@@ -230,9 +231,17 @@ dualSgRNAsTable <- reactive({
             } 
           }
         }
+
+        sgRNAs_selected_top <- sgRNAs_selected %>%
+          filter(proximity_1kb, minimal_distance, produces_frameshift) %>%
+          arrange(EntrezID, first_sgRNA_sequence_23mer, desc(produces_frameshift), final_rank)
         
-        sgRNAs_selected <- sgRNAs_selected %>%
-          arrange(EntrezID, desc(proximity_1kb), desc(produces_frameshift), final_rank)
+        sgRNAs_selected_rest <- sgRNAs_selected %>%
+          anti_join(sgRNAs_selected_top) %>%
+          arrange(EntrezID, first_sgRNA_sequence_23mer, final_rank)
+        
+        sgRNAs_selected <- sgRNAs_selected_top %>%
+          rbind(sgRNAs_selected_rest)
 
         #Limit number of reported dual-sgRNA-combinations per gene
         if(input$dualSgRNAs_LimitOutput == TRUE){
@@ -302,6 +311,16 @@ dualSgRNAsDataTable <- eventReactive(input$dualSgRNALoadButton,{
     
     dualSgRNAs_output <- dualSgRNAsTable()
     if (nrow(dualSgRNAs_output) > 0) {
+      
+      showModal(modalDialog(
+        title = "ATTENTION!", 
+        paste0("ATTENTION: The dual-guide pairs are ranked based on (1) if they have a MINIMUM DISTANCE to each other and are within a PROXIMITY OF 1KB and, (2) if they PRODUCE A FRAMESHIFT and finally (3) by the final sgRNA PREDICTION RANK of the matching guide.
+               Please DOUBLE CHECK the list for your desired properties!!! It is not guaranteed that the top ranked dual-guide pair fullfills your requirements! Please click the confirmation button to proceed."),
+        footer = tagList(
+          modalButton("I have read this information and will double check the properties")
+        )
+      ))
+      
       return(
         dualSgRNAs_output %>%
           datatable(options = list(

@@ -51,7 +51,34 @@ body <- dashboardBody(
   
     #Browse Screen
     tabItem(tabName = "gwsBrowseScreenTab", width = NULL,
-            fluidRow(tags$head(tags$style(HTML('#gwsBrowseScreenInfo{color:tomato; font-weight: bold;}'))),
+            fluidRow(tags$head(tags$style(HTML('#gwsBrowseScreenInfo{
+                                                 color:tomato; 
+                                                 font-weight: 
+                                                 bold;
+                                                }
+                                                [data-title] {
+                                                  position: relative;
+                                                }
+                                                [data-title]:after {
+                                                  content: attr(data-title);
+                                                  background-color: #fed8b1;
+                                                  color: black;
+                                                  font-size: 100%;
+                                                  padding: 1px 5px 2px 5px;
+                                                  bottom: -2.5em;
+                                                  border: 4px solid rgb(255, 255, 255);
+                                                  border-radius: 5px;
+                                                  left: -100%;
+                                                  position: absolute;
+                                                  z-index: 99999;
+                                                  visibility: hidden;
+                                                  width: min-content;
+                                                }
+                                                [data-title]:hover:after {
+                                                  opacity: 1;
+                                                  transition: all 0.1s ease 0.5s;
+                                                  visibility: visible;
+                                                }'))),
                      column(width = 12,
                             box(width = NULL, solidHeader = TRUE, textOutput(outputId="gwsBrowseScreenInfo")))),
             fluidRow(
@@ -83,8 +110,8 @@ body <- dashboardBody(
                          radioButtons(
                            "gwsBrowseScreenIndexRadio",
                            label = "Display data as:",
-                           choices = list("Log-fold change" = "lfc", "Effect" = "effect", "FDR-adjusted effect" = "adjusted_effect"),
-                           selected = "adjusted_effect",
+                           choices = list("Log-fold change" = "lfc", "Effect" = "effect_essentialome", "FDR-adjusted effect" = "adjusted_effect_essentialome"),
+                           selected = "adjusted_effect_essentialome",
                            inline = F
                          ),
                          
@@ -258,8 +285,8 @@ body <- dashboardBody(
                          radioButtons(
                            "gwsGeneIndexRadio",
                            label = "Display data as:",
-                           choices = list("Log-fold change" = "lfc", "Effect" = "effect", "FDR-adjusted effect" = "adjusted_effect"),
-                           selected = "adjusted_effect",
+                           choices = list("Log-fold change" = "lfc", "Effect" = "effect_essentialome", "FDR-adjusted effect" = "adjusted_effect_essentialome"),
+                           selected = "adjusted_effect_essentialome",
                            inline = F
                          ),
                          
@@ -410,7 +437,7 @@ body <- dashboardBody(
                          radioButtons(
                            "sgRNAInfoIndexRadio",
                            label = "Display:",
-                           choices = list("Log-fold change" = "lfc", "Effect" = "effect"),
+                           choices = list("Log-fold change" = "lfc", "Effect" = "effect_essentialome"),
                            selected = "lfc",
                            inline = T
                          ),
@@ -752,7 +779,13 @@ body <- dashboardBody(
                          selectInput(inputId = "essentialomeSelectSource",
                                      label = "Source:",
                                      choices = NULL,
-                                     selectize = TRUE)), 
+                                     multiple = TRUE,
+                                     selectize = TRUE),
+                         checkboxInput(
+                           inputId = "essentialomeCheckSourceAll",
+                           label = "Display all essentialomes",
+                           value = TRUE
+                         )), 
                      infoBoxOutput(width = NULL, "essentialomeBoxEssentialGenesTotal"),
                      infoBoxOutput(width = NULL, "essentialomeBoxNonessentialGenesTotal"),
                      downloadButton(width = NULL, 
@@ -944,6 +977,7 @@ body <- dashboardBody(
               column(width = 9,
                      box(title = "Cellline meta data", status = "info", width = NULL, solidHeader = TRUE, collapsible = TRUE, collapsed=F, withSpinner(dataTableOutput(outputId="cellLineSelectorDataTableMeta"))),
                      box(title = "Screen results", status = "info", width = NULL, solidHeader = TRUE, collapsible = TRUE, collapsed=F, withSpinner(dataTableOutput(outputId="cellLineSelectorDataTableScreens"))),
+                     box(title = "Expression levels", status = "info", width = NULL, solidHeader = TRUE, collapsible = TRUE, collapsed=F, withSpinner(dataTableOutput(outputId="cellLineSelectorDataTableExpression"))),
                      box(title = "Gene mutations ", status = "success", width = NULL, solidHeader = TRUE, collapsible = TRUE, collapsed=F, withSpinner(dataTableOutput(outputId="cellLineSelectorDataTableMutations"))),
                      box(title = "Gene fusions ", status = "warning", width = NULL, solidHeader = TRUE, collapsible = TRUE, collapsed=F, withSpinner(dataTableOutput(outputId="cellLineSelectorDataTableFusions"))),
                      box(title = "Gene CNVs", status = "danger", width = NULL, solidHeader = TRUE, collapsible = TRUE, collapsed=F, withSpinner(dataTableOutput(outputId="cellLineSelectorDataTableCNVs")))),
@@ -972,22 +1006,6 @@ body <- dashboardBody(
                              selected = NULL
                            )
                          ),
-                         # disabled(
-                         #   selectizeInput(
-                         #     inputId = "cellLineSelectorGeneMutationEffectSelect",
-                         #     label = "Mutation effect:",
-                         #     choices = NULL,
-                         #     multiple = TRUE,
-                         #     selected = NULL
-                         #   )
-                         # ),
-                         # disabled(
-                         #   checkboxInput(
-                         #     inputId = "cellLineSelectorCheckGeneMutationEffectAll",
-                         #     label = "Include all mutation effects",
-                         #     value = FALSE
-                         #   )
-                         # ),
                          disabled(
                            selectizeInput(
                              inputId = "cellLineSelectorGeneMutationProteinSelect",
@@ -997,13 +1015,6 @@ body <- dashboardBody(
                              selected = NULL
                            )
                          ),
-                         # disabled(
-                         #   checkboxInput(
-                         #     inputId = "cellLineSelectorCheckGeneMutationProteinAll",
-                         #     label = "Include all protein mutations",
-                         #     value = FALSE
-                         #   )
-                         # )
                       ),
                       box(width = NULL, solidHeader = TRUE,
                          disabled(
@@ -1026,6 +1037,24 @@ body <- dashboardBody(
                      box(width = NULL, solidHeader = TRUE,
                          disabled(
                            selectizeInput(
+                             inputId = "cellLineSelectorGeneExpressionSelect",
+                             label = "Gene expression:",
+                             choices = NULL,
+                             multiple = TRUE,
+                             selected = NULL
+                           )
+                         ),
+                         sliderInput(
+                           "cellLineSelectorGeneExpressionSlider", 
+                           "Filter for cell lines with gene expression (TPMs):",
+                           min = 0,
+                           max = 1000,
+                           value = 5
+                         ),
+                     ),
+                     box(width = NULL, solidHeader = TRUE,
+                         disabled(
+                           selectizeInput(
                              inputId = "cellLineSelectorGeneFusion3primeSelect",
                              label = "3' gene fusion :",
                              choices = NULL,
@@ -1033,13 +1062,6 @@ body <- dashboardBody(
                              selected = NULL
                            )
                          ),
-                         # disabled(
-                         #   checkboxInput(
-                         #     inputId = "cellLineSelectorCheckGeneFusion3primeAll",
-                         #     label = "Include all 3' gene fusions",
-                         #     value = FALSE
-                         #   )
-                         # ),
                          disabled(
                            selectizeInput(
                              inputId = "cellLineSelectorGeneFusion5primeSelect",
@@ -1049,13 +1071,6 @@ body <- dashboardBody(
                              selected = NULL
                            )
                          ),
-                         # disabled(
-                         #   checkboxInput(
-                         #     inputId = "cellLineSelectorCheckGeneFusion5primeAll",
-                         #     label = "Include all 5' gene fusions",
-                         #     value = FALSE
-                         #   )
-                         # )
                      ),
                      box(width = NULL, solidHeader = TRUE,
                          disabled(

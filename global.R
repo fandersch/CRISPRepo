@@ -29,7 +29,9 @@ library(readxl)
 library(DBI)
 library(zip)
 library(shinyBS)
-library(tableHTML)
+
+#set default packages for functions
+renderDataTable <- DT::renderDataTable
 
 con <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "databases/screen.db")
 
@@ -53,7 +55,7 @@ species <- pheno %>%
 
 features <- con %>%
   tbl("features") %>%
-  dplyr::select(guide_id, gene_id, symbol, entrez_id, sequence, context, library_id) %>%
+  dplyr::select(guide_id, gene_id, symbol, entrez_id, sequence, sequence_matching, sgRNA_23mer, context, library_id) %>%
   dplyr::filter(gene_id != "AMBIGUOUS") %>%
   dplyr::filter(gene_id != "UNMAPPED") %>%
   dplyr::filter(gene_id != "NOFEATURE") %>%
@@ -64,7 +66,7 @@ features <- con %>%
 
 contrasts <- con %>%
   tbl("contrasts") %>%
-  dplyr::select(contrast_id, contrast_id_QC, library_id, cellline_name, tissue_name, species, type, dynamic_range, auc)
+  dplyr::select(contrast_id, contrast_id_QC, library_id, cellline_name, tissue_name, species, type, reference_type, dynamic_range, auc, treatment, control)
 
 libraries <- contrasts %>%
   dplyr::select(library_id, cellline_name, tissue_name, species, type) %>%

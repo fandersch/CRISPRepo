@@ -19,6 +19,8 @@ output$cellLineSelectorDataTableMeta <- renderDataTable({
 })
 output$cellLineSelectorDataTableScreens <- renderDataTable({
 })
+output$cellLineSelectorDataTableExpression <- renderDataTable({
+})
 output$cellLineSelectorDataTableMutations <- renderDataTable({
 })
 output$cellLineSelectorDataTableFusions <- renderDataTable({
@@ -52,30 +54,141 @@ cellLineSelectorScreenDataFrame <- reactive({
     collect() %>%
     .$cell_line_name
 
-  contrasts_filtered <- contrasts %>%
+  contrast_ids <- contrasts %>%
     dplyr::filter(type == "dropout", dynamic_range <= -1.5, auc > 0.9, cellline_name %in% local(cellLineSelector_meta_data_cellline)) %>%
     distinct() %>%
-    collect
+    collect %>%
+    .$contrast_id
+  
+  library_ids <- contrasts %>%
+    dplyr::filter(type == "dropout", dynamic_range <= -1.5, auc > 0.9, cellline_name %in% local(cellLineSelector_meta_data_cellline)) %>%
+    distinct() %>%
+    collect %>%
+    .$library_id
   
   genes <- features %>%
-    filter(library_id %in% local(contrasts_filtered$library_id)) %>%
+    filter(library_id %in% local(library_ids)) %>%
     dplyr::select(gene_id, symbol, entrez_id) %>%
     distinct() %>%
     collect()
   
-  gene_stats <- con %>%
-    tbl("gene_stats") %>%
-    dplyr::filter(contrast_id %in% local(contrasts_filtered$contrast_id)) %>%
-    dplyr::select(contrast_id, gene_id, adjusted_effect) %>%
-    dplyr::distinct() %>%
+  if(length(contrast_ids)>=900){
+    contrasts_ids_filter_string <- c(paste(paste("contrast_id", paste0("'", contrast_ids[1:899], "'"), sep="="), collapse=" OR "))
+    i<-900
+    while(i <= length(contrast_ids)){
+      end<-i+899
+      if(end>length(contrast_ids)){
+        end<-length(contrast_ids)
+      }
+      contrasts_ids_filter_string <- c(sample_ids_filter_string, paste(paste("contrast_id", paste0("'", contrast_ids[i:end], "'"), sep="="), collapse=" OR "))
+      i<-i+end
+    }
+  }else{
+    contrasts_ids_filter_string <- paste(paste("contrast_id", paste0("'", contrast_ids, "'"), sep="="), collapse=" OR ")
+  }
+  
+  query <- paste0("SELECT contrast_id, gene_id, adjusted_effect_essentialome FROM gene_stats ",
+                  "WHERE (", contrasts_ids_filter_string, ") ")
+  
+  df<- NULL
+  for(z in 1:length(query)){
+    # a chunk at a time
+    res <- dbSendQuery(con, query[z])
+    i<-1
+    while(!dbHasCompleted(res)){
+      chunk <- dbFetch(res, n = 5000000)
+      if(is.null(df)){
+        df <- chunk
+      }else{
+        df <- df %>% rbind(chunk)
+      }
+      if(i %% 10==0){
+        gc()
+      }
+      i<-i+1
+    }
+    chunk<-NULL
+    dbClearResult(res)
+  }
+  
+  if(!is.null(df)){
+    df %>% 
+      dplyr::distinct() %>%
+      inner_join(genes) %>%
+      dplyr::select(-gene_id) %>%
+      pivot_wider(names_from = "contrast_id", values_from = "adjusted_effect_essentialome") %>%
+      arrange(symbol)
+  }else{
+    data.frame()
+  }
+})
+
+#
+cellLineSelectorExpressionDataFrame <- reactive({
+  model_ids <- cellLineSelectorModelList()
+  
+  cellLineSelector_meta_data_cellline <- con_cell_lines %>%
+    tbl("cell_line_meta") %>%
+    dplyr::filter(Sanger_model_ID %in% local(c(model_ids))) %>%
     collect() %>%
-    dplyr::mutate(adjusted_effect = round(adjusted_effect,2)) %>%
-    inner_join(contrasts_filtered %>% dplyr::select(contrast_id, contrast_id_QC)) %>%
-    inner_join(genes) %>%
-    dplyr::select(-contrast_id, -gene_id) %>%
-    pivot_wider(names_from = "contrast_id_QC", values_from = "adjusted_effect") %>%
-    dplyr::select(symbol, entrez_id, matches(contrasts_filtered$contrast_id_QC)) %>%
-    arrange(symbol)
+    .$cell_line_name
+  
+  
+  
+  sample_ids <- cellline_list_expressionData %>%
+    dplyr::filter(cell_line_name %in% cellLineSelector_meta_data_cellline) %>%
+    dplyr::select(sample_id) %>%
+    .$sample_id
+  
+  
+  if(length(sample_ids)>=900){
+    sample_ids_filter_string <- c(paste(paste("sample_id", paste0("'", sample_ids[1:899], "'"), sep="="), collapse=" OR "))
+    i<-900
+    while(i <= length(sample_ids)){
+      end<-i+899
+      if(end>length(sample_ids)){
+        end<-length(sample_ids)
+      }
+      sample_ids_filter_string <- c(sample_ids_filter_string, paste(paste("sample_id", paste0("'", sample_ids[i:end], "'"), sep="="), collapse=" OR "))
+      i<-i+end
+    }
+  }else{
+    sample_ids_filter_string <- paste(paste("sample_id", paste0("'", sample_ids, "'"), sep="="), collapse=" OR ")
+  }
+  
+  query <- paste0("SELECT sample_id, symbol, entrez_id, tpm FROM expression_data_values ",
+                  "WHERE (", sample_ids_filter_string, ") ")
+  
+  df<- NULL
+  for(z in 1:length(query)){
+    # a chunk at a time
+    res <- dbSendQuery(con_expression, query[z])
+    i<-1
+    while(!dbHasCompleted(res)){
+      chunk <- dbFetch(res, n = 5000000)
+      if(is.null(df)){
+        df <- chunk
+      }else{
+        df <- df %>% rbind(chunk)
+      }
+      if(i %% 10==0){
+        gc()
+      }
+      i<-i+1
+    }
+    chunk<-NULL
+    dbClearResult(res)
+  }
+  
+  if(!is.null(df)){
+    df %>% 
+      distinct %>%
+      dplyr::select(sample_id, symbol, entrez_id, tpm) %>%
+      pivot_wider(names_from=sample_id, values_from=tpm) %>%
+      arrange(symbol)
+  }else{
+    data.frame()
+  }
   
 })
 
@@ -155,9 +268,6 @@ cellLineSelectorDataTableMeta <- eventReactive(input$cellLineSelectorLoadButton,
   df <- cellLineSelectorMetaDataFrame()
 
   if (nrow(df) > 0) {
-    output$cellLineSelectorInfo <- renderText({
-      "INFO: Loading completed!"
-    })
 
     df %>%
       datatable(extensions = c('FixedColumns','FixedHeader'),
@@ -183,10 +293,9 @@ cellLineSelectorDataTableScreens <- eventReactive(input$cellLineSelectorLoadButt
   
   df <- cellLineSelectorScreenDataFrame()
   
+  print(df)
+  
   if (nrow(df) > 0) {
-    output$cellLineSelectorInfo <- renderText({
-      "INFO: Loading completed!"
-    })
     
     vals<-df[,3:ncol(df)]
     values_min <- vals %>% min(na.rm = TRUE)
@@ -203,7 +312,7 @@ cellLineSelectorDataTableScreens <- eventReactive(input$cellLineSelectorLoadButt
     brks <- c(as.vector(brks_smaller), as.vector(brks_bigger))
     clrs <- c(as.vector(clrs_smaller), as.vector(clrs_bigger))
     
-    dt <- df %>%
+    df %>%
       DT::datatable(extensions = c('FixedColumns','FixedHeader'), 
                     options = list(
                       autoWidth = FALSE,
@@ -225,14 +334,51 @@ cellLineSelectorDataTableScreens <- eventReactive(input$cellLineSelectorLoadButt
   }
 })
 
+cellLineSelectorDataTableExpression <- eventReactive(input$cellLineSelectorLoadButton,{
+  
+  df <- cellLineSelectorExpressionDataFrame()
+  
+  if (nrow(df) > 0) {
+    
+    nfreezeColumns <- 2
+    
+    values<- df[,3:ncol(df)]
+    max_value <- max(values, na.rm=T)
+    min_value <- min(values, na.rm=T)
+    
+    brks <- exp(seq(0, log(max_value), length.out = 40))
+    
+    clrs <- round(seq(255, 5, length.out = (length(brks) + 1)), 0) %>%
+      {paste0("rgb(255,", ., ",", ., ")")}
+    
+    df %>%
+      DT::datatable(extensions = c('FixedColumns','FixedHeader'),
+                    options = list(
+                      autoWidth = FALSE,
+                      headerCallback = JS(headerCallback),
+                      scrollX=TRUE,
+                      fixedColumns = list(leftColumns = nfreezeColumns),
+                      columnDefs = list(list(className = 'dt-center', targets = "_all")),
+                      pageLength = 25,
+                      lengthMenu = c(25, 50, 100, 200),
+                      searchHighlight = TRUE
+                      #fixedHeader = TRUE
+                    ),
+                    filter = list(position = 'top', clear = FALSE),
+                    rownames= FALSE) %>%
+      formatStyle(seq(nfreezeColumns+1, length(colnames(df)),1),
+                  backgroundColor = styleInterval(brks, clrs))
+    
+  }else{
+    NULL
+  }
+})
+
 cellLineSelectorDataTableMutations <- eventReactive(input$cellLineSelectorLoadButton,{
 
   df <- cellLineSelectorMutationsDataFrame()
 
   if (nrow(df) > 0) {
-    output$cellLineSelectorInfo <- renderText({
-      "INFO: Loading completed!"
-    })
 
     df %>%
       datatable(extensions = c('FixedColumns','FixedHeader'),
@@ -259,9 +405,6 @@ cellLineSelectorDataTableFusions <- eventReactive(input$cellLineSelectorLoadButt
   df <- cellLineSelectorFusionsDataFrame()
 
   if (nrow(df) > 0) {
-    output$cellLineSelectorInfo <- renderText({
-      "INFO: Loading completed!"
-    })
 
     df %>%
       datatable(extensions = c('FixedColumns','FixedHeader'),
@@ -288,10 +431,7 @@ cellLineSelectorDataTableCNVs <- eventReactive(input$cellLineSelectorLoadButton,
   df <- cellLineSelectorCNVsDataFrame()
 
   if (nrow(df) > 0) {
-    output$cellLineSelectorInfo <- renderText({
-      "INFO: Loading completed!"
-    })
-
+    
     df %>%
       datatable(extensions = c('FixedColumns','FixedHeader'),
                 class = "display nowrap",
@@ -445,12 +585,12 @@ cellLineSelectorModelList <- reactive({
       
     contrast_ids <- con %>%
       tbl("gene_stats") %>%
-      dplyr::filter(contrast_id %in% local(contrasts_filtered$contrast_id), gene_id %in% local(gene_ids), adjusted_effect <= local(input$cellLineSelectorGeneDependencySlider)) %>%
-      dplyr::select(contrast_id, adjusted_effect) %>%
+      dplyr::filter(contrast_id %in% local(contrasts_filtered$contrast_id), gene_id %in% local(gene_ids), adjusted_effect_essentialome <= local(input$cellLineSelectorGeneDependencySlider)) %>%
+      dplyr::select(contrast_id, adjusted_effect_essentialome) %>%
       dplyr::distinct() %>%
       collect() %>%
       group_by(contrast_id) %>%
-      summarize(n_check=sum(adjusted_effect <= local(input$cellLineSelectorGeneDependencySlider)), n_genes=length(local(input$cellLineSelectorGeneDependencySelect))) %>%
+      summarize(n_check=sum(adjusted_effect_essentialome <= local(input$cellLineSelectorGeneDependencySlider)), n_genes=length(local(input$cellLineSelectorGeneDependencySelect))) %>%
       dplyr::filter(n_check==n_genes) %>%
       .$contrast_id %>%
       unique
@@ -469,6 +609,46 @@ cellLineSelectorModelList <- reactive({
       .$Sanger_model_ID
     
     model_ids <- model_ids[model_ids %in% cell_lines_dependency]
+  }
+  
+  #get cell lines with requested gene expression
+  cell_lines_expression<-c()
+  if(!is.null(input$cellLineSelectorGeneExpressionSelect)){
+    
+    sample_ids_filtered <- cellline_list_expressionData %>%
+      dplyr::filter(tissue_name %in% presel_tissue) %>%
+      dplyr::select(sample_id) %>%
+      distinct() %>%
+      collect() %>%
+      .$sample_id
+    
+    sample_ids <- con_expression %>%
+      tbl("expression_data_values") %>%
+      dplyr::filter(sample_id %in% local(sample_ids_filtered), symbol %in% local(input$cellLineSelectorGeneExpressionSelect), tpm >= local(input$cellLineSelectorGeneExpressionSlider)) %>%
+      dplyr::select(sample_id, tpm) %>%
+      dplyr::distinct() %>%
+      collect() %>%
+      group_by(sample_id) %>%
+      summarize(n_check=sum(tpm >= local(input$cellLineSelectorGeneExpressionSlider)), n_genes=length(local(input$cellLineSelectorGeneExpressionSelect))) %>%
+      dplyr::filter(n_check==n_genes) %>%
+      .$sample_id %>%
+      unique
+    
+    
+    cellline_names <- cellline_list_expressionData %>%
+      dplyr::filter(sample_id %in% sample_ids) %>%
+      .$cell_line_name %>%
+      unique
+    
+    cell_lines_expression <- con_cell_lines %>%
+      tbl("cell_line_meta") %>%
+      dplyr::filter(cell_line_name %in% local(cellline_names)) %>%
+      dplyr::select(Sanger_model_ID) %>%
+      dplyr::distinct() %>%
+      collect() %>%
+      .$Sanger_model_ID
+    
+    model_ids <- model_ids[model_ids %in% cell_lines_expression]
   }
   
   model_ids %>% unique
@@ -533,6 +713,23 @@ cellLineSelectorGeneDependencyList <- reactive({
     dplyr::select(symbol) %>%
     distinct() %>%
     collect() %>%
+    arrange(symbol) %>%
+    .$symbol
+  
+})
+
+cellLineSelectorGeneExpressionList <- reactive({
+  
+  if(class(gene_list_expressionData)[1] == "tbl_SQLiteConnection"){
+    cellline_list_expressionData <<- cellline_list_expressionData %>%
+      collect()
+    
+    gene_list_expressionData <<- gene_list_expressionData %>%
+      collect()
+  }
+
+  gene_list_expressionData %>%
+    filter(species == "human") %>%
     arrange(symbol) %>%
     .$symbol
   
@@ -649,44 +846,70 @@ cellLineSelectorGeneCNVCategoryList <- reactive({
 })
 
 
-# #----------------------------------------------------------------------------
-# #  Observers
-# #----------------------------------------------------------------------------
+#----------------------------------------------------------------------------
+#  Observers
+#----------------------------------------------------------------------------
 observeEvent(input$cellLineSelectorLoadButton, {
+  
+  dt_meta <- cellLineSelectorDataTableMeta()
+
   output$cellLineSelectorDataTableMeta <- renderDataTable({
-    dt <- cellLineSelectorDataTableMeta()
-    if(!is.null(dt)){
-      dt
+    if(!is.null(dt_meta)){
+      dt_meta
     }
   })
   
+  dt_screens <- cellLineSelectorDataTableScreens()
+  
   output$cellLineSelectorDataTableScreens <- renderDataTable({
-    dt <- cellLineSelectorDataTableScreens()
-    if(!is.null(dt)){
-      dt
+    
+    if(!is.null(dt_screens)){
+      dt_screens
     }
   })
-
+  
+  dt_expression <- cellLineSelectorDataTableExpression()
+  
+  output$cellLineSelectorDataTableExpression <- renderDataTable({
+    if(!is.null(dt_expression)){
+      dt_expression
+    }
+  })
+  
+  dt_mutation <- cellLineSelectorDataTableMutations()
+  
   output$cellLineSelectorDataTableMutations <- renderDataTable({
-    dt <- cellLineSelectorDataTableMutations()
-    if(!is.null(dt)){
-      dt
+    if(!is.null(dt_mutation)){
+      dt_mutation
     }
   })
+  
+  dt_fusion <- cellLineSelectorDataTableFusions()
 
   output$cellLineSelectorDataTableFusions <- renderDataTable({
-    dt <- cellLineSelectorDataTableFusions()
-    if(!is.null(dt)){
-      dt
+    if(!is.null(dt_fusion)){
+      dt_fusion
     }
   })
+  
+  dt_cnv <- cellLineSelectorDataTableCNVs()
 
   output$cellLineSelectorDataTableCNVs <- renderDataTable({
-    dt <- cellLineSelectorDataTableCNVs()
-    if(!is.null(dt)){
-      dt
+    if(!is.null(dt_cnv)){
+      dt_cnv
     }
   })
+  
+  if(is.null(dt_meta) & is.null(dt_screens) & is.null(dt_expression) & is.null(dt_mutation) & is.null(dt_fusion) & is.null(dt_cnv)){
+    output$cellLineSelectorInfo <- renderText({
+      "ATTENTION: No cell lines found that fulfill filtering criteria. Please adjust the query!"
+    })
+  }else{
+    output$cellLineSelectorInfo <- renderText({
+      "SUCCESS: Loading completed!"
+    })
+  }
+  
 })
 
 observeEvent(input$cellLineSelectorTissueSelect, {
@@ -699,6 +922,7 @@ observeEvent(input$cellLineSelectorTissueSelect, {
     enable("cellLineSelectorLoadButton")
     enable("cellLineSelectorGeneMutationSelect")
     enable("cellLineSelectorGeneDependencySelect")
+    enable("cellLineSelectorGeneExpressionSelect")
     enable("cellLineSelectorGeneFusion3primeSelect")
     enable("cellLineSelectorGeneFusion5primeSelect")
     enable("cellLineSelectorGeneCNVSelect")
@@ -707,6 +931,7 @@ observeEvent(input$cellLineSelectorTissueSelect, {
     disable("cellLineSelectorLoadButton")
     disable("cellLineSelectorGeneMutationSelect")
     disable("cellLineSelectorGeneDependencySelect")
+    disable("cellLineSelectorGeneExpressionSelect")
     disable("cellLineSelectorGeneFusion3primeSelect")
     disable("cellLineSelectorGeneFusion5primeSelect")
     disable("cellLineSelectorGeneCNVSelect")
@@ -716,6 +941,7 @@ observeEvent(input$cellLineSelectorTissueSelect, {
   #update selectb
   updateSelectizeInput(session, 'cellLineSelectorGeneMutationSelect', choices = gene_list_cellLine$gene_symbol, selected=NULL, server = TRUE)
   updateSelectizeInput(session, 'cellLineSelectorGeneDependencySelect', choices = cellLineSelectorGeneDependencyList(), selected=NULL,server = TRUE)
+  updateSelectizeInput(session, 'cellLineSelectorGeneExpressionSelect', choices = cellLineSelectorGeneExpressionList(), selected=NULL,server = TRUE)
   updateSelectizeInput(session, 'cellLineSelectorGeneFusion3primeSelect', choices = cellLineSelectorGeneFusion3primeList(), selected=NULL,server = TRUE)
   updateSelectizeInput(session, 'cellLineSelectorGeneFusion5primeSelect', choices = cellLineSelectorGeneFusion5primeList(), selected=NULL,server = TRUE)
   updateSelectizeInput(session, 'cellLineSelectorGeneCNVSelect', choices = cellLineSelectorGeneCNVList(), selected=NULL,server = TRUE)
@@ -734,6 +960,7 @@ observeEvent(input$cellLineSelectorCheckTissueAll, {
   if((isTRUE(input$cellLineSelectorCheckTissueAll) | (!is.null(input$cellLineSelectorTissueSelect)))) {
     enable("cellLineSelectorGeneMutationSelect")
     enable("cellLineSelectorGeneDependencySelect")
+    enable("cellLineSelectorGeneExpressionSelect")
     enable("cellLineSelectorGeneFusion3primeSelect")
     enable("cellLineSelectorGeneFusion5primeSelect")
     enable("cellLineSelectorGeneCNVSelect")
@@ -741,6 +968,7 @@ observeEvent(input$cellLineSelectorCheckTissueAll, {
   }else{
     disable("cellLineSelectorGeneMutationSelect")
     disable("cellLineSelectorGeneDependencySelect")
+    disable("cellLineSelectorGeneExpressionSelect")
     disable("cellLineSelectorGeneFusion3primeSelect")
     disable("cellLineSelectorGeneFusion5primeSelect")
     disable("cellLineSelectorGeneCNVSelect")
@@ -750,6 +978,7 @@ observeEvent(input$cellLineSelectorCheckTissueAll, {
   #update selectb
   updateSelectizeInput(session, 'cellLineSelectorGeneMutationSelect', choices = gene_list_cellLine$gene_symbol, selected=NULL, server = TRUE)
   updateSelectizeInput(session, 'cellLineSelectorGeneDependencySelect', choices = cellLineSelectorGeneDependencyList(),  selected=NULL, server = TRUE)
+  updateSelectizeInput(session, 'cellLineSelectorGeneExpressionSelect', choices = cellLineSelectorGeneExpressionList(), selected=NULL,server = TRUE)
   updateSelectizeInput(session, 'cellLineSelectorGeneFusion3primeSelect', choices = cellLineSelectorGeneFusion3primeList(), selected=NULL, server = TRUE)
   updateSelectizeInput(session, 'cellLineSelectorGeneFusion5primeSelect', choices = cellLineSelectorGeneFusion5primeList(), selected=NULL, server = TRUE)
   updateSelectizeInput(session, 'cellLineSelectorGeneCNVSelect', choices = cellLineSelectorGeneCNVList(), selected=NULL, server = TRUE)
@@ -789,6 +1018,7 @@ output$cellLineSelectorButtonDownload <- downloadHandler(
       {
         meta <- cellLineSelectorMetaDataFrame()
         screen <- cellLineSelectorScreenDataFrame()
+        expression <- cellLineSelectorExpressionDataFrame()
         mutations <- cellLineSelectorMutationsDataFrame()
         fusions <- cellLineSelectorFusionsDataFrame()
         cnvs <- cellLineSelectorCNVsDataFrame()
@@ -805,7 +1035,7 @@ output$cellLineSelectorButtonDownload <- downloadHandler(
           write.table(table,fileName, row.names = F, col.names = T)
           files <- c(fileName,files)
         }
-        shiny::incProgress(1/8)
+        shiny::incProgress(1/9)
         
         if("Screen results" %in% input$cellLineSelectorDownloadCheck & nrow(meta)>0){
           #write each sheet to a csv file, save the name
@@ -814,7 +1044,16 @@ output$cellLineSelectorButtonDownload <- downloadHandler(
           write.table(table,fileName, row.names = F, col.names = T)
           files <- c(fileName,files)
         }
-        shiny::incProgress(2/8)
+        shiny::incProgress(2/9)
+        
+        if("Expression levels" %in% input$cellLineSelectorDownloadCheck & nrow(meta)>0){
+          #write each sheet to a csv file, save the name
+          table <- expression
+          fileName <- "expression_data.txt"
+          write.table(table,fileName, row.names = F, col.names = T)
+          files <- c(fileName,files)
+        }
+        shiny::incProgress(3/9)
 
         if("Gene mutations" %in% input$cellLineSelectorDownloadCheck & nrow(mutations)>0){
           #write each sheet to a csv file, save the name
@@ -823,7 +1062,7 @@ output$cellLineSelectorButtonDownload <- downloadHandler(
           write.table(table,fileName, row.names = F, col.names = T)
           files <- c(fileName,files)
         }
-        shiny::incProgress(3/8)
+        shiny::incProgress(4/9)
 
         if("Gene fusions" %in% input$cellLineSelectorDownloadCheck & nrow(fusions)>0){
           #write each sheet to a csv file, save the name
@@ -832,7 +1071,7 @@ output$cellLineSelectorButtonDownload <- downloadHandler(
           write.table(table,fileName, row.names = F, col.names = T)
           files <- c(fileName,files)
         }
-        shiny::incProgress(4/8)
+        shiny::incProgress(5/9)
 
         if("Gene CNVs" %in% input$cellLineSelectorDownloadCheck & nrow(cnvs)>0){
           #write each sheet to a csv file, save the name
@@ -841,7 +1080,7 @@ output$cellLineSelectorButtonDownload <- downloadHandler(
           write.table(table,fileName, row.names = F, col.names = T)
           files <- c(fileName,files)
         }
-        shiny::incProgress(5/8)
+        shiny::incProgress(6/9)
 
         if(!is.null(files)){
           #create the zip file

@@ -68,74 +68,74 @@ function(input, output, session) {
   # ----------------------------------------------------------------------------
   # Gene Search
   # ----------------------------------------------------------------------------
-  
+
   source(file = "server/gene_search.R", local = T)
-  
+
   # ----------------------------------------------------------------------------
   # sgRNA Info
   # ----------------------------------------------------------------------------
-  
+
   source(file = "server/sgRNA_info.R", local = T)
-  
+
   # ----------------------------------------------------------------------------
   # Libraries
   # ----------------------------------------------------------------------------
-  
+
   source(file = "server/libraries.R", local = T)
-  
+
   # ----------------------------------------------------------------------------
   # genome-wide sgRNA predictions
   # ----------------------------------------------------------------------------
-  
+
   source(file = "server/genomewide_sgRNA_predictions.R", local = T)
-  
+
   # ----------------------------------------------------------------------------
   # dual sgRNA designs
   # ----------------------------------------------------------------------------
-  
+
   source(file = "server/dual_sgRNA_design.R", local = T)
   source(file = "server/dual_sgRNA_design_top_pairs.R", local = T)
 
   # ----------------------------------------------------------------------------
   # ExpressionData
   # ----------------------------------------------------------------------------
-  
+
   source(file = "server/expression_data.R", local = T)
-  
+
   # ----------------------------------------------------------------------------
   # Essentialome
   # ----------------------------------------------------------------------------
-  
+
   source(file = "server/essentialome.R", local = T)
-  
+
   # ----------------------------------------------------------------------------
   # Correlations
   # ----------------------------------------------------------------------------
-  
+
   source(file = "server/correlations.R", local = T)
   updateSelectizeInput(session, 'correlationsGeneSelect', choices = gene_list_correlations, server = TRUE)
   updateSelectizeInput(session, 'correlationsTissueSelect', choices = tissue_list_correlations_tissue, server = TRUE)
-  
+
   # ----------------------------------------------------------------------------
   # Cell line meta  data
   # ----------------------------------------------------------------------------
-  
+
   source(file = "server/cell_line_meta_data.R", local = T)
   updateSelectizeInput(session, 'cellLineTissueSelect', choices = tissue_list_cellLine, server = TRUE)
-  
+
   # ----------------------------------------------------------------------------
   # Cell line meta  data
   # ----------------------------------------------------------------------------
-  
+
   source(file = "server/cell_line_selector.R", local = T)
   updateSelectizeInput(session, 'cellLineSelectorTissueSelect', choices = tissue_list_cellLine, server = TRUE)
   updateSelectizeInput(session, 'cellLineSelectorGeneMutationSelect', choices = gene_list_cellLine$gene_symbol, server = TRUE)
-  
-  
+
+
   # ----------------------------------------------------------------------------
   # Header callback
   # ----------------------------------------------------------------------------
-  
+
   #rotate vertical
   headerCallback <- c(
     "function(thead, data, start, end, display){",
@@ -160,11 +160,11 @@ function(input, output, session) {
     "  });",
     "}"
   )
-  
+
   # ----------------------------------------------------------------------------
   # update species select boxes
   # ----------------------------------------------------------------------------
-  
+
   updateSpecies <- function(species){
     updateSelectizeInput(session, 'gwsBrowseScreenSpeciesSelect', choices = list("Human" = "human", "Mouse" = "mouse"), selected = species, server = TRUE)
     updateSelectizeInput(session, 'gwsGeneSpeciesSelect', choices = list("Human" = "human", "Mouse" = "mouse", "All"="all"), selected = species, server = TRUE)
@@ -175,5 +175,5 @@ function(input, output, session) {
     updateSelectizeInput(session, 'expressionDataSpeciesSelect', choices = list("Human" = "human", "Mouse" = "mouse", "All"="all"), selected = species, server = TRUE)
     updateSelectizeInput(session, 'essentialomeSpeciesSelect', choices = list("Human" = "human", "Mouse" = "mouse", "All"="all"), selected = species, server = TRUE)
   }
-  
+
 }

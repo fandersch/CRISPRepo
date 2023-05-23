@@ -28,12 +28,19 @@ output$sgRNAInfoTableOutputValidations <- renderDataTable({
 #data load
 sgRNAInfoTableScreens <- reactive({
   
-  #specify which sgRNAs table to join
-  if(input$sgRNAInfoSpeciesSelect == "human"){
-    tableSgRNAs <- "sgRNAs_human"
+  #get dropout screens
+  if(input$sgRNAInfoSpeciesSelect == "all"){
+    contrasts_dropout <- contrasts %>%
+      filter(type=="dropout", reference_type=="reference") %>%
+      collect()
   }else{
-    tableSgRNAs <- "sgRNAs_mouse"
+    contrasts_dropout <- contrasts %>%
+      filter(species == local(input$sgRNAInfoSpeciesSelect), type=="dropout", reference_type=="reference") %>%
+      collect()
   }
+  
+  
+ 
   
   #retrieve selected genes
   presel_genes_both<- input$sgRNAInfoSelectGene %>% strsplit(split="\\(|\\)")
@@ -47,7 +54,7 @@ sgRNAInfoTableScreens <- reactive({
     df_screens <- con %>%
       tbl("guide_stats") %>%
       dplyr::select(contrast_id, guide_id, gene_id, local(input$sgRNAInfoIndexRadio)) %>%
-      dplyr::filter(gene_id %in% local(presel_entrez)) %>%
+      dplyr::filter(contrast_id %in% local(contrasts_dropout$contrast_id), gene_id %in% local(presel_entrez) | gene_id %in% local(presel_genes)) %>%
       # left_join(features %>% dplyr::select(-library_id, -sequence) %>% distinct) %>%
       collect() %>%
       left_join(gene_list_screens %>% dplyr::select(gene_id, symbol, entrez_id) %>% distinct) %>%
@@ -60,7 +67,7 @@ sgRNAInfoTableScreens <- reactive({
     df_screens <- con %>%
       tbl("guide_stats") %>%
       dplyr::select(contrast_id, guide_id, gene_id, local(input$sgRNAInfoIndexRadio)) %>%
-      dplyr::filter(guide_id %in% local(presel_guides)) %>%
+      dplyr::filter(contrast_id %in% local(contrasts_dropout$contrast_id), guide_id %in% local(presel_guides)) %>%
       # left_join(features %>% dplyr::select(-library_id, -sequence) %>% distinct) %>%
       collect() %>%
       left_join(gene_list_screens %>% dplyr::select(gene_id, symbol, entrez_id) %>% distinct) %>%
@@ -73,6 +80,7 @@ sgRNAInfoTableScreens <- reactive({
 
     df_screens <- df_screens %>%
       dplyr::select(contrast_id, guide_id, entrez_id, symbol,local(input$sgRNAInfoIndexRadio)) %>%
+      arrange(contrast_id) %>%
       pivot_wider(names_from=contrast_id, values_from=input$sgRNAInfoIndexRadio) %>%
       distinct()
   }
@@ -226,7 +234,7 @@ sgRNAInfoDataTableScreens <- eventReactive(input$sgRNAInfoLoadButton,{
     
     if (!is.null(sgRNAInfoDatatable) & nrow(sgRNAInfoDatatable) > 0) {
       #make color interval for heatmap
-      if(input$sgRNAInfoIndexRadio == "effect"){
+      if(input$sgRNAInfoIndexRadio == "effect_essentialome"){
         brks_smaller <- seq(-3, 0, length.out = 20)
         brks_bigger <- seq(0, 3, length.out = 20)
       }else{
@@ -546,8 +554,18 @@ observeEvent(input$sgRNAInfoSpeciesSelect, {
 }, ignoreNULL = FALSE)
 
 observeEvent(input$sgRNAInfoSelectGene, {
-  #update guide selectbox
+  
   updateSelectizeInput(session, 'sgRNAInfoSelectGuide', choices = sgRNAInfoGuideList(), selected = input$sgRNAInfoSelectGuide, server = TRUE)
+  updateCheckboxInput(session, 'sgRNAInfoCheckGuideAll', value = FALSE)
+  
+  if((!is.null(input$sgRNAInfoSelectGene))){
+    enable("sgRNAInfoCheckGuideAll")
+    enable("sgRNAInfoSelectGuide")
+  }else{
+    disable("sgRNAInfoCheckGuideAll")
+    disable("sgRNAInfoSelectGuide")
+  }
+
   sgRNAInfoUpdateText()
 }, ignoreNULL = FALSE)
 

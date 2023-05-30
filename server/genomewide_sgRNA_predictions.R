@@ -44,6 +44,7 @@ sgRNAsTable <- reactive({
     tableSgRNAs <- "sgRNAs_mouse"
   }
   
+  con_sgRNAs <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "databases/sgRNAs.db")
   
   if(input$sgRNAsSpeciesSelect == "all"){
     sgRNAs <- con_sgRNAs %>%
@@ -63,6 +64,8 @@ sgRNAsTable <- reactive({
       dplyr::filter(EntrezID %in% presel_gene_entrez) %>%
       collect()
   }
+  
+  DBI::dbDisconnect(con_sgRNAs)
   
   sgRNAs <- sgRNAs %>% 
     rowwise() %>%

@@ -26,6 +26,8 @@ dualSgRNAsTable <- reactive({
     } 
   }
   
+  con_sgRNAs <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "databases/sgRNAs.db")
+  
   entrez_list_human <- con_sgRNAs %>%
     tbl("sgRNAs_human") %>%
     dplyr::select(EntrezID) %>%
@@ -284,6 +286,9 @@ dualSgRNAsTable <- reactive({
       )
     ))
   }
+  
+  DBI::dbDisconnect(con_sgRNAs)
+  
   dualSgRNAs_output 
 })
 

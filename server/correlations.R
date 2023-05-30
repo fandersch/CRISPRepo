@@ -49,6 +49,9 @@ correlationsDependencyExpressionTable <- reactive({
   presel_gene_symbol <- unlist(presel_genes)[c(TRUE, FALSE)] %>% trimws()
   presel_gene_entrez <- unlist(presel_genes)[c(FALSE, TRUE)] %>% as.numeric
   
+  con_correlations <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "databases/correlations.db")
+  con_correlations_tissue <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "databases/correlations_tissue.db")
+  
   if(input$correlationsTissueSelect == "All"){
     correlationsDependencyExpression <- con_correlations %>%
       tbl("dependency_to_expression") %>%
@@ -71,7 +74,8 @@ correlationsDependencyExpressionTable <- reactive({
     dplyr::rename(number_Hits=nHits) %>%
     arrange(desc(number_Hits), symbol_y)
   
-
+  DBI::dbDisconnect(con_correlations)
+  DBI::dbDisconnect(con_correlations_tissue)
 
   correlationsDependencyExpression
 })
@@ -90,6 +94,9 @@ correlationsExpressionDependencyTable <- reactive({
   presel_genes <- presel_genes %>% strsplit(split="\\(|\\)")
   presel_gene_symbol <- unlist(presel_genes)[c(TRUE, FALSE)] %>% trimws()
   presel_gene_entrez <- unlist(presel_genes)[c(FALSE, TRUE)] %>% as.numeric
+  
+  con_correlations <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "databases/correlations.db")
+  con_correlations_tissue <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "databases/correlations_tissue.db")
   
   if(input$correlationsTissueSelect == "All"){
     correlationsExpressionDependency <- con_correlations %>%
@@ -113,7 +120,8 @@ correlationsExpressionDependencyTable <- reactive({
     dplyr::rename(number_Hits=nHits) %>%
     arrange(desc(number_Hits), symbol_y)
   
-  
+  DBI::dbDisconnect(con_correlations)
+  DBI::dbDisconnect(con_correlations_tissue)
   
   correlationsExpressionDependency
 })
@@ -132,6 +140,9 @@ correlationsCoEssentialityTable <- reactive({
   presel_genes <- presel_genes %>% strsplit(split="\\(|\\)")
   presel_gene_symbol <- unlist(presel_genes)[c(TRUE, FALSE)] %>% trimws()
   presel_gene_entrez <- unlist(presel_genes)[c(FALSE, TRUE)] %>% as.numeric
+  
+  con_correlations <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "databases/correlations.db")
+  con_correlations_tissue <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "databases/correlations_tissue.db")
   
   if(input$correlationsTissueSelect == "All"){
     correlationsCoEssentiality <- con_correlations %>%
@@ -153,6 +164,9 @@ correlationsCoEssentialityTable <- reactive({
     select(-rank) %>%
     ungroup
   
+  DBI::dbDisconnect(con_correlations)
+  DBI::dbDisconnect(con_correlations_tissue)
+  
   correlationsCoEssentiality
 })
 
@@ -170,6 +184,9 @@ correlationsCoExpressionTable <- reactive({
   presel_genes <- presel_genes %>% strsplit(split="\\(|\\)")
   presel_gene_symbol <- unlist(presel_genes)[c(TRUE, FALSE)] %>% trimws()
   presel_gene_entrez <- unlist(presel_genes)[c(FALSE, TRUE)] %>% as.numeric
+  
+  con_correlations <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "databases/correlations.db")
+  con_correlations_tissue <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "databases/correlations_tissue.db")
   
   if(input$correlationsTissueSelect == "All"){
     correlationsCoExpression <- con_correlations %>%
@@ -190,6 +207,9 @@ correlationsCoExpressionTable <- reactive({
     filter(rank <= 20 | abs(cor_coeff) >= input$correlationsSliderCoeff) %>%
     select(-rank) %>%
     ungroup
+  
+  DBI::dbDisconnect(con_correlations)
+  DBI::dbDisconnect(con_correlations_tissue)
   
   correlationsCoExpression
 })

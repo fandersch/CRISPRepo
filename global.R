@@ -46,12 +46,13 @@ con_correlations_tissue <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "dat
 con_cell_lines <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "databases/cell_line_meta_data.db")
 
 pheno <- con %>%
-  tbl("pheno")
+  tbl("pheno") %>%
+  collect()
 
 species <- pheno %>%
   dplyr::select(species) %>%
   distinct %>%
-  .$species
+  .$species 
 
 features <- con %>%
   tbl("features") %>%
@@ -62,11 +63,13 @@ features <- con %>%
   dplyr::filter(gene_id != "SAFETARGETING") %>%
   dplyr::filter(gene_id != "NONTARGETING") %>%
   dplyr::filter(!is.na(gene_id)) %>%
-  distinct
+  distinct %>%
+  collect()
 
 contrasts <- con %>%
   tbl("contrasts") %>%
-  dplyr::select(contrast_id, contrast_id_QC, library_id, cellline_name, tissue_name, species, type, reference_type, dynamic_range, auc, treatment, control)
+  dplyr::select(contrast_id, contrast_id_QC, library_id, cellline_name, tissue_name, species, type, reference_type, dynamic_range, auc, treatment, control) %>%
+  collect()
 
 libraries <- contrasts %>%
   dplyr::select(library_id, cellline_name, tissue_name, species, type) %>%
@@ -82,7 +85,8 @@ gene_list_screens <- con %>%
   dplyr::filter(!is.na(gene_id)) %>%
   dplyr::select(gene_id, symbol, entrez_id, library_id) %>%
   distinct %>%
-  arrange(symbol)
+  arrange(symbol) %>%
+  collect()
 
 gene_list_human <- NULL
 gene_list_mouse <- NULL 
@@ -107,10 +111,12 @@ cellline_list_expressionData <- con_expression %>%
   tbl("expression_data_meta_info") %>%
   dplyr::select(sample_id, cell_line_name = cell_line_name_stripped, tissue_name, species) %>%
   distinct() %>%
-  arrange(cell_line_name)
+  arrange(cell_line_name) %>%
+  collect()
 
 gene_list_expressionData <- con_expression %>%
-  tbl("expression_data_genes")
+  tbl("expression_data_genes") %>%
+  collect()
 
 loadExpressionDataTissueList <- F
 
@@ -179,3 +185,11 @@ if("hs_gw_zuber_v2" %in% (libraries %>% collect %>% .$library_id)){
 }
 
 displayed_table <- NULL
+
+#close db conections
+DBI::dbDisconnect(con)
+DBI::dbDisconnect(con_expression)
+DBI::dbDisconnect(con_sgRNAs)
+DBI::dbDisconnect(con_correlations)
+DBI::dbDisconnect(con_correlations_tissue)
+DBI::dbDisconnect(con_cell_lines)

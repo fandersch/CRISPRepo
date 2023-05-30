@@ -61,14 +61,18 @@ gwsGeneContrastDataFrame <- reactive({
     presel_contrasts <- local(input$gwsGeneContrastSelect)
   }
   
+  con <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "databases/screen.db")
+  
   df <- con %>%
     tbl("contrasts") %>%
     dplyr::filter(contrast_id %in% presel_contrasts) %>%
     distinct() %>%
     collect()
   
+  DBI::dbDisconnect(con)
+  
   df <- df %>%
-    dplyr::select(contrast_id, contrast_id_QC, treatment, control, type, cellline_name, tissue_name, tissue_context, library_id, species, 
+    dplyr::select(contrast_id, contrast_id_QC, treatment, control, type, reference_type, cellline_name, tissue_name, tissue_context, library_id, species, 
                   auc, ssmd, dynamic_range, average_lfc_essentials, 
                   norm_method_mageck = norm_method, fdr_method_mageck = fdr_method, lfc_method_mageck=lfc_method, cnv_correction_mageck=cnv_correction, 
                   filter_mageck=filter, variance_estimation_mageck=variance_estimation)
@@ -95,11 +99,9 @@ gwsGeneSampleDataFrame <- reactive({
     presel_contrasts <- local(input$gwsGeneContrastSelect)
   }
   
-  contrasts <- con %>%
-    tbl("contrasts") %>%
+  contrasts <- contrasts %>%
     dplyr::filter(contrast_id %in% presel_contrasts) %>%
-    distinct() %>%
-    collect()
+    distinct()
   
   sample_names <- c(contrasts$treatment %>% as.character %>% str_split(",") %>% unlist, contrasts$control %>% as.character %>% str_split(",") %>% unlist)
   
@@ -108,8 +110,7 @@ gwsGeneSampleDataFrame <- reactive({
     distinct %>%
     dplyr::select(sample_id, cellline_name, tissue_name, tissue_context, library_id, species, type,
                   condition, mutation, clone, time, treatment, dose, pcr_strategy, facs_gate, replicate, scientist, publication, legacy_sample_name,
-                  barcode, vbcf_id, raw_file) %>%
-    collect
+                  barcode, vbcf_id, raw_file)
   
 })
 
@@ -220,6 +221,9 @@ gwsGeneDataFrame <- reactive({
   presel_entrez <- unlist(presel_genes_both)[c(FALSE, TRUE)]
   gene_select <- c(presel_entrez, presel_genes)
   
+  con <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "databases/screen.db")
+  con_sgRNAs <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "databases/sgRNAs.db")
+  
   #retrieve selected contrasts
   if(isTRUE(input$gwsGeneCheckContrastAll)){
     presel_contrasts <- gwsGeneContrastList()
@@ -315,8 +319,7 @@ gwsGeneDataFrame <- reactive({
     }
     
     features_buff <- features %>% 
-      dplyr::filter(gene_id %in% presel_entrez | gene_id %in% presel_genes) %>%
-      collect()
+      dplyr::filter(gene_id %in% presel_entrez | gene_id %in% presel_genes)
     
     #join guide ranks
     df <- df %>%
@@ -364,7 +367,7 @@ gwsGeneDataFrame <- reactive({
   df <- df %>%
     rename(any_of(column_names_change)) %>%
     discard(~all(is.na(.) | . =="")) %>%
-    dplyr::select(contrast_id, dplyr::starts_with(c("symbol", "entrez_id", "Symbol_human", "EntrezID_human", "Symbol_mouse", "EntrezID_mouse", "guide_id", "id_entrez_23mer", 
+    dplyr::select(contrast_id, dplyr::starts_with(c("symbol", "entrez_id", "Symbol_human", "EntrezID_human", "Symbol_mouse", "EntrezID_mouse", "guide_id", 
                                                     "sequence", "sequence_matching", "Length", "VBC", "rank")), selected_index, dplyr::any_of(include_columns)) %>%
     pivot_wider(names_from=contrast_id, values_from=paste0(c(selected_index, include_columns)), names_glue = "{contrast_id}_{.value}") %>%
     arrange(dplyr::across(starts_with("symbol")))
@@ -379,7 +382,7 @@ gwsGeneDataFrame <- reactive({
   
   df <- df %>%
     dplyr::select(order(colnames(df))) %>%
-    dplyr::select(dplyr::starts_with(c("symbol", "entrez_id", "Symbol_human", "EntrezID_human", "Symbol_mouse", "EntrezID_mouse", "guide_id", "id_entrez_23mer", 
+    dplyr::select(dplyr::starts_with(c("symbol", "entrez_id", "Symbol_human", "EntrezID_human", "Symbol_mouse", "EntrezID_mouse", "guide_id", 
                                        "sequence", "sequence_matching", "Length", "VBC", "rank")), everything())
   
   colnames(df) <- colnames(df) %>%
@@ -388,6 +391,9 @@ gwsGeneDataFrame <- reactive({
     str_replace("3fdr$", "fdr") %>%
     str_replace("4guides_good$", "guides_good") %>%
     str_replace("5guides$", "guides")
+  
+  DBI::dbDisconnect(con)
+  DBI::dbDisconnect(con_sgRNAs)
   
   df
 })
@@ -438,7 +444,7 @@ gwsGeneDataTable <- eventReactive(input$gwsGeneLoadButton,{
       nfreezeColumns <- 3
       
       nColorizeTableColumns <- (dt %>%
-        dplyr::select(dplyr::starts_with(c("symbol", "entrez_id", "Symbol_human", "EntrezID_human", "Symbol_mouse", "EntrezID_mouse", "guide_id", "id_entrez_23mer", 
+        dplyr::select(dplyr::starts_with(c("symbol", "entrez_id", "Symbol_human", "EntrezID_human", "Symbol_mouse", "EntrezID_mouse", "guide_id", 
                                            "sequence", "sequence_matching", "Length", "VBC", "rank"))) %>% 
                                            ncol) + 1
                                            
@@ -472,8 +478,7 @@ gwsGeneDataTable <- eventReactive(input$gwsGeneLoadButton,{
       filter(contrast_id %in% presel_contrasts) %>%
       dplyr::select(contrast_id, treatment, control) %>%
       separate_rows(c("treatment"), sep = ",") %>%
-      left_join(pheno, by=c("treatment"="sample_id")) %>%
-      collect()
+      left_join(pheno, by=c("treatment"="sample_id"))
     
     
     colnames_dt <- colnames(dt)
@@ -649,20 +654,7 @@ gwsGeneDataTable <- eventReactive(input$gwsGeneLoadButton,{
 # ----------------------------------------------------------------------------
 
 gwsGeneTissueList <- reactive({
-  if(class(pheno)[1] == "tbl_SQLiteConnection"){
-    pheno <<- pheno %>%
-      collect()
-    
-    libraries <<- libraries %>%
-      collect()
-    
-    contrasts <<- contrasts %>%
-      collect()
-    
-    gene_list_screens <<- gene_list_screens %>%
-      collect()
-  }
-  
+
   if(input$gwsGeneSpeciesSelect == "all"){
     speciesList <- c("human", "mouse")
   }else{
@@ -942,8 +934,8 @@ observeEvent(input$select_button_gene, {
   row <- as.numeric(strsplit(input$select_button_gene, "_")[[1]][3])
   if(input$gwsGeneSpeciesSelect == "all"){
     symbol_human <- gwsGeneDataFrame()[row,1]
-    entrez_id_human <- gwsGeneDataFrame()[row,2]
-    symbol_mouse <- gwsGeneDataFrame()[row,3]
+    entrez_id_human <- gwsGeneDataFrame()[row,3]
+    symbol_mouse <- gwsGeneDataFrame()[row,2]
     entrez_id_mouse <- gwsGeneDataFrame()[row,4]
     gene<-c()
     if(!is.na(entrez_id_human) & !is.na(symbol_human)){
@@ -971,8 +963,8 @@ observeEvent(input$select_button_sgRNA, {
   row <- as.numeric(strsplit(input$select_button_sgRNA, "_")[[1]][3])
   if(input$gwsGeneSpeciesSelect == "all"){
     symbol_human <- gwsGeneDataFrame()[row,1]
-    entrez_id_human <- gwsGeneDataFrame()[row,2]
-    symbol_mouse <- gwsGeneDataFrame()[row,3]
+    entrez_id_human <- gwsGeneDataFrame()[row,3]
+    symbol_mouse <- gwsGeneDataFrame()[row,2]
     entrez_id_mouse <- gwsGeneDataFrame()[row,4]
     gene<-c()
     if(!is.na(entrez_id_human) & !is.na(symbol_human)){
@@ -982,12 +974,12 @@ observeEvent(input$select_button_sgRNA, {
       gene = c(gene,
                ifelse(is.na(symbol_mouse), paste0("No symbol found (", entrez_id_mouse, ")"), paste0(symbol_mouse , " (", entrez_id_mouse, ")")))
     }
-    guide_id<-gwsGeneDataFrame()[row,7]
+    guide_id<-gwsGeneDataFrame()[row,5]
   }else{
     symbol <- gwsGeneDataFrame()[row,1]
     entrez_id <- gwsGeneDataFrame()[row,2]
     gene <- ifelse(is.na(symbol), paste0("No symbol found (", entrez_id, ")"), paste0(symbol , " (", entrez_id, ")"))
-    guide_id <- paste0(entrez_id, "_", gwsGeneDataFrame()[row,4])
+    guide_id <- paste0(entrez_id, "_", gwsGeneDataFrame()[row,3])
   }
   
   updateSelectizeInput(session, 'sgRNAInfoSelectGene', choices = sgRNAInfoGeneList(), selected = gene, server = TRUE)
@@ -1028,7 +1020,6 @@ observeEvent(input$gwsGeneSpeciesSelect, {
   }
   
   all_types <- contrasts %>%
-    collect %>%
     dplyr::filter(species %in% speciesList, !is.na(type)) %>%
     .$type %>%
     unique

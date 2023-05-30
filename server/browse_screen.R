@@ -53,13 +53,17 @@ gwsBrowseScreenContrastDataFrame <- reactive({
     presel_contrasts <- local(input$gwsBrowseScreenContrastSelect)
   }
   
+  con <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "databases/screen.db")
+  
   df <- con %>%
     tbl("contrasts") %>%
     dplyr::filter(contrast_id %in% presel_contrasts) %>%
     distinct() %>%
     collect()
   
-  namekey <- c(contrast_id="contrast_id", contrast_id_QC="contrast_id_QC", treatment="treatment", control="control", type="type", cellline_name="cellline_name", 
+  DBI::dbDisconnect(con)
+  
+  namekey <- c(contrast_id="contrast_id", contrast_id_QC="contrast_id_QC", treatment="treatment", control="control", type="type", reference_type="reference_type", cellline_name="cellline_name", 
                tissue_name= "tissue_name", tissue_context = "tissue_context", library_id="library_id", species="species", 
                auc= "auc", ssmd = "ssmd", dynamic_range = "dynamic_range", average_lfc_essentials = "average_lfc_essentials", 
                norm_method="norm_method_mageck", fdr_method="fdr_method_mageck", lfc_method="lfc_method_mageck", cnv_correction="cnv_correction_mageck",
@@ -94,22 +98,18 @@ gwsBrowseScreenSampleDataFrame <- reactive({
     presel_contrasts <- local(input$gwsBrowseScreenContrastSelect)
   }
   
-  contrasts <- con %>%
-    tbl("contrasts") %>%
+  contrasts_buff <- contrasts %>%
     dplyr::filter(contrast_id %in% presel_contrasts) %>%
-    distinct() %>%
-    collect()
+    distinct()
   
-  sample_names <- c(contrasts$treatment %>% as.character %>% str_split(",") %>% unlist, contrasts$control %>% as.character %>% str_split(",") %>% unlist)
+  sample_names <- c(contrasts_buff$treatment %>% as.character %>% str_split(",") %>% unlist, contrasts_buff$control %>% as.character %>% str_split(",") %>% unlist)
 
   df <- pheno %>%
     dplyr::filter(sample_id %in% sample_names) %>%
     distinct %>%
     dplyr::select(sample_id, cellline_name, tissue_name, tissue_context, library_id, species, type,
            condition, mutation, clone, time, treatment, dose, pcr_strategy, facs_gate, replicate, scientist, publication, legacy_sample_name,
-           barcode, vbcf_id, raw_file) %>%
-    collect
-  
+           barcode, vbcf_id, raw_file)
 })
 
 #create datatable out of dataframe
@@ -234,8 +234,9 @@ gwsBrowseScreenDataFrame <- reactive({
                   " WHERE NOT gene_id='AMBIGUOUS' AND NOT gene_id='UNMAPPED' AND NOT gene_id='NOFEATURE' AND NOT gene_id='SAFETARGETING' AND NOT gene_id='NONTARGETING' AND gene_id NOT NULL ",
                   "AND (", contrasts_filter_str, ") ")
   
-  df<- NULL
+  con <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "databases/screen.db")
   
+  df<- NULL
   for(z in 1:length(query)){
     # a chunk at a time
     res <- dbSendQuery(con, query[z])
@@ -255,6 +256,8 @@ gwsBrowseScreenDataFrame <- reactive({
     chunk<-NULL
     dbClearResult(res)
   }
+  
+  DBI::dbDisconnect(con)
   
   df <- df %>%
     left_join(contrasts, by = "contrast_id") %>%
@@ -360,8 +363,7 @@ gwsBrowseScreenDataTable <- eventReactive(input$gwsBrowseScreenLoadButton,{
       filter(contrast_id %in% presel_contrasts) %>%
       dplyr::select(contrast_id, treatment, control) %>%
       separate_rows(c("treatment"), sep = ",") %>%
-      left_join(pheno, by=c("treatment"="sample_id")) %>%
-      collect()
+      left_join(pheno, by=c("treatment"="sample_id"))
     
 
     colnames_dt <- colnames(dt)
@@ -543,20 +545,6 @@ gwsBrowseScreenDataTable <- eventReactive(input$gwsBrowseScreenLoadButton,{
 
 gwsBrowseScreenTissueList <- reactive({
 
-  if(class(pheno)[1] == "tbl_SQLiteConnection"){
-    pheno <<- pheno %>%
-      collect()
-    
-    libraries <<- libraries %>%
-      collect()
-    
-    contrasts <<- contrasts %>%
-      collect()
-    
-    gene_list_screens <<- gene_list_screens %>%
-      collect()
-  }
-  
   if(input$gwsBrowseScreenSpeciesSelect == "all"){
     speciesList <- c("human", "mouse")
   }else{
@@ -781,7 +769,6 @@ observeEvent(input$gwsBrowseScreenSpeciesSelect, {
   }
   
   all_types <- contrasts %>%
-    collect %>%
     dplyr::filter(species %in% speciesList, !is.na(type)) %>%
     .$type %>%
     unique

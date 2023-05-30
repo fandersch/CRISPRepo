@@ -3,7 +3,9 @@
 # ----------------------------------------------------------------------------
 
 libTable <- reactive({
-  con %>% 
+  con <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "databases/screen.db")
+  
+  features <- con %>% 
     tbl("features") %>% 
     dplyr::filter(library_id %in% local(input$libSelectLibrary)) %>% 
     collect() %>%
@@ -18,7 +20,9 @@ libTable <- reactive({
            "30-mer-Genomic-Context" = context, "Legacy-ID" = legacy_id, "Legacy-Gene-Annotation" = legacy_group, Class = class) %>%
     discard(~all(is.na(.) | . ==""))
   
+  DBI::dbDisconnect(con)
   
+  features
 })
 
 output$libTableOutput <- renderDataTable({
@@ -51,10 +55,6 @@ output$libBoxGenesTotal <- renderInfoBox({
 # ----------------------------------------------------------------------------
 
 libLibraryList <- reactive({
-  if(class(libraries)[1] == "tbl_SQLiteConnection"){
-    libraries <<- libraries %>%
-      collect()
-  }
   
   if(input$libSpeciesSelect == "all"){
     speciesList <- c("human", "mouse")

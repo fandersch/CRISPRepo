@@ -51,10 +51,14 @@ cellLineMetaDataFrame <- reactive({
     presel_cell_line <- local(input$cellLineCellLineSelect)
   }
   
+  con_cell_lines <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "databases/cell_line_meta_data.db")
+  
   cellLine_meta_data <- con_cell_lines %>%
     tbl("cell_line_meta") %>%
     dplyr::filter(tissue_name %in% presel_tissue, cell_line_name %in% presel_cell_line) %>%
     collect()
+  
+  DBI::dbDisconnect(con_cell_lines)
   
   cellLine_meta_data
 })
@@ -92,10 +96,14 @@ cellLineMutationsDataFrame <- reactive({
     }
   }
   
+  con_cell_lines <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "databases/cell_line_meta_data.db")
+  
   cellLine_meta_data <- con_cell_lines %>%
     tbl("cell_line_gene_mutations") %>%
     dplyr::filter(model_id %in% presel_model_ids, gene_symbol %in% presel_genes) %>%
     collect()
+  
+  DBI::dbDisconnect(con_cell_lines)
   
   cellLine_meta_data
 })
@@ -133,10 +141,14 @@ cellLineFusionsDataFrame <- reactive({
     }
   }
   
+  con_cell_lines <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "databases/cell_line_meta_data.db")
+  
   cellLine_meta_data <- con_cell_lines %>%
     tbl("cell_line_gene_fusions") %>%
     dplyr::filter(model_id %in% presel_model_ids, gene_symbol_3prime %in% presel_genes | gene_symbol_5prime %in% presel_genes) %>%
     collect()
+  
+  DBI::dbDisconnect(con_cell_lines)
   
   cellLine_meta_data
 })
@@ -174,10 +186,14 @@ cellLineCNVsDataFrame <- reactive({
     }
   }
   
+  con_cell_lines <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "databases/cell_line_meta_data.db")
+  
   cellLine_meta_data <- con_cell_lines %>%
     tbl("cell_line_gene_cnv") %>%
     dplyr::filter(model_id %in% presel_model_ids, gene_symbol %in% presel_genes) %>%
     collect()
+  
+  DBI::dbDisconnect(con_cell_lines)
   
   cellLine_meta_data
 })
@@ -342,9 +358,8 @@ cellLineGeneList <- reactive({
   }else{
     
   gene_list_cellLine %>%
-    dplyr::select(gene_symbol) %>%
-    collect() %>%
-    arrange(gene_symbol) %>%
+      dplyr::select(gene_symbol) %>%
+      arrange(gene_symbol) %>%
       .$gene_symbol
   }
 })

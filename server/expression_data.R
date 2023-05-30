@@ -105,6 +105,8 @@ expressionDataDataFrame <- reactive({
     query_final <- query
   }
   
+  con_expression <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "databases/expression_data_counts_tpm.db")
+  
   if(!isTRUE(input$expressionDataCheckCellLineAll) | length(presel_gene_entrez)<=50){
     df<- NULL
     for(z in 1:length(query_final)){
@@ -182,6 +184,8 @@ expressionDataDataFrame <- reactive({
     df <- df %>%
       left_join(cellline_list_expressionData %>% dplyr::select(sample_id, species))
   }
+  
+  DBI::dbDisconnect(con_expression)
   
   df <- df %>% 
     distinct %>%
@@ -312,14 +316,7 @@ expressionDataDataTable <- eventReactive(input$expressionDataLoadButton,{
 #----------------------------------------------------------------------------
 
 expressionDataTissueList <- reactive({
-  
-  if(class(cellline_list_expressionData)[1] == "tbl_SQLiteConnection" & loadExpressionDataTissueList){
-    cellline_list_expressionData <<- cellline_list_expressionData %>%
-      collect()
-    gene_list_expressionData <<- gene_list_expressionData %>%
-      collect()
-  }
-  
+ 
   if(input$expressionDataSpeciesSelect == "all"){
     speciesList <- c("human", "mouse")
   }else{
@@ -377,7 +374,6 @@ expressionDataGeneList <- reactive({
     gene_list_expressionData %>%
       dplyr::filter(species %in% speciesList) %>%
       dplyr::select(symbol=symbol, entrez_id) %>%
-      collect() %>%
       arrange(entrez_id) %>%
       dplyr::mutate(gene = ifelse(is.na(symbol), paste0("No symbol found (", entrez_id, ")"), paste0(symbol , " (", entrez_id, ")"))) %>%
       .$gene

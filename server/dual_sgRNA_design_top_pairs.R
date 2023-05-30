@@ -37,16 +37,14 @@ dualSgRNAsTopCombinationsTable <- reactive({
   presel_gene_symbol <- unlist(presel_genes)[c(TRUE, FALSE)] %>% trimws()
   presel_gene_entrez <- unlist(presel_genes)[c(FALSE, TRUE)] %>% as.numeric
   
+  con_sgRNAs <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "databases/sgRNAs.db")
+  
   #specify which sgRNAs table to join
   if(input$dualSgRNAsTopCombinationsSpeciesSelect == "human"){
     tabledualSgRNAsTopCombinations <- "top20_dual_guides_human"
   }else{
     tabledualSgRNAsTopCombinations <- "top20_dual_guides_mouse"
   }
-  print(colnames(con_sgRNAs %>%
-    tbl("top20_dual_guides_human") %>%
-    dplyr::filter(EntrezID %in% presel_gene_entrez) %>%
-    collect))
   
   if(input$dualSgRNAsTopCombinationsSpeciesSelect == "all"){
     sgRNAs <- con_sgRNAs %>%
@@ -65,6 +63,8 @@ dualSgRNAsTopCombinationsTable <- reactive({
       dplyr::filter(EntrezID %in% presel_gene_entrez) %>% 
       collect()
   }
+  
+  DBI::dbDisconnect(con_sgRNAs)
   
   sgRNAs %>%
     dplyr::rename(first_sgRNA_23mer = first_sgRNA, matching_sgRNA_23mer=matching_sgRNA) %>%

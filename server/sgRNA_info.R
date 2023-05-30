@@ -31,16 +31,11 @@ sgRNAInfoTableScreens <- reactive({
   #get dropout screens
   if(input$sgRNAInfoSpeciesSelect == "all"){
     contrasts_dropout <- contrasts %>%
-      filter(type=="dropout", reference_type=="reference") %>%
-      collect()
+      filter(type=="dropout", reference_type=="reference")
   }else{
     contrasts_dropout <- contrasts %>%
-      filter(species == local(input$sgRNAInfoSpeciesSelect), type=="dropout", reference_type=="reference") %>%
-      collect()
+      filter(species == local(input$sgRNAInfoSpeciesSelect), type=="dropout", reference_type=="reference")
   }
-  
-  
- 
   
   #retrieve selected genes
   presel_genes_both<- input$sgRNAInfoSelectGene %>% strsplit(split="\\(|\\)")
@@ -112,6 +107,8 @@ sgRNAInfoTablePredictions <- reactive({
     dplyr::mutate(sgRNA_23mer = substr(context, 5, nchar(context)-3)) %>%
     .$sgRNA_23mer
   
+  con_sgRNAs <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "databases/sgRNAs.db")
+  
   if(input$sgRNAInfoSpeciesSelect == "all"){
     sgRNAs <- con_sgRNAs %>%
       tbl("sgRNAs_human") %>%
@@ -148,6 +145,8 @@ sgRNAInfoTablePredictions <- reactive({
       collect() %>%
       dplyr::filter(str_detect(`20-mer + NGG`, paste(sgRNAs_23mer, collapse = "|")))
   }
+  
+  DBI::dbDisconnect(con_sgRNAs)
   
   if(sgRNAs$`Maps to genome` %>% as.character %>% unique %>% length == "1"){
     sgRNAs <- sgRNAs %>% dplyr::select(-`Maps to genome`)
@@ -186,6 +185,8 @@ sgRNAInfoTableValidations <- reactive({
     dplyr::mutate(sgRNA_23mer = substr(context, 5, nchar(context)-3)) %>%
     .$sgRNA_23mer
   
+  con_sgRNAs <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "databases/sgRNAs.db")
+  
   for(i in 1:length(tableSgRNAs)){
     sgRNAs_buff <- con_sgRNAs %>%
       tbl(tableSgRNAs[i]) %>%
@@ -212,6 +213,9 @@ sgRNAInfoTableValidations <- reactive({
       }
     }
   }
+  
+  DBI::dbDisconnect(con_sgRNAs)
+  
   if(exists("sgRNAs")){
     sgRNAs
   }else{
@@ -480,10 +484,10 @@ sgRNAInfoDataTableValidations <- eventReactive(input$sgRNAInfoLoadButton,{
 # ----------------------------------------------------------------------------
 sgRNAInfoGeneList <- reactive({
   
-  if(class(gene_list_screens)[1] == "tbl_SQLiteConnection" ){
-    gene_list_screens <<- gene_list_screens %>%
-      collect()
-  }
+  # if(class(gene_list_screens)[1] == "tbl_SQLiteConnection" ){
+  #   gene_list_screens <<- gene_list_screens %>%
+  #     collect()
+  # }
   
   if(input$sgRNAInfoSpeciesSelect == "all"){
     speciesList <- c("human", "mouse")
@@ -521,7 +525,6 @@ sgRNAInfoGuideList <- reactive({
       dplyr::filter(entrez_id %in% c(presel_entrez) | symbol %in% c(presel_genes)) %>%
       dplyr::select(guide_id) %>%
       distinct() %>%
-      collect() %>%
       arrange(guide_id) %>%
       .$guide_id
   }

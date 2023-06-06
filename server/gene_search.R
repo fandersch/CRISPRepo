@@ -323,7 +323,7 @@ gwsGeneDataFrame <- reactive({
     
     #join guide ranks
     df <- df %>%
-      left_join(features_buff, by = c("gene_id", "guide_id", "library_id")) %>%
+      left_join(features_buff, by = c("gene_id", "guide_id", "id_entrez_23mer", "library_id")) %>%
       dplyr::select(contrast_id, contrast_id_QC, guide_id, id_entrez_23mer, gene_id, selected_index, symbol, entrez_id, sequence, sequence_matching, species, dplyr::any_of(include_columns)) %>%
       left_join(sgRNAs, by=c("id_entrez_23mer" = "guide_id")) %>%
       mutate(guide_id = id_entrez_23mer) %>%
@@ -979,7 +979,7 @@ observeEvent(input$select_button_sgRNA, {
     symbol <- gwsGeneDataFrame()[row,1]
     entrez_id <- gwsGeneDataFrame()[row,2]
     gene <- ifelse(is.na(symbol), paste0("No symbol found (", entrez_id, ")"), paste0(symbol , " (", entrez_id, ")"))
-    guide_id <- paste0(entrez_id, "_", gwsGeneDataFrame()[row,3])
+    guide_id <- paste0(gwsGeneDataFrame()[row,3])
   }
   
   updateSelectizeInput(session, 'sgRNAInfoSelectGene', choices = sgRNAInfoGeneList(), selected = gene, server = TRUE)

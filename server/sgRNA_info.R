@@ -42,17 +42,20 @@ sgRNAInfoTableScreens <- reactive({
   presel_genes <- unlist(presel_genes_both)[c(TRUE, FALSE)] %>% trimws()
   presel_entrez <- unlist(presel_genes_both)[c(FALSE, TRUE)]
   
+  con <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "databases/screen.db")
+  
   if(isTRUE(input$sgRNAInfoCheckGuideAll)){
     presel_guides <- sgRNAInfoGuideList()
     
     #get gene_stats/guide_stats
     df_screens <- con %>%
       tbl("guide_stats") %>%
-      dplyr::select(contrast_id, guide_id, gene_id, local(input$sgRNAInfoIndexRadio)) %>%
+      dplyr::select(contrast_id, guide_id, id_entrez_23mer, gene_id, local(input$sgRNAInfoIndexRadio)) %>%
       dplyr::filter(contrast_id %in% local(contrasts_dropout$contrast_id), gene_id %in% local(presel_entrez) | gene_id %in% local(presel_genes)) %>%
-      # left_join(features %>% dplyr::select(-library_id, -sequence) %>% distinct) %>%
       collect() %>%
-      left_join(gene_list_screens %>% dplyr::select(gene_id, symbol, entrez_id) %>% distinct) %>%
+      dplyr::left_join(contrasts_dropout %>% dplyr::select(contrast_id, library_id)) %>%
+      dplyr::left_join(features %>% select) %>%
+      # left_join(gene_list_screens %>% dplyr::select(gene_id, symbol, entrez_id) %>% distinct) %>%
       mutate_at(local(input$sgRNAInfoIndexRadio), round, 3)
     
   }else{
@@ -61,24 +64,30 @@ sgRNAInfoTableScreens <- reactive({
     #get gene_stats/guide_stats
     df_screens <- con %>%
       tbl("guide_stats") %>%
-      dplyr::select(contrast_id, guide_id, gene_id, local(input$sgRNAInfoIndexRadio)) %>%
-      dplyr::filter(contrast_id %in% local(contrasts_dropout$contrast_id), guide_id %in% local(presel_guides)) %>%
-      # left_join(features %>% dplyr::select(-library_id, -sequence) %>% distinct) %>%
+      dplyr::select(contrast_id, guide_id, id_entrez_23mer, gene_id, local(input$sgRNAInfoIndexRadio)) %>%
+      dplyr::filter(contrast_id %in% local(contrasts_dropout$contrast_id), id_entrez_23mer %in% local(presel_guides)) %>%
       collect() %>%
-      left_join(gene_list_screens %>% dplyr::select(gene_id, symbol, entrez_id) %>% distinct) %>%
+      dplyr::left_join(contrasts_dropout %>% dplyr::select(contrast_id, library_id)) %>%
+      left_join(features) %>%
+      # left_join(gene_list_screens %>% dplyr::select(gene_id, symbol, entrez_id) %>% distinct) %>%
       mutate_at(local(input$sgRNAInfoIndexRadio), round, 3)
     
   }
+  
+  DBI::dbDisconnect(con)
   
   if (nrow(df_screens) > 0) {
     presel_contrasts <- df_screens$contrast_id %>% unique
 
     df_screens <- df_screens %>%
-      dplyr::select(contrast_id, guide_id, entrez_id, symbol,local(input$sgRNAInfoIndexRadio)) %>%
+      dplyr::select(contrast_id, guide_id, entrez_id, symbol, sequence, sequence_matching, id_entrez_23mer, library_id, local(input$sgRNAInfoIndexRadio)) %>%
       arrange(contrast_id) %>%
+      group_by(guide_id) %>%
+      mutate(library_id = paste0(unique(library_id), collapse=", ")) %>%
       pivot_wider(names_from=contrast_id, values_from=input$sgRNAInfoIndexRadio) %>%
       distinct()
   }
+  
   df_screens
 })
 
@@ -104,8 +113,9 @@ sgRNAInfoTablePredictions <- reactive({
   
   sgRNAs_23mer <- features %>%
     dplyr::filter(guide_id %in% presel_guides) %>%
-    dplyr::mutate(sgRNA_23mer = substr(context, 5, nchar(context)-3)) %>%
-    .$sgRNA_23mer
+    separate(id_entrez_23mer, into =c("dummy", "sgRNA_23mer"), sep = "_", remove = FALSE) %>%
+    .$sgRNA_23mer %>%
+    unique
   
   con_sgRNAs <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "databases/sgRNAs.db")
   
@@ -182,8 +192,9 @@ sgRNAInfoTableValidations <- reactive({
   
   sgRNAs_23mer <- features %>%
     dplyr::filter(guide_id %in% presel_guides) %>%
-    dplyr::mutate(sgRNA_23mer = substr(context, 5, nchar(context)-3)) %>%
-    .$sgRNA_23mer
+    separate(id_entrez_23mer, into =c("dummy", "sgRNA_23mer"), sep = "_", remove = FALSE) %>%
+    .$sgRNA_23mer %>%
+    unique
   
   con_sgRNAs <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "databases/sgRNAs.db")
   
@@ -256,12 +267,12 @@ sgRNAInfoDataTableScreens <- eventReactive(input$sgRNAInfoLoadButton,{
       
       #specify which columns should be frozen and which should have the heatmap
       nfreezeColumns <- 1
-      nColorizeTableColumns <- 4
+      nColorizeTableColumns <- 8
       
       colnames_sgRNAInfoDatatable <- colnames(sgRNAInfoDatatable)
       tooltip <- ''
       
-      presel_contrasts <- colnames_sgRNAInfoDatatable[4:(colnames_sgRNAInfoDatatable %>% length)]
+      presel_contrasts <- colnames_sgRNAInfoDatatable[nColorizeTableColumns:(colnames_sgRNAInfoDatatable %>% length)]
       
       for(i in 1:length(colnames_sgRNAInfoDatatable)){
         if(i < length(colnames_sgRNAInfoDatatable)){
@@ -484,11 +495,6 @@ sgRNAInfoDataTableValidations <- eventReactive(input$sgRNAInfoLoadButton,{
 # ----------------------------------------------------------------------------
 sgRNAInfoGeneList <- reactive({
   
-  # if(class(gene_list_screens)[1] == "tbl_SQLiteConnection" ){
-  #   gene_list_screens <<- gene_list_screens %>%
-  #     collect()
-  # }
-  
   if(input$sgRNAInfoSpeciesSelect == "all"){
     speciesList <- c("human", "mouse")
   }else{
@@ -523,10 +529,9 @@ sgRNAInfoGuideList <- reactive({
     
     features %>%
       dplyr::filter(entrez_id %in% c(presel_entrez) | symbol %in% c(presel_genes)) %>%
-      dplyr::select(guide_id) %>%
-      distinct() %>%
-      arrange(guide_id) %>%
-      .$guide_id
+      arrange(id_entrez_23mer) %>%
+      .$id_entrez_23mer %>%
+      unique
   }
 })
 
@@ -568,31 +573,37 @@ observeEvent(input$sgRNAInfoSelectGene, {
     disable("sgRNAInfoCheckGuideAll")
     disable("sgRNAInfoSelectGuide")
   }
+  
+  disable("sgRNAInfoLoadButton")
 
   sgRNAInfoUpdateText()
 }, ignoreNULL = FALSE)
 
 observeEvent(input$sgRNAInfoSelectGuide, {
-  if((!is.null(input$sgRNAInfoSelectGuide))){
+  if((!is.null(input$sgRNAInfoSelectGuide)) | isTRUE(input$sgRNAInfoCheckGuideAll)){
     enable("sgRNAInfoLoadButton")
-    updateCheckboxInput(session, 'sgRNAInfoCheckGuideAll', value = FALSE)
   }else{
-    if(!isTRUE(input$sgRNAInfoCheckGuideAll)){
-      disable("sgRNAInfoLoadButton")
-    }
+    disable("sgRNAInfoLoadButton")
   }
+  
+  if(!is.null(input$sgRNAInfoSelectGuide)){
+    updateCheckboxInput(session, 'sgRNAInfoCheckGuideAll', value = FALSE)
+  }
+  
   sgRNAInfoUpdateText()
 }, ignoreNULL = FALSE)
 
 observeEvent(input$sgRNAInfoCheckGuideAll, {
-  if((isTRUE(input$sgRNAInfoCheckGuideAll))){
+  if(isTRUE(input$sgRNAInfoCheckGuideAll) | !is.null(input$sgRNAInfoSelectGuide)){
     enable("sgRNAInfoLoadButton")
-    updateSelectizeInput(session, 'sgRNAInfoSelectGuide', choices = sgRNAInfoGuideList(), selected = NULL, server = TRUE)
   }else{
-    if((is.null(input$sgRNAInfoSelectGuide))){
-      disable("sgRNAInfoLoadButton")
-    }
+    disable("sgRNAInfoLoadButton")
   }
+  
+  if(isTRUE(input$sgRNAInfoCheckGuideAll)){
+    updateSelectizeInput(session, 'sgRNAInfoSelectGuide', choices = sgRNAInfoGuideList(), selected = NULL, server = TRUE)
+  }
+
   sgRNAInfoUpdateText()
 }, ignoreNULL = FALSE)
 

@@ -980,7 +980,8 @@ body <- dashboardBody(
                      box(title = "Expression levels", status = "info", width = NULL, solidHeader = TRUE, collapsible = TRUE, collapsed=F, withSpinner(dataTableOutput(outputId="cellLineSelectorDataTableExpression"))),
                      box(title = "Gene mutations ", status = "success", width = NULL, solidHeader = TRUE, collapsible = TRUE, collapsed=F, withSpinner(dataTableOutput(outputId="cellLineSelectorDataTableMutations"))),
                      box(title = "Gene fusions ", status = "warning", width = NULL, solidHeader = TRUE, collapsible = TRUE, collapsed=F, withSpinner(dataTableOutput(outputId="cellLineSelectorDataTableFusions"))),
-                     box(title = "Gene CNVs", status = "danger", width = NULL, solidHeader = TRUE, collapsible = TRUE, collapsed=F, withSpinner(dataTableOutput(outputId="cellLineSelectorDataTableCNVs")))),
+                     box(title = "Gene CNVs", status = "danger", width = NULL, solidHeader = TRUE, collapsible = TRUE, collapsed=F, withSpinner(dataTableOutput(outputId="cellLineSelectorDataTableCNVs"))),
+                     box(title = "HLA types", status = "danger", width = NULL, solidHeader = TRUE, collapsible = TRUE, collapsed=F, withSpinner(dataTableOutput(outputId="cellLineSelectorDataTableHLAs")))),
               column(width = 3,
                      box(width = NULL, solidHeader = TRUE,
                          selectizeInput(
@@ -1055,6 +1056,33 @@ body <- dashboardBody(
                      box(width = NULL, solidHeader = TRUE,
                          disabled(
                            selectizeInput(
+                             inputId = "cellLineSelectorHLAA1",
+                             label = "HLA-A-A1 type:",
+                             choices = NULL,
+                             multiple = TRUE,
+                             selected = NULL
+                           )
+                         ),
+                         disabled(
+                           selectizeInput(
+                             inputId = "cellLineSelectorHLAA2",
+                             label = "HLA-A-A2 type:",
+                             choices = NULL,
+                             multiple = TRUE,
+                             selected = NULL
+                           )
+                         ),
+                         sliderInput(
+                           "cellLineSelectorHLAAExpressionSlider", 
+                           "Filter for cell lines with HLA-A expression (RPKMs):",
+                           min = 0,
+                           max = 1000,
+                           value = 5
+                         ),
+                     ),
+                     box(width = NULL, solidHeader = TRUE,
+                         disabled(
+                           selectizeInput(
                              inputId = "cellLineSelectorGeneFusion3primeSelect",
                              label = "3' gene fusion :",
                              choices = NULL,
@@ -1105,8 +1133,8 @@ body <- dashboardBody(
                        checkboxGroupInput(
                          "cellLineSelectorDownloadCheck",
                          label = "Download result tables:",
-                         choices = list("Cellline meta data" = "Cellline meta data", "Screen results" = "Screen results", "Gene mutations" = "Gene mutations", "Gene fusions" = "Gene fusions", "Gene CNVs" = "Gene CNVs"),
-                         selected = c("Cellline meta data", "Screen results", "Gene mutations", "Gene fusions", "Gene CNVs"),
+                         choices = list("Cellline meta data" = "Cellline meta data", "Screen results" = "Screen results", "Gene mutations" = "Gene mutations", "Gene fusions" = "Gene fusions", "Gene CNVs" = "Gene CNVs", "HLA types" = "HLA types"),
+                         selected = c("Cellline meta data", "Screen results", "Gene mutations", "Gene fusions", "Gene CNVs", "HLA types" = "HLA types"),
                          inline = F
                        ),
                        downloadButton(

@@ -112,10 +112,12 @@ sgRNAInfoTablePredictions <- reactive({
   }
   
   sgRNAs_23mer <- features %>%
-    dplyr::filter(guide_id %in% presel_guides) %>%
+    dplyr::filter(id_entrez_23mer %in% presel_guides) %>%
     separate(id_entrez_23mer, into =c("dummy", "sgRNA_23mer"), sep = "_", remove = FALSE) %>%
     .$sgRNA_23mer %>%
     unique
+  
+  sgRNA_23mer_search_string <- paste(sgRNAs_23mer, collapse = "|")
   
   con_sgRNAs <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "databases/sgRNAs.db")
   
@@ -129,7 +131,7 @@ sgRNAInfoTablePredictions <- reactive({
              `Restriction-site- / Poly-A- / Multi-T-containing` = RS_PolyA_multiT_containing, `Failed validation / Single outlier validation` = failed_outlier_validation, 
              `Trans-species (human/mouse)` = transspecies, `Maps to genome` = check) %>%
       collect() %>%
-      dplyr::filter(str_detect(`20-mer + NGG`, paste(sgRNAs_23mer, collapse = "|"))) %>%
+      dplyr::filter(str_detect(`20-mer + NGG`, sgRNA_23mer_search_string)) %>%
       rbind(
         con_sgRNAs %>%
           tbl("sgRNAs_mouse") %>%
@@ -140,7 +142,7 @@ sgRNAInfoTablePredictions <- reactive({
                  `Restriction-site- / Poly-A- / Multi-T-containing` = RS_PolyA_multiT_containing, `Failed validation / Single outlier validation` = failed_outlier_validation, 
                  `Trans-species (human/mouse)` = transspecies, `Maps to genome` = check) %>%
           collect() %>%
-          dplyr::filter(str_detect(`20-mer + NGG`, paste(sgRNAs_23mer, collapse = "|")))
+          dplyr::filter(str_detect(`20-mer + NGG`, sgRNA_23mer_search_string))
       )
   }else{
     #get guide ranks
@@ -153,7 +155,7 @@ sgRNAInfoTablePredictions <- reactive({
              `Restriction-site- / Poly-A- / Multi-T-containing` = RS_PolyA_multiT_containing, `Failed validation / Single outlier validation` = failed_outlier_validation, 
              `Trans-species (human/mouse)` = transspecies, `Maps to genome` = check) %>%
       collect() %>%
-      dplyr::filter(str_detect(`20-mer + NGG`, paste(sgRNAs_23mer, collapse = "|")))
+      dplyr::filter(str_detect(`20-mer + NGG`, sgRNA_23mer_search_string))
   }
   
   DBI::dbDisconnect(con_sgRNAs)
@@ -191,10 +193,12 @@ sgRNAInfoTableValidations <- reactive({
   }
   
   sgRNAs_23mer <- features %>%
-    dplyr::filter(guide_id %in% presel_guides) %>%
+    dplyr::filter(id_entrez_23mer %in% presel_guides) %>%
     separate(id_entrez_23mer, into =c("dummy", "sgRNA_23mer"), sep = "_", remove = FALSE) %>%
     .$sgRNA_23mer %>%
     unique
+  
+  sgRNA_23mer_search_string <- paste(sgRNAs_23mer, collapse = "|")
   
   con_sgRNAs <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "databases/sgRNAs.db")
   
@@ -205,7 +209,7 @@ sgRNAInfoTableValidations <- reactive({
       collect() %>%
       mutate(Dataset = unlist(strsplit(tableSgRNAs[i], split="_"))[3:4] %>% paste(collapse = "_")) %>%
       separate(sgRNA_id, into =c("dummy", "seq_buff"), sep = "_", remove = FALSE) %>%
-      dplyr::filter(str_detect(seq_buff, paste(sgRNAs_23mer, collapse = "|"))) %>%
+      dplyr::filter(str_detect(seq_buff, sgRNA_23mer_search_string)) %>%
       dplyr::select(-seq_buff, -dummy, -legacy_sequence, Library_origin = source, Mature_sgRNA = mature_sgRNA) %>%
       dplyr::select(Dataset, everything())
     

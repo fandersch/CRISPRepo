@@ -123,11 +123,11 @@ loadExpressionDataTissueList <- F
 #cell line
 cellline_list_cellLine <- con_cell_lines %>%
   tbl("cell_line_meta") %>%
-  dplyr::select(cell_line_name, tissue_name, Sanger_model_ID) %>%
+  dplyr::select(cell_line_name, tissue_name, sanger_model_ID) %>%
   distinct() %>%
   arrange(cell_line_name) %>%
   collect %>%
-  dplyr::rename(model_id = Sanger_model_ID)
+  dplyr::rename(model_id = sanger_model_ID)
 
 gene_list_cellLine <- con_cell_lines %>%
   tbl("cell_line_genes") %>%

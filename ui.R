@@ -1056,25 +1056,25 @@ body <- dashboardBody(
                      box(width = NULL, solidHeader = TRUE,
                          disabled(
                            selectizeInput(
-                             inputId = "cellLineSelectorHLAA1",
-                             label = "HLA-A-A1 type:",
-                             choices = NULL,
-                             multiple = TRUE,
+                             inputId = "cellLineSelectorHLAtypeSelect",
+                             label = "HLA-type:",
+                             choices = c("-"="none", "HLA-A"="HLA_A","HLA_B"="HLA_B","HLA_C"="HLA_C","HLA_DQA1"="HLA_DQA1","HLA_DQB1"="HLA_DQB1","HLA_DRB1"="HLA_DRB1"),
+                             multiple = FALSE,
                              selected = NULL
                            )
                          ),
                          disabled(
                            selectizeInput(
-                             inputId = "cellLineSelectorHLAA2",
-                             label = "HLA-A-A2 type:",
+                             inputId = "cellLineSelectorHLAalleleSelect",
+                             label = "HLA-allele:",
                              choices = NULL,
                              multiple = TRUE,
                              selected = NULL
                            )
                          ),
                          sliderInput(
-                           "cellLineSelectorHLAAExpressionSlider", 
-                           "Filter for cell lines with HLA-A expression (RPKMs):",
+                           "cellLineSelectorHLAExpressionSlider", 
+                           "Filter for cell lines with HLA-type expression (RPKMs):",
                            min = 0,
                            max = 1000,
                            value = 5

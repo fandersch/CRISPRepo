@@ -54,7 +54,7 @@ sgRNAInfoTableScreens <- reactive({
       dplyr::filter(contrast_id %in% local(contrasts_dropout$contrast_id), gene_id %in% local(presel_entrez) | gene_id %in% local(presel_genes)) %>%
       collect() %>%
       dplyr::left_join(contrasts_dropout %>% dplyr::select(contrast_id, library_id)) %>%
-      dplyr::left_join(features %>% select) %>%
+      dplyr::left_join(features) %>%
       # left_join(gene_list_screens %>% dplyr::select(gene_id, symbol, entrez_id) %>% distinct) %>%
       mutate_at(local(input$sgRNAInfoIndexRadio), round, 3)
     

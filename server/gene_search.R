@@ -82,7 +82,7 @@ gwsGeneContrastDataFrame <- reactive({
       dplyr::select(contrast_id_QC, contrast_id, everything())
   }
   
-  if(!input$gwsGeneDatasetSelect %in% c("dropout")){
+  if(!("dropout" %in% input$gwsGeneDatasetSelect)){
     df <- df %>%
       dplyr::select(-contrast_id_QC)
   } 
@@ -129,8 +129,8 @@ gwsGeneContrastDataTable <- eventReactive(input$gwsGeneLoadButton,{
                       scrollX=TRUE,
                       fixedColumns = list(leftColumns = nfreezeColumns),
                       columnDefs = list(list(className = 'dt-center', targets = "_all")),
-                      pageLength = 25,
-                      lengthMenu = c(25, 50, 100, 200),
+                      pageLength = 10,
+                      lengthMenu = c(10, 25, 50, 100, 200),
                       searchHighlight = TRUE
                       #fixedHeader = TRUE
                     ),
@@ -166,8 +166,8 @@ gwsGeneSampleDataTable <- eventReactive(input$gwsGeneLoadButton,{
                       scrollX=TRUE,
                       fixedColumns = list(leftColumns = nfreezeColumns),
                       columnDefs = list(list(className = 'dt-center', targets = "_all")),
-                      pageLength = 25,
-                      lengthMenu = c(25, 50, 100, 200),
+                      pageLength = 10,
+                      lengthMenu = c(10, 25, 50, 100, 200),
                       searchHighlight = TRUE
                       #fixedHeader = TRUE
                     ),
@@ -470,7 +470,7 @@ gwsGeneDataTable <- eventReactive(input$gwsGeneLoadButton,{
     #set frozen/colourized columns
     if(input$gwsGeneSpeciesSelect == "all"){
       nfreezeColumns <- nfreezeColumns + 2
-      nColorizeTableColumns <- nColorizeTableColumns + 2
+      nColorizeTableColumns <- nColorizeTableColumns
     }
     
     #change to contrast_id_QC for selected columns when type is dropout
@@ -483,7 +483,7 @@ gwsGeneDataTable <- eventReactive(input$gwsGeneLoadButton,{
     
     colnames_dt <- colnames(dt)
     tooltip <- ''
-    if(input$gwsGeneDatasetSelect %in% c("dropout")){
+    if("dropout" %in% input$gwsGeneDatasetSelect & length(input$gwsGeneDatasetSelect) == 1){
       for(i in 1:length(colnames_dt)){
         colname_buff <- colnames_dt[i]
         
@@ -815,11 +815,11 @@ gwsGeneContrastList <- reactive({
       dplyr::filter(species %in% speciesList,
                     library_id %in% preselLibrary,
                     tissue_name %in%  preselTissue,
-                    type == input$gwsGeneDatasetSelect,
+                    type %in% input$gwsGeneDatasetSelect,
                     cellline_name %in% preselCellline
       ) 
     
-    if(input$gwsGeneDatasetSelect %in% c("dropout")){
+    if("dropout" %in% input$gwsGeneDatasetSelect & length(input$gwsGeneDatasetSelect) == 1){
       presel_contrasts <- presel_contrasts %>%
         dplyr::filter(abs(dynamic_range) >= input$gwsGeneQuality)
     }
@@ -991,24 +991,34 @@ observeEvent(input$select_button_sgRNA, {
 
 observeEvent(input$gwsGeneSearchRadio, {
   if(input$gwsGeneSearchRadio == "guide_id"){
-    disable("gwsGeneInclude")
     updateCheckboxInput(session, 'gwsGeneInclude', value="")
-    updateRadioButtons(session,
-                       "gwsGeneIndexRadio",
-                       label = "Display data as:",
-                       choices = list("Log-fold change" = "lfc", "Effect" = "effect_essentialome"),
-                       selected = "lfc",
-                       inline = F
-    )
+    disable("gwsGeneInclude")
+    
+    disable("gwsGeneIndexRadio")
+    updateRadioButtons(session, 'gwsGeneIndexRadio', selected = "lfc")
+    
+    if("dropout" %in% input$gwsGeneDatasetSelect & length(input$gwsGeneDatasetSelect) == 1){
+      enable("gwsGeneIndexRadio")
+      updateRadioButtons(session,
+                         "gwsGeneIndexRadio",
+                         label = "Display data as:",
+                         choices = list("Log-fold change" = "lfc", "Effect" = "effect_essentialome"),
+                         selected = "lfc",
+                         inline = F
+      )
+    }
   }else{
     enable("gwsGeneInclude")
-    updateRadioButtons(session,
-                       "gwsGeneIndexRadio",
-                       label = "Display data as:",
-                       choices = list("Log-fold change" = "lfc", "Effect" = "effect_essentialome", "FDR-adjusted effect" = "adjusted_effect_essentialome"),
-                       selected = "adjusted_effect_essentialome",
-                       inline = F
-    )
+    
+    disable("gwsGeneIndexRadio")
+    updateRadioButtons(session, 'gwsGeneIndexRadio', selected = "lfc")
+    
+    if("dropout" %in% input$gwsGeneDatasetSelect & length(input$gwsGeneDatasetSelect) == 1){
+      updateRadioButtons(session, "gwsGeneIndexRadio", 
+                         choices = list("Log-fold change" = "lfc", "Effect" = "effect_essentialome", "FDR-adjusted effect Here" = "adjusted_effect_essentialome"), 
+                         selected = "adjusted_effect_essentialome"
+      )
+    }
   }
 })
 
@@ -1062,7 +1072,7 @@ observeEvent(input$gwsGeneDatasetSelect, {
   updateCheckboxInput(session, 'gwsGeneCheckTissueAll', value = FALSE)
   #update tissue selectbox
   updateSelectizeInput(session, 'gwsGeneTissueSelect', choices = gwsGeneTissueList(), server = TRUE)
-  if(input$gwsGeneDatasetSelect %in% c("dropout")){
+  if("dropout" %in% input$gwsGeneDatasetSelect & length(input$gwsGeneDatasetSelect) == 1){
     enable("gwsGeneIndexRadio")
     enable("gwsGeneQuality")
     updateRadioButtons(session, 'gwsGeneDisplayName', selected = "short")

@@ -81,7 +81,7 @@ gwsBrowseScreenContrastDataFrame <- reactive({
       dplyr::select(contrast_id_QC, contrast_id, everything())
   }
   
-  if(!input$gwsBrowseScreenDatasetSelect %in% c("dropout")){
+  if(!("dropout" %in% input$gwsBrowseScreenDatasetSelect)){
     df <- df %>%
       dplyr::select(-contrast_id_QC)
   } 
@@ -127,8 +127,8 @@ gwsBrowseScreenContrastDataTable <- eventReactive(input$gwsBrowseScreenLoadButto
                       scrollX=TRUE,
                       fixedColumns = list(leftColumns = nfreezeColumns),
                       columnDefs = list(list(className = 'dt-center', targets = "_all")),
-                      pageLength = 25,
-                      lengthMenu = c(25, 50, 100, 200),
+                      pageLength = 10,
+                      lengthMenu = c(10, 25, 50, 100, 200),
                       searchHighlight = TRUE
                       #fixedHeader = TRUE
                     ),
@@ -165,8 +165,8 @@ gwsBrowseScreenSampleDataTable <- eventReactive(input$gwsBrowseScreenLoadButton,
                       scrollX=TRUE,
                       fixedColumns = list(leftColumns = nfreezeColumns),
                       columnDefs = list(list(className = 'dt-center', targets = "_all")),
-                      pageLength = 25,
-                      lengthMenu = c(25, 50, 100, 200),
+                      pageLength = 10,
+                      lengthMenu = c(10, 25, 50, 100, 200),
                       searchHighlight = TRUE
                       #fixedHeader = TRUE
                     ),
@@ -368,7 +368,7 @@ gwsBrowseScreenDataTable <- eventReactive(input$gwsBrowseScreenLoadButton,{
 
     colnames_dt <- colnames(dt)
     tooltip <- ''
-    if(input$gwsBrowseScreenDatasetSelect %in% c("dropout")){
+    if("dropout" %in% input$gwsBrowseScreenDatasetSelect & length(input$gwsBrowseScreenDatasetSelect)==1){
       for(i in 1:length(colnames_dt)){
         colname_buff <- colnames_dt[i]
         
@@ -705,11 +705,11 @@ gwsBrowseScreenContrastList <- reactive({
       dplyr::filter(species %in% speciesList,
              library_id %in% preselLibrary,
              tissue_name %in%  preselTissue,
-             type == input$gwsBrowseScreenDatasetSelect,
+             type %in% input$gwsBrowseScreenDatasetSelect,
              cellline_name %in% preselCellline
              ) 
     
-    if(input$gwsBrowseScreenDatasetSelect == "dropout"){
+    if("dropout" %in% input$gwsBrowseScreenDatasetSelect & length(input$gwsBrowseScreenDatasetSelect)) {
       presel_contrasts <- presel_contrasts %>%
         dplyr::filter(abs(dynamic_range) >= input$gwsBrowseScreenQuality)
     }
@@ -740,24 +740,34 @@ observeEvent(input$gwsBrowseScreenLoadButton, {
 
 observeEvent(input$gwsBrowseScreenSearchRadio, {
   if(input$gwsBrowseScreenSearchRadio == "guide_id"){
-    disable("gwsBrowseScreenInclude")
     updateCheckboxInput(session, 'gwsBrowseScreenInclude', value="")
-    updateRadioButtons(session,
-      "gwsBrowseScreenIndexRadio",
-      label = "Display data as:",
-      choices = list("Log-fold change" = "lfc", "Effect" = "effect_essentialome"),
-      selected = "lfc",
-      inline = F
-    )
+    disable("gwsBrowseScreenInclude")
+    
+    disable("gwsBrowseScreenIndexRadio")
+    updateRadioButtons(session, 'gwsBrowseScreenIndexRadio', selected = "lfc")
+    
+    if("dropout" %in% input$gwsBrowseScreenDatasetSelect & length(input$gwsBrowseScreenDatasetSelect) == 1){
+      enable("gwsBrowseScreenIndexRadio")
+      updateRadioButtons(session,
+                         "gwsBrowseScreenIndexRadio",
+                         label = "Display data as:",
+                         choices = list("Log-fold change" = "lfc", "Effect" = "effect_essentialome"),
+                         selected = "lfc",
+                         inline = F
+                         )
+    }
   }else{
     enable("gwsBrowseScreenInclude")
-    updateRadioButtons(session,
-                       "gwsBrowseScreenIndexRadio",
-                       label = "Display data as:",
-                       choices = list("Log-fold change" = "lfc", "Effect" = "effect_essentialome", "FDR-adjusted effect" = "adjusted_effect_essentialome"),
-                       selected = "adjusted_effect_essentialome",
-                       inline = F
-    )
+    
+    disable("gwsBrowseScreenIndexRadio")
+    updateRadioButtons(session, 'gwsBrowseScreenIndexRadio', selected = "lfc")
+    
+    if("dropout" %in% input$gwsBrowseScreenDatasetSelect & length(input$gwsBrowseScreenDatasetSelect) == 1){
+      updateRadioButtons(session, "gwsBrowseScreenIndexRadio", 
+                         choices = list("Log-fold change" = "lfc", "Effect" = "effect_essentialome", "FDR-adjusted effect Here" = "adjusted_effect_essentialome"), 
+                         selected = "adjusted_effect_essentialome"
+      )
+    }
   }
 })
 
@@ -774,7 +784,6 @@ observeEvent(input$gwsBrowseScreenSpeciesSelect, {
     unique
   
   dataset_selection_all<- setNames(all_types, all_types)
-  
   
   updateSelectizeInput(session, 'gwsBrowseScreenDatasetSelect', choices = dataset_selection_all, selected = "dropout", server = TRUE)
   #select checkbox tissue
@@ -813,18 +822,21 @@ observeEvent(input$gwsBrowseScreenDatasetSelect, {
   #update tissue selectbox
   updateSelectizeInput(session, 'gwsBrowseScreenTissueSelect', choices = gwsBrowseScreenTissueList(), server = TRUE)
   
-  if(input$gwsBrowseScreenDatasetSelect %in% c("dropout")){
-    updateRadioButtons(session, 'gwsBrowseScreenIndexRadio',selected = "adjusted_effect_essentialome")
-    enable("gwsBrowseScreenIndexRadio")
-    enable("gwsBrowseScreenQuality")
-    updateRadioButtons(session, 'gwsBrowseScreenDisplayName', selected = "short")
-    enable("gwsBrowseScreenDisplayName")
-  }else{
-    updateRadioButtons(session, 'gwsBrowseScreenIndexRadio',selected = "lfc")
-    disable("gwsBrowseScreenIndexRadio")
-    disable("gwsBrowseScreenQuality")
-    updateRadioButtons(session, 'gwsBrowseScreenDisplayName', selected = "long")
-    disable("gwsBrowseScreenDisplayName")
+  if(!is.null(input$gwsBrowseScreenDatasetSelect)){
+    if("dropout" %in% input$gwsBrowseScreenDatasetSelect & length(input$gwsBrowseScreenDatasetSelect) == 1){
+      
+      updateRadioButtons(session, 'gwsBrowseScreenIndexRadio', selected = "adjusted_effect_essentialome")
+      enable("gwsBrowseScreenIndexRadio")
+      enable("gwsBrowseScreenQuality")
+      updateRadioButtons(session, 'gwsBrowseScreenDisplayName', selected = "short")
+      enable("gwsBrowseScreenDisplayName")
+    }else{
+      updateRadioButtons(session, 'gwsBrowseScreenIndexRadio', selected = "lfc")
+      disable("gwsBrowseScreenIndexRadio")
+      disable("gwsBrowseScreenQuality")
+      updateRadioButtons(session, 'gwsBrowseScreenDisplayName', selected = "long")
+      disable("gwsBrowseScreenDisplayName")
+    }
   }
   #update library selectbox
   updateSelectizeInput(session, 'gwsBrowseScreenLibrarySelect', choices = gwsBrowseScreenLibraryList(), server = TRUE)

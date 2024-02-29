@@ -31,18 +31,19 @@ sidebar <- dashboardSidebar(
                        menuSubItem(text = "Browse Screen", tabName = "gwsBrowseScreenTab", selected = TRUE), 
                        menuSubItem(text = "Gene Search", tabName = "gwsGeneTab")),
               menuItem(text = "Libraries", tabName = "libSidebar"),
-              menuItemOutput("sgRNAInfoSidebar"),
+              menuItemOutput("expressionDataSidebar"),
+              menuItemOutput("cellLineSidebar"),
               menuItemOutput("sgRNAsSidebar"),
               menuItemOutput("dualSgRNAsSidebar"),
-              menuItemOutput("expressionDataSidebar"),
               menuItemOutput("essentialomeSidebar"),
+              menuItemOutput("sgRNAInfoSidebar"),
               menuItemOutput("correlationsSidebar"),
-              menuItemOutput("cellLineSidebar"),
               menuItemOutput("cellLineSelectorSidebar")
   )
 )
 
 body <- dashboardBody(
+  mainPanel(tags$head(tags$script(jscode))),
   
 
   tabItems(
@@ -84,9 +85,9 @@ body <- dashboardBody(
             fluidRow(
               useShinyjs(),
               column(width = 9,
-                     box(title = "Screens", status = "success", width = NULL, solidHeader = TRUE, collapsible = TRUE, withSpinner(dataTableOutput(outputId="gwsBrowseScreenTable"))),
-                     box(title = "Contrasts", status = "warning", width = NULL, solidHeader = TRUE, collapsible = TRUE, collapsed=TRUE, withSpinner(dataTableOutput(outputId="gwsBrowseScreenContrastTable"))),
-                     box(title = "Samples", status = "danger", width = NULL, solidHeader = TRUE, collapsible = TRUE, collapsed=TRUE, withSpinner(dataTableOutput(outputId="gwsBrowseScreenSampleTable")))),
+                     box(title = "Screens", status = "success", width = NULL, solidHeader = TRUE, collapsible = TRUE, collapsed=FALSE, withSpinner(dataTableOutput(outputId="gwsBrowseScreenTable"))),
+                     box(title = "Contrasts", status = "warning", width = NULL, solidHeader = TRUE, collapsible = TRUE, collapsed=FALSE, withSpinner(dataTableOutput(outputId="gwsBrowseScreenContrastTable"))),
+                     box(title = "Samples", status = "danger", width = NULL, solidHeader = TRUE, collapsible = TRUE, collapsed=FALSE, withSpinner(dataTableOutput(outputId="gwsBrowseScreenSampleTable")))),
               column(width = 3,
                      box(width = NULL, solidHeader = TRUE,
                          radioButtons(
@@ -143,7 +144,7 @@ body <- dashboardBody(
                            inputId = "gwsBrowseScreenDatasetSelect",
                            label = "Dataset:",
                            choices = dataset_selection_all,
-                           multiple = FALSE,
+                           multiple = TRUE,
                            selected = "dropout"
                          ),
                          selectizeInput(
@@ -260,9 +261,9 @@ body <- dashboardBody(
                             box(width = NULL, solidHeader = TRUE, htmlOutput(outputId="gwsGeneInfo")))),
             fluidRow(
               column(width = 9,
-                     box(title = "Screens", status = "success", width = NULL, solidHeader = TRUE, collapsible = TRUE, withSpinner(dataTableOutput("gwsGeneTable"))),
-                     box(title = "Contrasts", status = "warning", width = NULL, solidHeader = TRUE, collapsible = TRUE, collapsed=TRUE, withSpinner(dataTableOutput(outputId="gwsGeneContrastTable"))),
-                     box(title = "Samples", status = "danger", width = NULL, solidHeader = TRUE, collapsible = TRUE, collapsed=TRUE, withSpinner(dataTableOutput(outputId="gwsGeneSampleTable")))),
+                     box(title = "Screens", status = "success", width = NULL, solidHeader = TRUE, collapsible = TRUE, collapsed=FALSE, withSpinner(dataTableOutput("gwsGeneTable"))),
+                     box(title = "Contrasts", status = "warning", width = NULL, solidHeader = TRUE, collapsible = TRUE, collapsed=FALSE, withSpinner(dataTableOutput(outputId="gwsGeneContrastTable"))),
+                     box(title = "Samples", status = "danger", width = NULL, solidHeader = TRUE, collapsible = TRUE, collapsed=FALSE, withSpinner(dataTableOutput(outputId="gwsGeneSampleTable")))),
               column(width = 3,
                      box(width = NULL, solidHeader = TRUE,
                          
@@ -317,7 +318,7 @@ body <- dashboardBody(
                            inputId = "gwsGeneDatasetSelect",
                            label = "Dataset:",
                            choices = dataset_selection_all,
-                           multiple = FALSE,
+                           multiple = TRUE,
                            selected = "dropout"
                          ),
                          selectizeInput(

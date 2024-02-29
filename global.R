@@ -30,6 +30,9 @@ library(DBI)
 library(zip)
 library(shinyBS)
 
+#back button click handling
+jscode <- 'window.onbeforeunload = function() { return "Please use the button on the webpage"; };'
+
 #set default packages for functions
 renderDataTable <- DT::renderDataTable
 

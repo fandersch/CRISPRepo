@@ -39,6 +39,11 @@ function(input, output, session) {
       menuItem(text = "Expression data", tabName = "expressionDataSidebar")
   })
   
+  output$slamseqDataSidebar <- renderMenu({
+    if(view == "internal")
+      menuItem(text = "SLAM-seq data", tabName = "slamseqDataSidebar")
+  })
+  
   output$essentialomeSidebar <- renderMenu({
     if(view == "internal")
       menuItem(text = "Essentialome", tabName = "essentialomeSidebar")
@@ -101,6 +106,12 @@ function(input, output, session) {
   # ----------------------------------------------------------------------------
 
   source(file = "server/expression_data.R", local = T)
+  
+  # ----------------------------------------------------------------------------
+  # SlamseqData
+  # ----------------------------------------------------------------------------
+  
+  source(file = "server/slamseq_data.R", local = T)
 
   # ----------------------------------------------------------------------------
   # Essentialome
@@ -173,6 +184,7 @@ function(input, output, session) {
     updateSelectizeInput(session, 'sgRNAsSpeciesSelect', choices = list("Human" = "human", "Mouse" = "mouse", "All"="all"), selected = species, server = TRUE)
     updateSelectizeInput(session, 'dualSgRNAsTopCombinationsSpeciesSelect', choices = list("Human" = "human", "Mouse" = "mouse", "All"="all"), selected = species, server = TRUE)
     updateSelectizeInput(session, 'expressionDataSpeciesSelect', choices = list("Human" = "human", "Mouse" = "mouse", "All"="all"), selected = species, server = TRUE)
+    updateSelectizeInput(session, 'slamseqDataSpeciesSelect', choices = list("Human" = "human", "Mouse" = "mouse", "All"="all"), selected = species, server = TRUE)
     updateSelectizeInput(session, 'essentialomeSpeciesSelect', choices = list("Human" = "human", "Mouse" = "mouse", "All"="all"), selected = species, server = TRUE)
   }
 

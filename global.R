@@ -38,7 +38,9 @@ renderDataTable <- DT::renderDataTable
 
 con <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "databases/screen.db")
 
-con_expression <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "databases/expression_data_counts_tpm.db")
+con_expression <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "databases/expression_data_counts_tpm_tmm.db")
+
+con_slamseq <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "databases/slamseq.db")
 
 con_sgRNAs <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "databases/sgRNAs.db")
 
@@ -109,7 +111,7 @@ if("hs_gw_zuber_v2" %in% (libraries %>% collect %>% .$library_id)){
     arrange(Symbol) %>%
     collect
 }
-
+#expression data
 cellline_list_expressionData <- con_expression %>%
   tbl("expression_data_meta_info") %>%
   dplyr::select(sample_id, cell_line_name = cell_line_name_stripped, tissue_name, species) %>%
@@ -119,6 +121,18 @@ cellline_list_expressionData <- con_expression %>%
 
 gene_list_expressionData <- con_expression %>%
   tbl("expression_data_genes") %>%
+  collect()
+
+#slamseq
+cellline_list_slamseq <- con_slamseq %>%
+  tbl("slamseq_meta_data") %>%
+  dplyr::select(sample_id, sample_name, condition, cell_line_name = cell_line, tissue_name=tissue, cancer_type, species) %>%
+  distinct() %>%
+  arrange(cell_line_name) %>%
+  collect()
+
+gene_list_slamseq <- con_slamseq %>%
+  tbl("slamseq_genes") %>%
   collect()
 
 loadExpressionDataTissueList <- F
@@ -192,6 +206,7 @@ displayed_table <- NULL
 #close db conections
 DBI::dbDisconnect(con)
 DBI::dbDisconnect(con_expression)
+DBI::dbDisconnect(con_slamseq)
 DBI::dbDisconnect(con_sgRNAs)
 DBI::dbDisconnect(con_correlations)
 DBI::dbDisconnect(con_correlations_tissue)

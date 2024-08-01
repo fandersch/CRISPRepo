@@ -256,7 +256,7 @@ expressionDataDataTable <- eventReactive(input$expressionDataLoadButton,{
     if("log2_TMM" %in% input$expressionDataUnitSelect){
       brks <- seq(min_value, max_value, length.out = 40)
     }else{
-      brks <- exp(seq(0, log(max_value), length.out = 40))
+      brks <- exp(seq(0, log2(max_value), length.out = 40))
     }
     clrs <- round(seq(255, 5, length.out = (length(brks) + 1)), 0) %>%
       {paste0("rgb(255,", ., ",", ., ")")}

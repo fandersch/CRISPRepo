@@ -263,6 +263,8 @@ gwsBrowseScreenDataFrame <- reactive({
     left_join(contrasts, by = "contrast_id") %>%
     left_join(gene_list_screens, by = c("gene_id", "library_id")) %>%
     dplyr::select(contrast_id, contrast_id_QC, contains("guide_id"), contains("id_entrez_23mer"), gene_id, selected_index, symbol, entrez_id, species, dplyr::any_of(include_columns)) %>%
+    dplyr::mutate(guide_id = ifelse(!is.null(id_entrez_23mer) & !is.na(id_entrez_23mer), id_entrez_23mer, guide_id)) %>%
+    dplyr::select(-matches("id_entrez_23mer")) %>%
     distinct()
   
   if(input$gwsBrowseScreenSpeciesSelect == "all"){
@@ -271,13 +273,13 @@ gwsBrowseScreenDataFrame <- reactive({
       dplyr::filter(species == "human") %>%
       left_join(dict_joined, by=c("symbol" = "Symbol_human")) %>%
       mutate(EntrezID_human = entrez_id) %>%
-      dplyr::select(contrast_id, contrast_id_QC, contains("guide_id"), contains("id_entrez_23mer"), gene_id, selected_index, Symbol_human = symbol, EntrezID_human, Symbol_mouse,  EntrezID_mouse, dplyr::any_of(include_columns))
+      dplyr::select(contrast_id, contrast_id_QC, contains("guide_id"), gene_id, selected_index, Symbol_human = symbol, EntrezID_human, Symbol_mouse,  EntrezID_mouse, dplyr::any_of(include_columns))
     
     df_mouse <- df %>% 
       dplyr::filter(species == "mouse") %>%
       left_join(dict_joined, by=c("symbol" = "Symbol_mouse")) %>%
       mutate(EntrezID_mouse = entrez_id) %>%
-      dplyr::select(contrast_id, contrast_id_QC, contains("guide_id"), contains("id_entrez_23mer"), gene_id, selected_index, Symbol_human, EntrezID_human, Symbol_mouse = symbol, EntrezID_mouse, dplyr::any_of(include_columns))
+      dplyr::select(contrast_id, contrast_id_QC, contains("guide_id"),  gene_id, selected_index, Symbol_human, EntrezID_human, Symbol_mouse = symbol, EntrezID_mouse, dplyr::any_of(include_columns))
     
     df <- df_human %>% rbind(df_mouse)
     
@@ -291,7 +293,7 @@ gwsBrowseScreenDataFrame <- reactive({
   df <- df %>%
     rename(any_of(column_names_change)) %>%
     discard(~all(is.na(.) | . =="")) %>%
-    dplyr::select(contrast_id, any_of(c("guide_id", "id_entrez_23mer", "symbol", "entrez_id", "Symbol_human", "EntrezID_human", "Symbol_mouse", "EntrezID_mouse")), selected_index, dplyr::any_of(include_columns)) %>%
+    dplyr::select(contrast_id, any_of(c("guide_id", "symbol", "entrez_id", "Symbol_human", "EntrezID_human", "Symbol_mouse", "EntrezID_mouse")), selected_index, dplyr::any_of(include_columns)) %>%
     pivot_wider(names_from=contrast_id, values_from=paste0(c(selected_index, include_columns)), names_glue = "{contrast_id}_{.value}") %>%
     arrange(dplyr::across(starts_with("symbol")))
   
@@ -305,7 +307,7 @@ gwsBrowseScreenDataFrame <- reactive({
   
   df <- df %>%
     dplyr::select(order(colnames(df))) %>%
-    dplyr::select(any_of(c("guide_id", "id_entrez_23mer", "symbol", "entrez_id", "Symbol_human", "EntrezID_human", "Symbol_mouse", "EntrezID_mouse")), everything())
+    dplyr::select(any_of(c("guide_id", "symbol", "entrez_id", "Symbol_human", "EntrezID_human", "Symbol_mouse", "EntrezID_mouse")), everything())
   
   colnames(df) <- colnames(df) %>%
     str_replace(paste0("1", selected_index, "$"), selected_index) %>%
@@ -347,9 +349,6 @@ gwsBrowseScreenDataTable <- eventReactive(input$gwsBrowseScreenLoadButton,{
     nfreezeColumns <- 2
     if(input$gwsBrowseScreenSearchRadio == "guide_id"){
       nfreezeColumns <- 3
-      dt <- dt %>%
-        dplyr::mutate(guide_id = id_entrez_23mer) %>%
-        dplyr::select(-id_entrez_23mer)
     }
     
     if(local(input$gwsBrowseScreenSpeciesSelect) == "all"){

@@ -79,28 +79,34 @@ cellLineMutationsDataFrame <- reactive({
     presel_cell_line <- local(input$cellLineCellLineSelect)
   }
   
-  #get model_id from selected cell lines
-  presel_model_ids <- cellline_list_cellLine %>%
+  #get cell_line_id from selected cell lines
+  presel_cell_line_ids <- cellline_list_cellLine %>%
     filter(cell_line_name %in% presel_cell_line) %>%
-    .$model_id
+    .$cell_line_id
   
   if(!is.null(cellLine_geneInputFile$data)){
     presel_genes_buff <- cellLineGeneList()
     genes_fileUpload <- c(cellLine_geneInputFile$data$X1 %>% as.character)
-    presel_genes <- grep(paste(paste0("^", genes_fileUpload, "$"),collapse="|"), presel_genes_buff %>% as.character, value=TRUE)
+    presel_genes_both <- grep(paste(paste0(" ", genes_fileUpload, " "),collapse="|"), presel_genes_buff %>% as.character, value=TRUE)
   }else{
     if(isTRUE(input$cellLineCheckGeneAll)){
-      presel_genes <- cellLineGeneList()
+      presel_genes_both <- cellLineGeneList()
     }else{
-      presel_genes <- local(input$cellLineGeneSelect)
+      presel_genes_both <- local(input$cellLineGeneSelect)
     }
   }
+  
+  #retrieve selected genes
+  presel_genes_both<- presel_genes_both %>% strsplit(split="\\(|\\)")
+  presel_genes <- unlist(presel_genes_both)[c(TRUE, FALSE)] %>% trimws()
+  presel_entrez <- unlist(presel_genes_both)[c(FALSE, TRUE)]
+  gene_select <- c(presel_entrez, presel_genes)
   
   con_cell_lines <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "databases/cell_line_meta_data.db")
   
   cellLine_meta_data <- con_cell_lines %>%
     tbl("cell_line_gene_mutations") %>%
-    dplyr::filter(model_id %in% presel_model_ids, gene_symbol %in% presel_genes) %>%
+    dplyr::filter(cell_line_id %in% presel_cell_line_ids, symbol %in% presel_genes | entrez_id %in% presel_entrez) %>%
     collect()
   
   DBI::dbDisconnect(con_cell_lines)
@@ -124,28 +130,34 @@ cellLineFusionsDataFrame <- reactive({
     presel_cell_line <- local(input$cellLineCellLineSelect)
   }
   
-  #get model_id from selected cell lines
-  presel_model_ids <- cellline_list_cellLine %>%
+  #get cell_line_id from selected cell lines
+  presel_cell_line_ids <- cellline_list_cellLine %>%
     filter(cell_line_name %in% presel_cell_line) %>%
-    .$model_id
+    .$cell_line_id
   
   if(!is.null(cellLine_geneInputFile$data)){
     presel_genes_buff <- cellLineGeneList()
     genes_fileUpload <- c(cellLine_geneInputFile$data$X1 %>% as.character)
-    presel_genes <- grep(paste(paste0("^", genes_fileUpload, "$"),collapse="|"), presel_genes_buff %>% as.character, value=TRUE)
+    presel_genes_both <- grep(paste(paste0(" ", genes_fileUpload, " "),collapse="|"), presel_genes_buff %>% as.character, value=TRUE)
   }else{
     if(isTRUE(input$cellLineCheckGeneAll)){
-      presel_genes <- cellLineGeneList()
+      presel_genes_both <- cellLineGeneList()
     }else{
-      presel_genes <- local(input$cellLineGeneSelect)
+      presel_genes_both <- local(input$cellLineGeneSelect)
     }
   }
+  
+  #retrieve selected genes
+  presel_genes_both<- presel_genes_both %>% strsplit(split="\\(|\\)")
+  presel_genes <- unlist(presel_genes_both)[c(TRUE, FALSE)] %>% trimws()
+  presel_entrez <- unlist(presel_genes_both)[c(FALSE, TRUE)]
+  gene_select <- c(presel_entrez, presel_genes)
   
   con_cell_lines <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "databases/cell_line_meta_data.db")
   
   cellLine_meta_data <- con_cell_lines %>%
     tbl("cell_line_gene_fusions") %>%
-    dplyr::filter(model_id %in% presel_model_ids, gene_symbol_3prime %in% presel_genes | gene_symbol_5prime %in% presel_genes) %>%
+    dplyr::filter(cell_line_id %in% presel_cell_line_ids, symbol_3prime %in% presel_genes | symbol_5prime %in% presel_genes | entrez_id_3prime %in% presel_entrez | entrez_id_5prime %in% presel_entrez) %>%
     collect()
   
   DBI::dbDisconnect(con_cell_lines)
@@ -169,28 +181,34 @@ cellLineCNVsDataFrame <- reactive({
     presel_cell_line <- local(input$cellLineCellLineSelect)
   }
   
-  #get model_id from selected cell lines
-  presel_model_ids <- cellline_list_cellLine %>%
+  #get cell_line_id from selected cell lines
+  presel_cell_line_ids <- cellline_list_cellLine %>%
     filter(cell_line_name %in% presel_cell_line) %>%
-    .$model_id
+    .$cell_line_id
   
   if(!is.null(cellLine_geneInputFile$data)){
     presel_genes_buff <- cellLineGeneList()
     genes_fileUpload <- c(cellLine_geneInputFile$data$X1 %>% as.character)
-    presel_genes <- grep(paste(paste0("^", genes_fileUpload, "$"),collapse="|"), presel_genes_buff %>% as.character, value=TRUE)
+    presel_genes_both <- grep(paste(paste0(" ", genes_fileUpload, " "),collapse="|"), presel_genes_buff %>% as.character, value=TRUE)
   }else{
     if(isTRUE(input$cellLineCheckGeneAll)){
-      presel_genes <- cellLineGeneList()
+      presel_genes_both <- cellLineGeneList()
     }else{
-      presel_genes <- local(input$cellLineGeneSelect)
+      presel_genes_both <- local(input$cellLineGeneSelect)
     }
   }
+  
+  #retrieve selected genes
+  presel_genes_both<- presel_genes_both %>% strsplit(split="\\(|\\)")
+  presel_genes <- unlist(presel_genes_both)[c(TRUE, FALSE)] %>% trimws()
+  presel_entrez <- unlist(presel_genes_both)[c(FALSE, TRUE)]
+  gene_select <- c(presel_entrez, presel_genes)
   
   con_cell_lines <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "databases/cell_line_meta_data.db")
   
   cellLine_meta_data <- con_cell_lines %>%
     tbl("cell_line_gene_cnv") %>%
-    dplyr::filter(model_id %in% presel_model_ids, gene_symbol %in% presel_genes) %>%
+    dplyr::filter(cell_line_id %in% presel_cell_line_ids, symbol %in% presel_genes | entrez_id %in% presel_entrez) %>%
     collect()
   
   DBI::dbDisconnect(con_cell_lines)
@@ -358,9 +376,11 @@ cellLineGeneList <- reactive({
   }else{
     
   gene_list_cellLine %>%
-      dplyr::select(gene_symbol) %>%
-      arrange(gene_symbol) %>%
-      .$gene_symbol
+      dplyr::mutate(gene = ifelse(is.na(symbol), paste0("No symbol found (" , entrez_id, " )"), paste0(" ", symbol , " ( ", entrez_id, " )"))) %>%
+      dplyr::select(gene) %>%
+      distinct %>%
+      arrange(gene) %>%
+      .$gene
   }
 })
 

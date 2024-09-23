@@ -262,10 +262,17 @@ gwsBrowseScreenDataFrame <- reactive({
   df <- df %>%
     left_join(contrasts, by = "contrast_id") %>%
     left_join(gene_list_screens, by = c("gene_id", "library_id")) %>%
-    dplyr::select(contrast_id, contrast_id_QC, contains("guide_id"), contains("id_entrez_23mer"), gene_id, selected_index, symbol, entrez_id, species, dplyr::any_of(include_columns)) %>%
-    dplyr::mutate(guide_id = ifelse(!is.null(id_entrez_23mer) & !is.na(id_entrez_23mer), id_entrez_23mer, guide_id)) %>%
-    dplyr::select(-matches("id_entrez_23mer")) %>%
-    distinct()
+    dplyr::select(contrast_id, contrast_id_QC, contains("guide_id"), contains("id_entrez_23mer"), gene_id, selected_index, symbol, entrez_id, species, dplyr::any_of(include_columns))
+  
+  if(input$gwsBrowseScreenSearchRadio == "guide_id"){
+    df <- df %>%
+      rowwise() %>%
+      mutate(guide_id = ifelse(!is.na(id_entrez_23mer), id_entrez_23mer, guide_id)) %>% 
+      ungroup() %>%
+      dplyr::select(-matches("id_entrez_23mer")) %>%
+      distinct()
+  }
+  
   
   if(input$gwsBrowseScreenSpeciesSelect == "all"){
     
@@ -291,7 +298,7 @@ gwsBrowseScreenDataFrame <- reactive({
   selected_index <- str_remove(input$gwsBrowseScreenIndexRadio, pattern = "_essentialome")
   
   df <- df %>%
-    rename(any_of(column_names_change)) %>%
+    dplyr::rename(any_of(column_names_change)) %>%
     discard(~all(is.na(.) | . =="")) %>%
     dplyr::select(contrast_id, any_of(c("guide_id", "symbol", "entrez_id", "Symbol_human", "EntrezID_human", "Symbol_mouse", "EntrezID_mouse")), selected_index, dplyr::any_of(include_columns)) %>%
     pivot_wider(names_from=contrast_id, values_from=paste0(c(selected_index, include_columns)), names_glue = "{contrast_id}_{.value}") %>%
@@ -367,7 +374,7 @@ gwsBrowseScreenDataTable <- eventReactive(input$gwsBrowseScreenLoadButton,{
 
     colnames_dt <- colnames(dt)
     tooltip <- ''
-    if("dropout" %in% input$gwsBrowseScreenDatasetSelect & length(input$gwsBrowseScreenDatasetSelect)==1){
+    if(all(grepl(pattern = "dropout|synthetic", x = input$gwsBrowseScreenDatasetSelect))){
       for(i in 1:length(colnames_dt)){
         colname_buff <- colnames_dt[i]
         
@@ -708,9 +715,9 @@ gwsBrowseScreenContrastList <- reactive({
              cellline_name %in% preselCellline
              ) 
     
-    if("dropout" %in% input$gwsBrowseScreenDatasetSelect & length(input$gwsBrowseScreenDatasetSelect)) {
+    if(all(grepl(pattern = "dropout|synthetic", x = input$gwsBrowseScreenDatasetSelect))){
       presel_contrasts <- presel_contrasts %>%
-        dplyr::filter(abs(dynamic_range) >= input$gwsBrowseScreenQuality)
+        dplyr::filter((abs(dynamic_range) >= input$gwsBrowseScreenQuality) | is.na(dynamic_range))
     }
     
     presel_contrasts %>%
@@ -745,7 +752,7 @@ observeEvent(input$gwsBrowseScreenSearchRadio, {
     disable("gwsBrowseScreenIndexRadio")
     updateRadioButtons(session, 'gwsBrowseScreenIndexRadio', selected = "lfc")
     
-    if("dropout" %in% input$gwsBrowseScreenDatasetSelect & length(input$gwsBrowseScreenDatasetSelect) == 1){
+    if(all(grepl(pattern = "dropout|synthetic", x = input$gwsBrowseScreenDatasetSelect))){
       enable("gwsBrowseScreenIndexRadio")
       updateRadioButtons(session,
                          "gwsBrowseScreenIndexRadio",
@@ -761,7 +768,7 @@ observeEvent(input$gwsBrowseScreenSearchRadio, {
     disable("gwsBrowseScreenIndexRadio")
     updateRadioButtons(session, 'gwsBrowseScreenIndexRadio', selected = "lfc")
     
-    if("dropout" %in% input$gwsBrowseScreenDatasetSelect & length(input$gwsBrowseScreenDatasetSelect) == 1){
+    if(all(grepl(pattern = "dropout|synthetic", x = input$gwsBrowseScreenDatasetSelect))){
       updateRadioButtons(session, "gwsBrowseScreenIndexRadio", 
                          choices = list("Log-fold change" = "lfc", "Effect" = "effect_essentialome", "FDR-adjusted effect Here" = "adjusted_effect_essentialome"), 
                          selected = "adjusted_effect_essentialome"
@@ -822,7 +829,7 @@ observeEvent(input$gwsBrowseScreenDatasetSelect, {
   updateSelectizeInput(session, 'gwsBrowseScreenTissueSelect', choices = gwsBrowseScreenTissueList(), server = TRUE)
   
   if(!is.null(input$gwsBrowseScreenDatasetSelect)){
-    if("dropout" %in% input$gwsBrowseScreenDatasetSelect & length(input$gwsBrowseScreenDatasetSelect) == 1){
+    if(all(grepl(pattern = "dropout|synthetic", x = input$gwsBrowseScreenDatasetSelect))){
       
       updateRadioButtons(session, 'gwsBrowseScreenIndexRadio', selected = "adjusted_effect_essentialome")
       enable("gwsBrowseScreenIndexRadio")

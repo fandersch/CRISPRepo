@@ -114,7 +114,7 @@ if("hs_gw_zuber_v2" %in% (libraries %>% collect %>% .$library_id)){
 #expression data
 cellline_list_expressionData <- con_expression %>%
   tbl("expression_data_meta_info") %>%
-  dplyr::select(sample_id, cell_line_name = cell_line_name_stripped, tissue_name, species) %>%
+  dplyr::select(sample_id, cell_line_name, tissue_name, species) %>%
   distinct() %>%
   arrange(cell_line_name) %>%
   collect()
@@ -140,16 +140,15 @@ loadExpressionDataTissueList <- F
 #cell line
 cellline_list_cellLine <- con_cell_lines %>%
   tbl("cell_line_meta") %>%
-  dplyr::select(cell_line_name, tissue_name, sanger_model_ID) %>%
+  dplyr::select(cell_line_name, tissue_name, cell_line_id) %>%
   distinct() %>%
   arrange(cell_line_name) %>%
-  collect %>%
-  dplyr::rename(model_id = sanger_model_ID)
+  collect
 
 gene_list_cellLine <- con_cell_lines %>%
   tbl("cell_line_genes") %>%
   collect %>%
-  arrange(gene_symbol)
+  arrange(symbol)
 
 tissue_list_cellLine <- cellline_list_cellLine %>%
   dplyr::select(tissue_name) %>%

@@ -32,6 +32,7 @@ sidebar <- dashboardSidebar(
                        menuSubItem(text = "Gene Search", tabName = "gwsGeneTab")),
               menuItem(text = "Libraries", tabName = "libSidebar"),
               menuItemOutput("expressionDataSidebar"),
+              menuItemOutput("slamseqDataSidebar"),
               menuItemOutput("cellLineSidebar"),
               menuItemOutput("sgRNAsSidebar"),
               menuItemOutput("dualSgRNAsSidebar"),
@@ -755,6 +756,117 @@ body <- dashboardBody(
               )
             ) 
     ),
+    # Slamseq  Data
+    tabItem(tabName = "slamseqDataSidebar", width = NULL, 
+            fluidRow(tags$head(tags$style(HTML('#slamseqDataInfo{color:tomato; font-weight: bold;}'))),
+                     column(width = 12,
+                            box(width = NULL, solidHeader = TRUE, htmlOutput((outputId="slamseqDataInfo"))))),
+            fluidRow(
+              column(width = 9,
+                     box(title = "Slamseq Data", status = "success", width = NULL, solidHeader = TRUE, collapsible = TRUE, collapsed=FALSE, withSpinner(dataTableOutput(outputId="slamseqDataTable"))),
+                     box(title = "Sample Meta", status = "warning", width = NULL, solidHeader = TRUE, collapsible = TRUE, collapsed=FALSE, withSpinner(dataTableOutput(outputId="slamseqSampleMetaTable")))
+              ),
+              column(width = 3,
+                     box(width = NULL, solidHeader = TRUE,
+                         
+                         radioButtons(
+                           "slamseqDataSpeciesSelect",
+                           label = "Species:",
+                           choices = list(""),
+                           selected = "",
+                           inline = T
+                         ),
+                         radioButtons(
+                           "slamseqDataUnitSelect",
+                           label = "Expression metric:",
+                           choices = list(""),
+                           selected = "",
+                           inline = T
+                         )
+                     ),
+                     box(width = NULL, solidHeader = TRUE,
+                         selectizeInput(
+                           inputId = "slamseqDataTissueSelect",
+                           label = "Tissue:",
+                           choices = NULL,
+                           multiple = TRUE,
+                           selected = NULL
+                         ),
+                         checkboxInput(
+                           inputId = "slamseqDataCheckTissueAll",
+                           label = "Search All Tissues",
+                           value = FALSE
+                         ),
+                         disabled(
+                           selectizeInput(
+                             inputId = "slamseqDataCellLineSelect",
+                             label = "Cell Line:",
+                             choices = NULL,
+                             multiple = TRUE,
+                             selected = NULL
+                           )
+                         ),
+                         disabled(
+                           checkboxInput(
+                             inputId = "slamseqDataCheckCellLineAll",
+                             label = "Search All Cell Lines",
+                             value = FALSE
+                           )
+                         ),
+                         disabled(
+                           selectizeInput(
+                             inputId = "slamseqDataGeneSelect",
+                             label = "Gene:",
+                             choices = NULL,
+                             multiple = TRUE,
+                             selected = NULL
+                           )
+                         ),
+                         disabled(fileInput("slamseqData_inputFile", "Upload list of genes:",
+                                            accept = c(
+                                              "text/csv",
+                                              "text/comma-separated-values,text/plain")
+                         )),
+                         disabled(
+                           checkboxInput(
+                             inputId = "slamseqDataCheckGeneAll",
+                             label = "Search All Genes",
+                             value = FALSE
+                           )
+                         ),
+                         disabled(
+                           actionButton(inputId = "slamseqDataLoadButton", 
+                                        label = "Load data!"
+                           )
+                         )
+                     ),
+                     box(
+                       width = NULL,
+                       solidHeader = TRUE,
+                       downloadButton(
+                         width = NULL,
+                         outputId = "slamseqDataButtonDownload",
+                         label = "Download displayed table"
+                       )
+                     )
+                     # box(
+                     #   width = NULL,
+                     #   solidHeader = TRUE,
+                     #   checkboxGroupInput(
+                     #     "slamseqDataDownloadPrimaryTablesCheck",
+                     #     label = "Download primary data (expression value table of all tissues):",
+                     #     choices = list("Human" = "Human", "Mouse" = "Mouse"),
+                     #     selected = c("Human", "Mouse"),
+                     #     inline = F
+                     #   ),
+                     #   downloadButton(
+                     #     width = NULL,
+                     #     outputId = "slamseqDataButtonDownloadPrimaryTables",
+                     #     label = "Download primary data"
+                     #   ))
+              )
+            ) 
+    ),
     # Essentialome
     tabItem(tabName = "essentialomeSidebar", width = NULL, 
             fluidRow(
@@ -1048,10 +1160,10 @@ body <- dashboardBody(
                          ),
                          sliderInput(
                            "cellLineSelectorGeneExpressionSlider", 
-                           "Filter for cell lines with gene expression (TPMs):",
+                           "Filter for cell lines with gene expression (log2-TPMs):",
                            min = 0,
-                           max = 1000,
-                           value = 5
+                           max = 15,
+                           value = 1
                          ),
                      ),
                      box(width = NULL, solidHeader = TRUE,

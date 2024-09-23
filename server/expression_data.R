@@ -105,7 +105,7 @@ expressionDataDataFrame <- reactive({
     query_final <- query
   }
   
-  con_expression <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "databases/expression_data_counts_tpm.db")
+  con_expression <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "databases/expression_data_counts_tpm_tmm.db")
   
   if(!isTRUE(input$expressionDataCheckCellLineAll) | length(presel_gene_entrez)<=50){
     df<- NULL
@@ -253,8 +253,8 @@ expressionDataDataTable <- eventReactive(input$expressionDataLoadButton,{
     max_value <- max(values, na.rm=T)
     min_value <- min(values, na.rm=T)
 
-    if("log2_TMM" %in% input$expressionDataUnitSelect){
-      brks <- seq(min_value, max_value, length.out = 40)
+    if("log2_TMM_rpkm" %in% input$expressionDataUnitSelect){
+      brks <- seq(0, max_value, length.out = 40)
     }else{
       brks <- exp(seq(0, log2(max_value), length.out = 40))
     }
@@ -281,9 +281,9 @@ expressionDataDataTable <- eventReactive(input$expressionDataLoadButton,{
                 backgroundColor = styleInterval(brks, clrs))
     
     if(!is.null(input$expressionDataGeneSelect) | isTRUE(input$expressionDataCheckGeneAll | !is.null(input$expressionData_inputFile))){
-      if(input$expressionDataUnitSelect == "tpm"){
+      if(input$expressionDataUnitSelect == "log2_tpm"){
         output$expressionDataInfo <- renderText({
-          "Info: Loading completed! Table shows TPM values."
+          "Info: Loading completed! Table shows log2-transformed TPM values."
         })
       }
       if(input$expressionDataUnitSelect == "read_count"){
@@ -291,9 +291,9 @@ expressionDataDataTable <- eventReactive(input$expressionDataLoadButton,{
           "Info: Loading completed! Table shows raw read count values."
         })
       }
-      if(input$expressionDataUnitSelect == "log2_TMM"){
+      if(input$expressionDataUnitSelect == "log2_TMM_rpkm"){
         output$expressionDataInfo <- renderText({
-          "Info: Loading completed! Table shows log2-transformed TMM normalized counts."
+          "Info: Loading completed! Table shows batch corrected log2-transformed TMM normalized RPKMs"
         })
       }
     }
@@ -393,11 +393,11 @@ observe(
       select = input$expressionDataSpeciesSelect
     }
     if(input$expressionDataUnitSelect == ""){
-      select_unit = "tpm"
+      select_unit = "log2_tpm"
     }else{
       select_unit = input$expressionDataUnitSelect
     }
-    updateRadioButtons(session, 'expressionDataUnitSelect', choices = list("TPMs" = "tpm", "Counts" = "read_count"), selected = select_unit, inline = T)
+    updateRadioButtons(session, 'expressionDataUnitSelect', choices = list("log2-TPMs" = "log2_tpm", "Counts" = "read_count", "log2 TMM-normalized RPKM" = "log2_TMM_rpkm"), selected = select_unit, inline = T)
     updateRadioButtons(session, 'expressionDataSpeciesSelect', choices = list("Human" = "human", "Mouse" = "mouse", "All"="all"), selected = select, inline = T)
   }
 )
@@ -678,11 +678,11 @@ output$expressionDataButtonDownloadPrimaryTables <- downloadHandler(
           if("read_count" %in% input$expressionDataUnitSelect){
             fileName <- "expression_values_per_tissue/all_tissues_counts_human_spread.tsv"
           }
-          if("tpm" %in% input$expressionDataUnitSelect){
-            fileName <- "expression_values_per_tissue/all_tissues_tpms_human_spread.tsv"
+          if("log2_tpm" %in% input$expressionDataUnitSelect){
+            fileName <- "expression_values_per_tissue/all_tissues_log2_tpms_human_spread.tsv"
           }
-          if("log2_TMM" %in% input$expressionDataUnitSelect){
-            fileName <- "expression_values_per_tissue/all_tissues_log2_TMM_human_spread.tsv"
+          if("log2_TMM_rpkm" %in% input$expressionDataUnitSelect){
+            fileName <- "expression_values_per_tissue/all_tissues_log2_TMM_rpkm_human_spread.tsv"
           }
           
           files <- c(fileName,files)
@@ -691,11 +691,11 @@ output$expressionDataButtonDownloadPrimaryTables <- downloadHandler(
           if("read_count" %in% input$expressionDataUnitSelect){
             fileName <- "expression_values_per_tissue/all_tissues_counts_mouse_spread.tsv"
           }
-          if("tpm" %in% input$expressionDataUnitSelect){
-            fileName <- "expression_values_per_tissue/all_tissues_tpms_mouse_spread.tsv"
+          if("log2_tpm" %in% input$expressionDataUnitSelect){
+            fileName <- "expression_values_per_tissue/all_tissues_log2_tpms_mouse_spread.tsv"
           }
-          if("log2_TMM" %in% input$expressionDataUnitSelect){
-            fileName <- "expression_values_per_tissue/all_tissues_log2_TMM_mouse_spread.tsv"
+          if("log2_TMM_rpkm" %in% input$expressionDataUnitSelect){
+            fileName <- "expression_values_per_tissue/all_tissues_log2_TMM_rpkm_mouse_spread.tsv"
           }
           files <- c(fileName,files)
         }

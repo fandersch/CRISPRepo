@@ -36,13 +36,13 @@ output$cellLineSelectorDataTableHLAs <- renderDataTable({
 
 #
 cellLineSelectorMetaDataFrame <- reactive({
-  model_ids <- cellLineSelectorModelList()
+  cell_line_ids <- cellLineSelectorModelList()
   
   con_cell_lines <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "databases/cell_line_meta_data.db")
   
   cellLineSelector_meta_data <- con_cell_lines %>%
     tbl("cell_line_meta") %>%
-    dplyr::filter(sanger_model_ID %in% local(c(model_ids))) %>%
+    dplyr::filter(cell_line_id %in% local(c(cell_line_ids))) %>%
     collect()
   
   DBI::dbDisconnect(con_cell_lines)
@@ -55,11 +55,11 @@ cellLineSelectorScreenDataFrame <- reactive({
   con_cell_lines <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "databases/cell_line_meta_data.db")
   con <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "databases/screen.db")
   
-  model_ids <- cellLineSelectorModelList()
+  cell_line_ids <- cellLineSelectorModelList()
   
   cellLineSelector_meta_data_cellline <- con_cell_lines %>%
     tbl("cell_line_meta") %>%
-    dplyr::filter(sanger_model_ID %in% local(c(model_ids))) %>%
+    dplyr::filter(cell_line_id %in% local(c(cell_line_ids))) %>%
     collect() %>%
     .$cell_line_name
   
@@ -135,14 +135,14 @@ cellLineSelectorScreenDataFrame <- reactive({
 
 #
 cellLineSelectorExpressionDataFrame <- reactive({
-  model_ids <- cellLineSelectorModelList()
+  cell_line_ids <- cellLineSelectorModelList()
   
   con_cell_lines <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "databases/cell_line_meta_data.db")
-  con_expression <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "databases/expression_data_counts_tpm.db")
+  con_expression <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "databases/expression_data_counts_tpm_tmm.db")
   
   cellLineSelector_meta_data_cellline <- con_cell_lines %>%
     tbl("cell_line_meta") %>%
-    dplyr::filter(sanger_model_ID %in% local(c(model_ids))) %>%
+    dplyr::filter(cell_line_id %in% local(c(cell_line_ids))) %>%
     collect() %>%
     .$cell_line_name
   
@@ -165,8 +165,7 @@ cellLineSelectorExpressionDataFrame <- reactive({
   }else{
     sample_ids_filter_string <- paste(paste("sample_id", paste0("'", sample_ids, "'"), sep="="), collapse=" OR ")
   }
-  
-  query <- paste0("SELECT sample_id, symbol, entrez_id, tpm FROM expression_data_values ",
+  query <- paste0("SELECT sample_id, symbol, entrez_id, log2_tpm FROM expression_data_values ",
                   "WHERE (", sample_ids_filter_string, ") ")
   
   df<- NULL
@@ -196,8 +195,8 @@ cellLineSelectorExpressionDataFrame <- reactive({
   if(!is.null(df)){
     df %>% 
       distinct %>%
-      dplyr::select(sample_id, symbol, entrez_id, tpm) %>%
-      pivot_wider(names_from=sample_id, values_from=tpm) %>%
+      dplyr::select(sample_id, symbol, entrez_id, log2_tpm) %>%
+      pivot_wider(names_from=sample_id, values_from=log2_tpm) %>%
       arrange(symbol)
   }else{
     data.frame()
@@ -207,21 +206,21 @@ cellLineSelectorExpressionDataFrame <- reactive({
 
 #
 cellLineSelectorMutationsDataFrame <- reactive({
-  model_ids <- cellLineSelectorModelList()
+  cell_line_ids <- cellLineSelectorModelList()
   
   con_cell_lines <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "databases/cell_line_meta_data.db")
   
   cellLineSelector_mutation_data <- con_cell_lines %>%
     tbl("cell_line_gene_mutations") %>%
-    dplyr::filter(model_id %in% local(model_ids))
+    dplyr::filter(cell_line_id %in% local(cell_line_ids))
   
   if(!is.null(input$cellLineSelectorGeneMutationSelect)){
     cellLineSelector_mutation_data <- cellLineSelector_mutation_data %>%
-      dplyr::filter(gene_symbol %in% local(input$cellLineSelectorGeneMutationSelect))
+      dplyr::filter(symbol %in% local(input$cellLineSelectorGeneMutationSelect))
   }
   if(!is.null(input$cellLineSelectorGeneMutationProteinSelect)){
     cellLineSelector_mutation_data <- cellLineSelector_mutation_data %>%
-      dplyr::filter(gene_symbol %in% local(input$cellLineSelectorGeneMutationSelect), protein_mutation %in% local(input$cellLineSelectorGeneMutationProteinSelect)) 
+      dplyr::filter(symbol %in% local(input$cellLineSelectorGeneMutationSelect), ProteinChange %in% local(input$cellLineSelectorGeneMutationProteinSelect)) 
   }
   
   cellLineSelector_mutation_data <- cellLineSelector_mutation_data %>%
@@ -235,22 +234,22 @@ cellLineSelectorMutationsDataFrame <- reactive({
 
 #
 cellLineSelectorFusionsDataFrame <- reactive({
-  model_ids <- cellLineSelectorModelList()
+  cell_line_ids <- cellLineSelectorModelList()
   
   con_cell_lines <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "databases/cell_line_meta_data.db")
   
   cellLineSelector_fusion_data <- con_cell_lines %>%
     tbl("cell_line_gene_fusions") %>%
-    dplyr::filter(model_id %in% local(c(model_ids)))
+    dplyr::filter(cell_line_id %in% local(c(cell_line_ids)))
   
   if(!is.null(input$cellLineSelectorGeneFusion3primeSelect)){
     cellLineSelector_fusion_data <- cellLineSelector_fusion_data %>%
-      dplyr::filter(gene_symbol_3prime %in% local(input$cellLineSelectorGeneFusion3primeSelect))
+      dplyr::filter(symbol_3prime %in% local(input$cellLineSelectorGeneFusion3primeSelect))
   }
     
   if(!is.null(input$cellLineSelectorGeneFusion5primeSelect)){
     cellLineSelector_fusion_data <- cellLineSelector_fusion_data %>%
-      dplyr::filter(gene_symbol_5prime %in% local(input$cellLineSelectorGeneFusion5primeSelect))
+      dplyr::filter(symbol_5prime %in% local(input$cellLineSelectorGeneFusion5primeSelect))
   }
   
   cellLineSelector_fusion_data <- cellLineSelector_fusion_data %>%
@@ -265,17 +264,17 @@ cellLineSelectorFusionsDataFrame <- reactive({
 
 #
 cellLineSelectorCNVsDataFrame <- reactive({
-  model_ids <- cellLineSelectorModelList()
+  cell_line_ids <- cellLineSelectorModelList()
   
   con_cell_lines <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "databases/cell_line_meta_data.db")
   
   cellLineSelector_cnv_data <- con_cell_lines %>%
     tbl("cell_line_gene_cnv") %>%
-    dplyr::filter(model_id %in% local(c(model_ids)))
+    dplyr::filter(cell_line_id %in% local(c(cell_line_ids)))
   
   if(!is.null(input$cellLineSelectorGeneCNVSelect)){
     cellLineSelector_cnv_data <- cellLineSelector_cnv_data %>%
-      dplyr::filter(gene_symbol %in% local(input$cellLineSelectorGeneCNVSelect))
+      dplyr::filter(symbol %in% local(input$cellLineSelectorGeneCNVSelect))
   }
   if(!is.null(input$cellLineSelectorGeneCNVCategorySelect)){
     cellLineSelector_cnv_data <- cellLineSelector_cnv_data %>%
@@ -294,13 +293,13 @@ cellLineSelectorCNVsDataFrame <- reactive({
 
 #
 cellLineSelectorHLAsDataFrame <- reactive({
-  model_ids <- cellLineSelectorModelList()
+  cell_line_ids <- cellLineSelectorModelList()
   
   con_cell_lines <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "databases/cell_line_meta_data.db")
   
   cellLineSelector_meta_data_cellline <- con_cell_lines %>%
     tbl("cell_line_meta") %>%
-    dplyr::filter(sanger_model_ID %in% local(c(model_ids))) %>%
+    dplyr::filter(cell_line_id %in% local(c(cell_line_ids))) %>%
     collect() %>%
     .$cell_line_name
   
@@ -547,112 +546,112 @@ cellLineSelectorModelList <- reactive({
   
   con_cell_lines <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "databases/cell_line_meta_data.db")
   con <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "databases/screen.db")
-  con_expression <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "databases/expression_data_counts_tpm.db")
+  con_expression <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "databases/expression_data_counts_tpm_tmm.db")
   
-  model_ids <- con_cell_lines %>%
+  cell_line_ids <- con_cell_lines %>%
     tbl("cell_line_meta") %>%
     dplyr::filter(tissue_name %in% presel_tissue) %>%
-    dplyr::select(sanger_model_ID) %>%
+    dplyr::select(cell_line_id) %>%
     distinct() %>%
     collect() %>%
-    .$sanger_model_ID
+    .$cell_line_id
   
   #get cell lines with requested mutations
   cell_lines_mutation<-c()
-  if(!is.null(input$cellLineSelectorGeneMutationSelect) & length(model_ids) > 0){
+  if(!is.null(input$cellLineSelectorGeneMutationSelect) & length(cell_line_ids) > 0){
     if(is.null(input$cellLineSelectorGeneMutationProteinSelect)){
       cell_lines_mutation <- con_cell_lines %>%
         tbl("cell_line_gene_mutations") %>%
-        dplyr::filter(gene_symbol %in% local(input$cellLineSelectorGeneMutationSelect)) %>%
-        dplyr::select(model_id) %>%
+        dplyr::filter(symbol %in% local(input$cellLineSelectorGeneMutationSelect)) %>%
+        dplyr::select(cell_line_id) %>%
         dplyr::distinct() %>%
         collect() %>%
-        .$model_id
+        .$cell_line_id
       
     }else{
       
       cell_lines_mutation <- con_cell_lines %>%
         tbl("cell_line_gene_mutations") %>%
-        dplyr::filter(gene_symbol %in% local(input$cellLineSelectorGeneMutationSelect), protein_mutation %in% local(input$cellLineSelectorGeneMutationProteinSelect)) %>%
-        dplyr::select(model_id) %>%
+        dplyr::filter(symbol %in% local(input$cellLineSelectorGeneMutationSelect), ProteinChange %in% local(input$cellLineSelectorGeneMutationProteinSelect)) %>%
+        dplyr::select(cell_line_id) %>%
         dplyr::distinct() %>%
         collect() %>%
-        .$model_id
+        .$cell_line_id
     }
-    model_ids <- model_ids[model_ids %in% cell_lines_mutation]
+    cell_line_ids <- cell_line_ids[cell_line_ids %in% cell_lines_mutation]
   }
   
   #get cell lines with requested gene fusions
   cell_lines_fusion<-c()
-  if(!is.null(input$cellLineSelectorGeneFusion3primeSelect) & length(model_ids) > 0){
+  if(!is.null(input$cellLineSelectorGeneFusion3primeSelect) & length(cell_line_ids) > 0){
     
     if(!is.null(input$cellLineSelectorGeneFusion5primeSelect)){
       
       cell_lines_fusion <- con_cell_lines %>%
         tbl("cell_line_gene_fusions") %>%
-        dplyr::filter(gene_symbol_3prime %in% local(input$cellLineSelectorGeneFusion3primeSelect), gene_symbol_5prime %in% local(input$cellLineSelectorGeneFusion5primeSelect)) %>%
-        dplyr::select(model_id) %>%
+        dplyr::filter(symbol_3prime %in% local(input$cellLineSelectorGeneFusion3primeSelect), symbol_5prime %in% local(input$cellLineSelectorGeneFusion5primeSelect)) %>%
+        dplyr::select(cell_line_id) %>%
         dplyr::distinct() %>%
         collect() %>%
-        .$model_id
+        .$cell_line_id
       
     }else{
       
       cell_lines_fusion <- con_cell_lines %>%
         tbl("cell_line_gene_fusions") %>%
-        dplyr::filter(gene_symbol_3prime %in% local(input$cellLineSelectorGeneFusion3primeSelect)) %>%
-        dplyr::select(model_id) %>%
+        dplyr::filter(symbol_3prime %in% local(input$cellLineSelectorGeneFusion3primeSelect)) %>%
+        dplyr::select(cell_line_id) %>%
         dplyr::distinct() %>%
         collect() %>%
-        .$model_id
+        .$cell_line_id
     }
-    model_ids <- model_ids[model_ids %in% cell_lines_fusion]
+    cell_line_ids <- cell_line_ids[cell_line_ids %in% cell_lines_fusion]
   }else{
-    if(!is.null(input$cellLineSelectorGeneFusion5primeSelect) & length(model_ids) > 0){
+    if(!is.null(input$cellLineSelectorGeneFusion5primeSelect) & length(cell_line_ids) > 0){
       
       cell_lines_fusion <- con_cell_lines %>%
         tbl("cell_line_gene_fusions") %>%
-        dplyr::filter(gene_symbol_5prime %in% local(input$cellLineSelectorGeneFusion5primeSelect)) %>%
-        dplyr::select(model_id) %>%
+        dplyr::filter(symbol_5prime %in% local(input$cellLineSelectorGeneFusion5primeSelect)) %>%
+        dplyr::select(cell_line_id) %>%
         dplyr::distinct() %>%
         collect() %>%
-        .$model_id
+        .$cell_line_id
       
-      model_ids <- model_ids[model_ids %in% cell_lines_fusion]
+      cell_line_ids <- cell_line_ids[cell_line_ids %in% cell_lines_fusion]
     }
   }
   
   #get cell lines with requested gene CNV
   cell_lines_cnv<-c()
-  if(!is.null(input$cellLineSelectorGeneCNVSelect) & length(model_ids) > 0){
+  if(!is.null(input$cellLineSelectorGeneCNVSelect) & length(cell_line_ids) > 0){
     if(is.null(input$cellLineSelectorGeneCNVCategorySelect)){
       
       cell_lines_cnv <- con_cell_lines %>%
         tbl("cell_line_gene_cnv") %>%
-        dplyr::filter(gene_symbol %in% local(input$cellLineSelectorGeneCNVSelect)) %>%
-        dplyr::select(model_id) %>%
+        dplyr::filter(symbol %in% local(input$cellLineSelectorGeneCNVSelect)) %>%
+        dplyr::select(cell_line_id) %>%
         dplyr::distinct() %>%
         collect() %>%
-        .$model_id
+        .$cell_line_id
       
     }else{
       
       cell_lines_cnv <- con_cell_lines %>%
         tbl("cell_line_gene_cnv") %>%
-        dplyr::filter(gene_symbol %in% local(input$cellLineSelectorGeneCNVSelect), cn_category %in% local(input$cellLineSelectorGeneCNVCategorySelect)) %>%
-        dplyr::select(model_id) %>%
+        dplyr::filter(symbol %in% local(input$cellLineSelectorGeneCNVSelect), cn_category %in% local(input$cellLineSelectorGeneCNVCategorySelect)) %>%
+        dplyr::select(cell_line_id) %>%
         dplyr::distinct() %>%
         collect() %>%
-        .$model_id
+        .$cell_line_id
     }
     
-    model_ids <- model_ids[model_ids %in% cell_lines_cnv]
+    cell_line_ids <- cell_line_ids[cell_line_ids %in% cell_lines_cnv]
 
   }
   
   #get cell lines with requested gene HLA type
   cell_lines_hla<-c()
-  if(local(input$cellLineSelectorHLAtypeSelect) != "none" & length(model_ids) > 0){
+  if(local(input$cellLineSelectorHLAtypeSelect) != "none" & length(cell_line_ids) > 0){
     if(is.null(input$cellLineSelectorHLAalleleSelect)){
       
       type <- local(input$cellLineSelectorHLAtypeSelect) %>%
@@ -686,18 +685,18 @@ cellLineSelectorModelList <- reactive({
     cell_lines_hla <- con_cell_lines %>%
       tbl("cell_line_meta") %>%
       dplyr::filter(cell_line_name %in% local(cellline_names)) %>%
-      dplyr::select(sanger_model_ID) %>%
+      dplyr::select(cell_line_id) %>%
       dplyr::distinct() %>%
       collect() %>%
-      .$sanger_model_ID
+      .$cell_line_id
     
-    model_ids <- model_ids[model_ids %in% cell_lines_hla]
+    cell_line_ids <- cell_line_ids[cell_line_ids %in% cell_lines_hla]
     
   }
   
   #get cell lines with requested gene dependency
   cell_lines_dependency<-c()
-  if(!is.null(input$cellLineSelectorGeneDependencySelect) & length(model_ids) > 0){
+  if(!is.null(input$cellLineSelectorGeneDependencySelect) & length(cell_line_ids) > 0){
     
     gene_ids <- features %>%
       dplyr::filter(symbol %in% local(input$cellLineSelectorGeneDependencySelect)) %>%
@@ -729,17 +728,17 @@ cellLineSelectorModelList <- reactive({
     cell_lines_dependency <- con_cell_lines %>%
       tbl("cell_line_meta") %>%
       dplyr::filter(cell_line_name %in% local(cellline_names)) %>%
-      dplyr::select(sanger_model_ID) %>%
+      dplyr::select(cell_line_id) %>%
       dplyr::distinct() %>%
       collect() %>%
-      .$sanger_model_ID
+      .$cell_line_id
     
-    model_ids <- model_ids[model_ids %in% cell_lines_dependency]
+    cell_line_ids <- cell_line_ids[cell_line_ids %in% cell_lines_dependency]
   }
   
   #get cell lines with requested gene expression
   cell_lines_expression<-c()
-  if(!is.null(input$cellLineSelectorGeneExpressionSelect) & length(model_ids) > 0){
+  if(!is.null(input$cellLineSelectorGeneExpressionSelect) & length(cell_line_ids) > 0){
     
     sample_ids_filtered <- cellline_list_expressionData %>%
       dplyr::filter(tissue_name %in% presel_tissue) %>%
@@ -750,12 +749,12 @@ cellLineSelectorModelList <- reactive({
     
     sample_ids <- con_expression %>%
       tbl("expression_data_values") %>%
-      dplyr::filter(sample_id %in% local(sample_ids_filtered), symbol %in% local(input$cellLineSelectorGeneExpressionSelect), tpm >= local(input$cellLineSelectorGeneExpressionSlider)) %>%
-      dplyr::select(sample_id, tpm) %>%
+      dplyr::filter(sample_id %in% local(sample_ids_filtered), symbol %in% local(input$cellLineSelectorGeneExpressionSelect), log2_tpm >= local(input$cellLineSelectorGeneExpressionSlider)) %>%
+      dplyr::select(sample_id, log2_tpm) %>%
       dplyr::distinct() %>%
       collect() %>%
       group_by(sample_id) %>%
-      summarize(n_check=sum(tpm >= local(input$cellLineSelectorGeneExpressionSlider)), n_genes=length(local(input$cellLineSelectorGeneExpressionSelect))) %>%
+      summarize(n_check=sum(log2_tpm >= local(input$cellLineSelectorGeneExpressionSlider)), n_genes=length(local(input$cellLineSelectorGeneExpressionSelect))) %>%
       dplyr::filter(n_check==n_genes) %>%
       .$sample_id %>%
       unique
@@ -769,12 +768,12 @@ cellLineSelectorModelList <- reactive({
     cell_lines_expression <- con_cell_lines %>%
       tbl("cell_line_meta") %>%
       dplyr::filter(cell_line_name %in% local(cellline_names)) %>%
-      dplyr::select(sanger_model_ID) %>%
+      dplyr::select(cell_line_id) %>%
       dplyr::distinct() %>%
       collect() %>%
-      .$sanger_model_ID
+      .$cell_line_id
     
-    model_ids <- model_ids[model_ids %in% cell_lines_expression]
+    cell_line_ids <- cell_line_ids[cell_line_ids %in% cell_lines_expression]
   }
   
   #close connections
@@ -782,7 +781,7 @@ cellLineSelectorModelList <- reactive({
   DBI::dbDisconnect(con)
   DBI::dbDisconnect(con_expression)
   
-  model_ids %>% 
+  cell_line_ids %>% 
     unique
 })
 
@@ -802,25 +801,25 @@ cellLineSelectorGeneMutationProteinList <- reactive({
   
   con_cell_lines <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "databases/cell_line_meta_data.db")
   
-  model_ids <- con_cell_lines %>%
+  cell_line_ids <- con_cell_lines %>%
     tbl("cell_line_meta") %>%
     dplyr::filter(tissue_name %in% presel_tissue) %>%
-    dplyr::select(sanger_model_ID) %>%
+    dplyr::select(cell_line_id) %>%
     collect() %>%
-    .$sanger_model_ID
+    .$cell_line_id
   
-  protein_mutation <- con_cell_lines %>%
+  ProteinChange <- con_cell_lines %>%
     tbl("cell_line_gene_mutations") %>%
-    dplyr::filter(model_id %in% local(model_ids), gene_symbol %in% local(input$cellLineSelectorGeneMutationSelect)) %>%
-    dplyr::select(protein_mutation) %>%
+    dplyr::filter(cell_line_id %in% local(cell_line_ids), symbol %in% local(input$cellLineSelectorGeneMutationSelect)) %>%
+    dplyr::select(ProteinChange) %>%
     distinct() %>%
     collect() %>%
-    arrange(protein_mutation) %>%
-    .$protein_mutation
+    arrange(ProteinChange) %>%
+    .$ProteinChange
   
   DBI::dbDisconnect(con_cell_lines)
   
-  protein_mutation
+  ProteinChange
     
 })
 
@@ -878,26 +877,26 @@ cellLineSelectorGeneFusion3primeList <- reactive({
   
   con_cell_lines <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "databases/cell_line_meta_data.db")
 
-  model_ids <- con_cell_lines %>%
+  cell_line_ids <- con_cell_lines %>%
     tbl("cell_line_meta") %>%
     dplyr::filter(tissue_name %in% presel_tissue) %>%
-    dplyr::select(sanger_model_ID) %>%
+    dplyr::select(cell_line_id) %>%
     distinct() %>%
     collect() %>%
-    .$sanger_model_ID
+    .$cell_line_id
   
-  gene_symbol_3prime  <- con_cell_lines %>%
+  symbol_3prime  <- con_cell_lines %>%
     tbl("cell_line_gene_fusions") %>%
-    dplyr::filter(model_id %in% local(model_ids)) %>%
-    dplyr::select(gene_symbol_3prime) %>%
+    dplyr::filter(cell_line_id %in% local(cell_line_ids)) %>%
+    dplyr::select(symbol_3prime) %>%
     distinct() %>%
     collect() %>%
-    arrange(gene_symbol_3prime) %>%
-    .$gene_symbol_3prime
+    arrange(symbol_3prime) %>%
+    .$symbol_3prime
   
   DBI::dbDisconnect(con_cell_lines)
   
-  gene_symbol_3prime
+  symbol_3prime
 
 })
 
@@ -912,26 +911,26 @@ cellLineSelectorGeneFusion5primeList <- reactive({
   
   con_cell_lines <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "databases/cell_line_meta_data.db")
   
-  model_ids <- con_cell_lines %>%
+  cell_line_ids <- con_cell_lines %>%
     tbl("cell_line_meta") %>%
     dplyr::filter(tissue_name %in% presel_tissue) %>%
-    dplyr::select(sanger_model_ID) %>%
+    dplyr::select(cell_line_id) %>%
     distinct() %>%
     collect() %>%
-    .$sanger_model_ID
+    .$cell_line_id
   
-  gene_symbol_5prime <- con_cell_lines %>%
+  symbol_5prime <- con_cell_lines %>%
     tbl("cell_line_gene_fusions") %>%
-    dplyr::filter(model_id %in% local(model_ids)) %>%
-    dplyr::select(gene_symbol_5prime) %>%
+    dplyr::filter(cell_line_id %in% local(cell_line_ids)) %>%
+    dplyr::select(symbol_5prime) %>%
     distinct() %>%
     collect() %>%
-    arrange(gene_symbol_5prime) %>%
-    .$gene_symbol_5prime
+    arrange(symbol_5prime) %>%
+    .$symbol_5prime
   
   DBI::dbDisconnect(con_cell_lines)
   
-  gene_symbol_5prime
+  symbol_5prime
     
 })
 
@@ -946,26 +945,26 @@ cellLineSelectorGeneCNVList <- reactive({
   
   con_cell_lines <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "databases/cell_line_meta_data.db")
   
-  model_ids <- con_cell_lines %>%
+  cell_line_ids <- con_cell_lines %>%
     tbl("cell_line_meta") %>%
     dplyr::filter(tissue_name %in% presel_tissue) %>%
-    dplyr::select(sanger_model_ID) %>%
+    dplyr::select(cell_line_id) %>%
     distinct() %>%
     collect() %>%
-    .$sanger_model_ID
+    .$cell_line_id
   
-  gene_symbol <- con_cell_lines %>%
+  symbol <- con_cell_lines %>%
     tbl("cell_line_gene_cnv") %>%
-    dplyr::filter(model_id %in% local(model_ids)) %>%
-    dplyr::select(gene_symbol) %>%
+    dplyr::filter(cell_line_id %in% local(cell_line_ids)) %>%
+    dplyr::select(symbol) %>%
     distinct() %>%
     collect() %>%
-    arrange(gene_symbol) %>%
-    .$gene_symbol
+    arrange(symbol) %>%
+    .$symbol
   
   DBI::dbDisconnect(con_cell_lines)
   
-  gene_symbol
+  symbol
 })
 
 cellLineSelectorGeneCNVCategoryList <- reactive({
@@ -979,16 +978,16 @@ cellLineSelectorGeneCNVCategoryList <- reactive({
   
   con_cell_lines <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "databases/cell_line_meta_data.db")
 
-  model_ids <- con_cell_lines %>%
+  cell_line_ids <- con_cell_lines %>%
     tbl("cell_line_meta") %>%
     dplyr::filter(tissue_name %in% presel_tissue) %>%
-    dplyr::select(sanger_model_ID) %>%
+    dplyr::select(cell_line_id) %>%
     collect() %>%
-    .$sanger_model_ID
+    .$cell_line_id
   
   cn_category <- con_cell_lines %>%
     tbl("cell_line_gene_cnv") %>%
-    dplyr::filter(model_id %in% local(model_ids)) %>%
+    dplyr::filter(cell_line_id %in% local(cell_line_ids)) %>%
     dplyr::select(cn_category) %>%
     distinct() %>%
     collect() %>%
@@ -1146,7 +1145,7 @@ observeEvent(input$cellLineSelectorTissueSelect, {
   }
 
   #update selectb
-  updateSelectizeInput(session, 'cellLineSelectorGeneMutationSelect', choices = gene_list_cellLine$gene_symbol, selected=NULL, server = TRUE)
+  updateSelectizeInput(session, 'cellLineSelectorGeneMutationSelect', choices = gene_list_cellLine$symbol, selected=NULL, server = TRUE)
   updateSelectizeInput(session, 'cellLineSelectorGeneDependencySelect', choices = cellLineSelectorGeneDependencyList(), selected=NULL,server = TRUE)
   updateSelectizeInput(session, 'cellLineSelectorGeneExpressionSelect', choices = cellLineSelectorGeneExpressionList(), selected=NULL,server = TRUE)
   updateSelectizeInput(session, 'cellLineSelectorGeneFusion3primeSelect', choices = cellLineSelectorGeneFusion3primeList(), selected=NULL,server = TRUE)
@@ -1190,7 +1189,7 @@ observeEvent(input$cellLineSelectorCheckTissueAll, {
   }
 
   #update selectb
-  updateSelectizeInput(session, 'cellLineSelectorGeneMutationSelect', choices = gene_list_cellLine$gene_symbol, selected=NULL, server = TRUE)
+  updateSelectizeInput(session, 'cellLineSelectorGeneMutationSelect', choices = gene_list_cellLine$symbol, selected=NULL, server = TRUE)
   updateSelectizeInput(session, 'cellLineSelectorGeneDependencySelect', choices = cellLineSelectorGeneDependencyList(),  selected=NULL, server = TRUE)
   updateSelectizeInput(session, 'cellLineSelectorGeneExpressionSelect', choices = cellLineSelectorGeneExpressionList(), selected=NULL,server = TRUE)
   updateSelectizeInput(session, 'cellLineSelectorGeneFusion3primeSelect', choices = cellLineSelectorGeneFusion3primeList(), selected=NULL, server = TRUE)

@@ -140,7 +140,7 @@ function(input, output, session) {
 
   source(file = "server/cell_line_selector.R", local = T)
   updateSelectizeInput(session, 'cellLineSelectorTissueSelect', choices = tissue_list_cellLine, server = TRUE)
-  updateSelectizeInput(session, 'cellLineSelectorGeneMutationSelect', choices = gene_list_cellLine$gene_symbol, server = TRUE)
+  updateSelectizeInput(session, 'cellLineSelectorGeneMutationSelect', choices = gene_list_cellLine$symbol, server = TRUE)
 
 
   # ----------------------------------------------------------------------------

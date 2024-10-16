@@ -617,14 +617,17 @@ body <- dashboardBody(
                          )
                      ),
                      box(width = NULL, solidHeader = TRUE,
-                         
+                         sliderInput("dualSgRNAsTopCombinationsnOutput", "Limit the number of reported dual-sgRNA-combinations per gene to:",
+                                     min = 0, max = 25,
+                                     value = 5
+                                     ),
                          selectizeInput(
                            inputId = "dualSgRNAsTopCombinationsGeneSelect",
                            label = "Gene:",
                            choices = NULL,
                            multiple = TRUE,
                            selected = NULL
-                         ), 
+                           ), 
                          fileInput(
                            "dualSgRNAsTopCombinationsGeneInputFile", "Upload list of genes:",
                            accept = c("text/csv","text/comma-separated-values,text/plain")

@@ -1015,7 +1015,7 @@ observeEvent(input$gwsGeneSearchRadio, {
     
     if("dropout" %in% input$gwsGeneDatasetSelect & length(input$gwsGeneDatasetSelect) == 1){
       updateRadioButtons(session, "gwsGeneIndexRadio", 
-                         choices = list("Log-fold change" = "lfc", "Effect" = "effect_essentialome", "FDR-adjusted effect Here" = "adjusted_effect_essentialome"), 
+                         choices = list("Log-fold change" = "lfc", "Effect" = "effect_essentialome", "FDR-adjusted effect" = "adjusted_effect_essentialome"), 
                          selected = "adjusted_effect_essentialome"
       )
     }

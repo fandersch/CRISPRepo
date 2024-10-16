@@ -770,7 +770,7 @@ observeEvent(input$gwsBrowseScreenSearchRadio, {
     
     if(all(grepl(pattern = "dropout|synthetic", x = input$gwsBrowseScreenDatasetSelect))){
       updateRadioButtons(session, "gwsBrowseScreenIndexRadio", 
-                         choices = list("Log-fold change" = "lfc", "Effect" = "effect_essentialome", "FDR-adjusted effect Here" = "adjusted_effect_essentialome"), 
+                         choices = list("Log-fold change" = "lfc", "Effect" = "effect_essentialome", "FDR-adjusted effect" = "adjusted_effect_essentialome"), 
                          selected = "adjusted_effect_essentialome"
       )
     }

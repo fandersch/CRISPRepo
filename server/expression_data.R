@@ -397,7 +397,7 @@ observe(
     }else{
       select_unit = input$expressionDataUnitSelect
     }
-    updateRadioButtons(session, 'expressionDataUnitSelect', choices = list("log2-TPMs" = "log2_tpm", "Counts" = "read_count", "log2 TMM-normalized RPKM" = "log2_TMM_rpkm"), selected = select_unit, inline = T)
+    updateRadioButtons(session, 'expressionDataUnitSelect', choices = list("log2-TPMs" = "log2_tpm", "Counts" = "read_count", "batch-corrected log2 TMM-normalized RPKM" = "log2_TMM_rpkm"), selected = select_unit, inline = T)
     updateRadioButtons(session, 'expressionDataSpeciesSelect', choices = list("Human" = "human", "Mouse" = "mouse", "All"="all"), selected = select, inline = T)
   }
 )

@@ -67,8 +67,15 @@ dualSgRNAsTopCombinationsTable <- reactive({
   DBI::dbDisconnect(con_sgRNAs)
   
   sgRNAs %>%
+    rowwise() %>%
     dplyr::rename(first_sgRNA_23mer = first_sgRNA, matching_sgRNA_23mer=matching_sgRNA) %>%
-    mutate_at(c("first_sgRNA_MHstrength", "matching_sgRNA_MHStrength", "score_penalty", "first_guide_rank_score", "second_guide_rank_score", "score_combined"),  round, 2)
+    dplyr::mutate(name_first_fwd=paste0(Symbol, "_", EntrezID, "_", first_sgRNA_final_rank, "_fwd"), name_match_fwd=paste0(Symbol, "_", EntrezID, "_", matching_sgRNA_final_rank, "_fwd"),
+                  seq_first_fwd=paste0("cacc", first_sgRNA_mature), seq_match_fwd=paste0("cttgttt", matching_sgRNA_mature, "gttta"),
+                  name_first_rev=paste0(Symbol, "_", EntrezID, "_", first_sgRNA_final_rank, "_rev"), name_match_rev=paste0(Symbol, "_", EntrezID, "_", matching_sgRNA_final_rank, "_rev"),
+                  seq_first_rev=paste0("aaac", as.character(reverseComplement(DNAString(as.character(first_sgRNA_mature))))),	seq_match_rev=paste0("ctcttaaac", as.character(reverseComplement(DNAString(as.character(matching_sgRNA_mature)))), "aaa")
+                  ) %>%
+    mutate_at(c("first_sgRNA_MHstrength", "matching_sgRNA_MHStrength", "score_penalty", "first_guide_rank_score", "second_guide_rank_score", "score_combined"),  round, 2) %>%
+    filter(dplyr::row_number() <= input$dualSgRNAsTopCombinationsnOutput)
 })
 
 dualSgRNAsTopCombinationsDataTableOutput <- eventReactive(input$dualSgRNAsTopCombinationsLoadButton,{

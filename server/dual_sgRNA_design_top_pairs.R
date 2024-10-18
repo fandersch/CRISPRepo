@@ -75,6 +75,7 @@ dualSgRNAsTopCombinationsTable <- reactive({
                   seq_first_rev=paste0("aaac", as.character(reverseComplement(DNAString(as.character(first_sgRNA_mature))))),	seq_match_rev=paste0("ctcttaaac", as.character(reverseComplement(DNAString(as.character(matching_sgRNA_mature)))), "aaa")
                   ) %>%
     mutate_at(c("first_sgRNA_MHstrength", "matching_sgRNA_MHStrength", "score_penalty", "first_guide_rank_score", "second_guide_rank_score", "score_combined"),  round, 2) %>%
+    ungroup() %>%
     filter(dplyr::row_number() <= input$dualSgRNAsTopCombinationsnOutput)
 })
 

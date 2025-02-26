@@ -17,51 +17,69 @@
 
 function(input, output, session) {
   
+  output$essentialomeSidebar <- renderMenu({
+    if(view == "internal")
+      menuSubItem(text = "Essentialome", tabName = "essentialomeSidebar")
+  })
+  
   output$sgRNAInfoSidebar <- renderMenu({
     if(view == "internal")
-      menuItem(text = "SgRNA info", tabName = "sgRNAInfoSidebar")
+      menuSubItem(text = "sgRNA info", tabName = "sgRNAInfoSidebar")
   })
   
   output$sgRNAsSidebar <- renderMenu({
     if(view == "internal")
-      menuItem(text = "Genome-wide sgRNA predictions", tabName = "sgRNAsSidebar")
+      menuSubItem(text = "Genome-wide sgRNA predictions", tabName = "sgRNAsSidebar")
   })
   
-  output$dualSgRNAsSidebar <- renderMenu({
+  output$dualSgRNAsPredictCombinationsSidebar <- renderMenu({
     if(view == "internal")
-      menuItem(text = "Dual sgRNA design", tabName = "dualSgRNAsSidebar", startExpanded=TRUE,
-             menuSubItem(text = "Predict combinations", tabName = "dualSgRNAsPredictCombinationsSidebar", selected = TRUE), 
-             menuSubItem(text = "Top combinations per gene", tabName = "dualSgRNAsTopCombinationsSidebar"))
+      menuSubItem(text = "Predict dual-guide combinations", tabName = "dualSgRNAsPredictCombinationsSidebar")
+  })
+  
+  output$dualSgRNAsTopCombinationsSidebar <- renderMenu({
+    if(view == "internal")
+      menuSubItem(text = "Top dual-guide combinations", tabName = "dualSgRNAsTopCombinationsSidebar")
   })
   
   output$expressionDataSidebar <- renderMenu({
     if(view == "internal")
-      menuItem(text = "Expression data", tabName = "expressionDataSidebar")
+      menuSubItem(text = "Extern cell line expression data", tabName = "expressionDataSidebar")
   })
   
   output$slamseqDataSidebar <- renderMenu({
     if(view == "internal")
-      menuItem(text = "SLAM-seq data", tabName = "slamseqDataSidebar")
+      menuSubItem(text = HTML("Lab intern SLAM/Quant-seq data"), tabName = "slamseqDataSidebar")
   })
   
-  output$essentialomeSidebar <- renderMenu({
+  output$patientMutationSidebar <- renderMenu({
     if(view == "internal")
-      menuItem(text = "Essentialome", tabName = "essentialomeSidebar")
-  })
-  
-  output$correlationsSidebar <- renderMenu({
-    if(view == "internal")
-      menuItem(text = "Correlations", tabName = "correlationsSidebar")
+      menuSubItem(text = "Patient mutation data", tabName = "patientMutationSidebar")
   })
   
   output$cellLineSidebar <- renderMenu({
     if(view == "internal")
-      menuItem(text = "Cellline meta data", tabName = "cellLineSidebar")
+      menuSubItem(text = "Cell line meta data", tabName = "cellLineSidebar")
   })
   
   output$cellLineSelectorSidebar <- renderMenu({
     if(view == "internal")
-      menuItem(text = "Cellline selector", tabName = "cellLineSelectorSidebar")
+      menuSubItem(text = "Cell line selector", tabName = "cellLineSelectorSidebar")
+  })
+  
+  output$geneOfInterestSidebar <- renderMenu({
+    if(view == "internal")
+      menuSubItem(text = "Gene of interest", tabName = "geneOfInterestSidebar")
+  })
+  
+  output$groupTestingSidebar <- renderMenu({
+    if(view == "internal")
+      menuSubItem(text = "Group testing", tabName = "groupTestingSidebar")
+  })
+  
+  output$correlationsSidebar <- renderMenu({
+    if(view == "internal")
+      menuSubItem(text = "Correlations", tabName = "correlationsSidebar")
   })
   
   # ----------------------------------------------------------------------------
@@ -75,31 +93,24 @@ function(input, output, session) {
   # ----------------------------------------------------------------------------
 
   source(file = "server/gene_search.R", local = T)
+  
+  # ----------------------------------------------------------------------------
+  # Libraries
+  # ----------------------------------------------------------------------------
+  
+  source(file = "server/libraries.R", local = T)
+  
+  # ----------------------------------------------------------------------------
+  # Essentialome
+  # ----------------------------------------------------------------------------
+  
+  source(file = "server/essentialome.R", local = T)
 
   # ----------------------------------------------------------------------------
   # sgRNA Info
   # ----------------------------------------------------------------------------
 
   source(file = "server/sgRNA_info.R", local = T)
-
-  # ----------------------------------------------------------------------------
-  # Libraries
-  # ----------------------------------------------------------------------------
-
-  source(file = "server/libraries.R", local = T)
-
-  # ----------------------------------------------------------------------------
-  # genome-wide sgRNA predictions
-  # ----------------------------------------------------------------------------
-
-  source(file = "server/genomewide_sgRNA_predictions.R", local = T)
-
-  # ----------------------------------------------------------------------------
-  # dual sgRNA designs
-  # ----------------------------------------------------------------------------
-
-  source(file = "server/dual_sgRNA_design.R", local = T)
-  source(file = "server/dual_sgRNA_design_top_pairs.R", local = T)
 
   # ----------------------------------------------------------------------------
   # ExpressionData
@@ -111,13 +122,57 @@ function(input, output, session) {
   # SlamseqData
   # ----------------------------------------------------------------------------
   
-  source(file = "server/slamseq_data.R", local = T)
-
+  source(file = "server/slamseq_quantseq_data.R", local = T)
+  
   # ----------------------------------------------------------------------------
-  # Essentialome
+  # genome-wide sgRNA predictions
   # ----------------------------------------------------------------------------
-
-  source(file = "server/essentialome.R", local = T)
+  
+  source(file = "server/genomewide_sgRNA_predictions.R", local = T)
+  
+  # ----------------------------------------------------------------------------
+  # dual sgRNA designs
+  # ----------------------------------------------------------------------------
+  
+  source(file = "server/dual_sgRNA_design.R", local = T)
+  source(file = "server/dual_sgRNA_design_top_pairs.R", local = T)
+  
+  # ----------------------------------------------------------------------------
+  # Patient mutation  data
+  # ----------------------------------------------------------------------------
+  
+  source(file = "server/patient_mutation_data.R", local = T)
+  updateSelectizeInput(session, 'patientMutationCancerTypeSelect', choices = patient_cancer_types, server = TRUE)
+  updateSelectizeInput(session, 'patientMutationGeneSelect', choices = patient_genes_all_init, server = TRUE)
+  
+  # ----------------------------------------------------------------------------
+  # Cell line meta  data
+  # ----------------------------------------------------------------------------
+  
+  source(file = "server/cell_line_meta_data.R", local = T)
+  updateSelectizeInput(session, 'cellLineTissueSelect', choices = tissue_list_cellLine, server = TRUE)
+  
+  # ----------------------------------------------------------------------------
+  # Cell line selector
+  # ----------------------------------------------------------------------------
+  
+  source(file = "server/cell_line_selector.R", local = T)
+  updateSelectizeInput(session, 'cellLineSelectorTissueSelect', choices = tissue_list_cellLine, server = TRUE)
+  updateSelectizeInput(session, 'cellLineSelectorGeneMutationSelect', choices = gene_list_cellLine$symbol, server = TRUE)
+  
+  # ----------------------------------------------------------------------------
+  # Gene of interest
+  # ----------------------------------------------------------------------------
+  
+  source(file = "server/gene_of_interest.R", local = T)
+  
+  # ----------------------------------------------------------------------------
+  # Group testing
+  # ----------------------------------------------------------------------------
+  
+  source(file = "server/group_testing.R", local = T)
+  updateSelectizeInput(session, 'groupTestingTissueSelect', choices = tissue_list_screens, server = TRUE)
+  updateSelectizeInput(session, 'groupTestingRestTissueSelect', choices = tissue_list_screens, server = TRUE)
 
   # ----------------------------------------------------------------------------
   # Correlations
@@ -126,21 +181,6 @@ function(input, output, session) {
   source(file = "server/correlations.R", local = T)
   updateSelectizeInput(session, 'correlationsGeneSelect', choices = gene_list_correlations, server = TRUE)
   updateSelectizeInput(session, 'correlationsTissueSelect', choices = tissue_list_correlations_tissue, server = TRUE)
-
-  # ----------------------------------------------------------------------------
-  # Cell line meta  data
-  # ----------------------------------------------------------------------------
-
-  source(file = "server/cell_line_meta_data.R", local = T)
-  updateSelectizeInput(session, 'cellLineTissueSelect', choices = tissue_list_cellLine, server = TRUE)
-
-  # ----------------------------------------------------------------------------
-  # Cell line meta  data
-  # ----------------------------------------------------------------------------
-
-  source(file = "server/cell_line_selector.R", local = T)
-  updateSelectizeInput(session, 'cellLineSelectorTissueSelect', choices = tissue_list_cellLine, server = TRUE)
-  updateSelectizeInput(session, 'cellLineSelectorGeneMutationSelect', choices = gene_list_cellLine$symbol, server = TRUE)
 
 
   # ----------------------------------------------------------------------------
@@ -186,6 +226,7 @@ function(input, output, session) {
     updateSelectizeInput(session, 'expressionDataSpeciesSelect', choices = list("Human" = "human", "Mouse" = "mouse", "All"="all"), selected = species, server = TRUE)
     updateSelectizeInput(session, 'slamseqDataSpeciesSelect', choices = list("Human" = "human", "Mouse" = "mouse", "All"="all"), selected = species, server = TRUE)
     updateSelectizeInput(session, 'essentialomeSpeciesSelect', choices = list("Human" = "human", "Mouse" = "mouse", "All"="all"), selected = species, server = TRUE)
+    updateSelectizeInput(session, 'geneOfInterestSpeciesSelect', choices = list("Human" = "human", "Mouse" = "mouse"), selected = species, server = TRUE)
   }
 
 }

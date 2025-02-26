@@ -86,7 +86,7 @@ cellLineSelectorScreenDataFrame <- reactive({
       if(end>length(contrast_ids)){
         end<-length(contrast_ids)
       }
-      contrasts_ids_filter_string <- c(sample_ids_filter_string, paste(paste("contrast_id", paste0("'", contrast_ids[i:end], "'"), sep="="), collapse=" OR "))
+      contrasts_ids_filter_string <- c(contrasts_ids_filter_string, paste(paste("contrast_id", paste0("'", contrast_ids[i:end], "'"), sep="="), collapse=" OR "))
       i<-i+end
     }
   }else{

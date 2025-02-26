@@ -365,7 +365,7 @@ gwsGeneDataFrame <- reactive({
   selected_index <- str_remove(input$gwsGeneIndexRadio, pattern = "_essentialome")
   
   df <- df %>%
-    rename(any_of(column_names_change)) %>%
+    dplyr::rename(any_of(column_names_change)) %>%
     discard(~all(is.na(.) | . =="")) %>%
     dplyr::select(contrast_id, dplyr::starts_with(c("symbol", "entrez_id", "Symbol_human", "EntrezID_human", "Symbol_mouse", "EntrezID_mouse", "guide_id", 
                                                     "sequence", "sequence_matching", "Length", "VBC", "rank")), selected_index, dplyr::any_of(include_columns)) %>%

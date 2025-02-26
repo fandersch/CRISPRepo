@@ -21,25 +21,36 @@ header <- dashboardHeader(
 )
 
 sidebar <- dashboardSidebar(
+  width = 250,
   useShinyjs(),
   sidebarMenu(id="tabs", 
               tags$head(tags$style(".inactiveLink { 
                                       visibility: hidden;
                                       }")),
               menuItem(text = "Genome-wide Screens", 
-                       tabName = "gwsSidebar",startExpanded=TRUE,
+                       tabName = "gwsSidebar", startExpanded=TRUE,
                        menuSubItem(text = "Browse Screen", tabName = "gwsBrowseScreenTab", selected = TRUE), 
-                       menuSubItem(text = "Gene Search", tabName = "gwsGeneTab")),
-              menuItem(text = "Libraries", tabName = "libSidebar"),
-              menuItemOutput("expressionDataSidebar"),
-              menuItemOutput("slamseqDataSidebar"),
-              menuItemOutput("cellLineSidebar"),
-              menuItemOutput("sgRNAsSidebar"),
-              menuItemOutput("dualSgRNAsSidebar"),
-              menuItemOutput("essentialomeSidebar"),
-              menuItemOutput("sgRNAInfoSidebar"),
-              menuItemOutput("correlationsSidebar"),
-              menuItemOutput("cellLineSelectorSidebar")
+                       menuSubItem(text = "Gene Search", tabName = "gwsGeneTab"),
+                       menuSubItem(text = "Libraries", tabName = "libSidebar"),
+                       menuItemOutput("essentialomeSidebar"),
+                       menuItemOutput("sgRNAInfoSidebar")),
+              menuItem(text = "Expression data", 
+                       tabName = "expressionSidebar", startExpanded=TRUE,
+                       menuItemOutput("expressionDataSidebar"), 
+                       menuItemOutput("slamseqDataSidebar")),
+              menuItem(text = "Genome-wide sgRNA predictions", 
+                       tabName = "gwsSgRNASidebar", startExpanded=TRUE,
+                       menuItemOutput("sgRNAsSidebar"),
+                       menuItemOutput("dualSgRNAsTopCombinationsSidebar"),
+                       menuItemOutput("dualSgRNAsPredictCombinationsSidebar")),
+              menuItem(text = "Other tools",
+                       tabName = "tools", startExpanded = TRUE,
+                       menuItemOutput("patientMutationSidebar"),
+                       menuItemOutput("cellLineSidebar"),
+                       menuItemOutput("cellLineSelectorSidebar"),
+                       menuItemOutput("geneOfInterestSidebar"),
+                       menuItemOutput("groupTestingSidebar"),
+                       menuItemOutput("correlationsSidebar"))
   )
 )
 
@@ -131,8 +142,8 @@ body <- dashboardBody(
                            choices = list("P-value" = "p", "FDR" = "fdr", "Guides-good" = "guides_good", "Guides-total" = "guides"),
                            selected = NULL,
                            inline = F
-                         )
-                         ,
+                         ),
+                         
                          sliderInput("gwsBrowseScreenQuality", "Minimal dynamic range of screens (quality filtering):",
                                      min = 0, 
                                      max = 8, 
@@ -673,7 +684,7 @@ body <- dashboardBody(
                            label = "Expression metric:",
                            choices = list(""),
                            selected = "",
-                           inline = T
+                           inline = F
                          )
                      ),
                      box(width = NULL, solidHeader = TRUE,
@@ -766,12 +777,21 @@ body <- dashboardBody(
                             box(width = NULL, solidHeader = TRUE, htmlOutput((outputId="slamseqDataInfo"))))),
             fluidRow(
               column(width = 9,
-                     box(title = "Slamseq Data", status = "success", width = NULL, solidHeader = TRUE, collapsible = TRUE, collapsed=FALSE, withSpinner(dataTableOutput(outputId="slamseqDataTable"))),
-                     box(title = "Sample Meta", status = "warning", width = NULL, solidHeader = TRUE, collapsible = TRUE, collapsed=FALSE, withSpinner(dataTableOutput(outputId="slamseqSampleMetaTable")))
+                     box(title = "Expression Levels", status = "success", width = NULL, solidHeader = TRUE, collapsible = TRUE, collapsed=FALSE, withSpinner(dataTableOutput(outputId="slamseqTotalDataTable"))),
+                     box(title = "Expression Dyamics", status = "success", width = NULL, solidHeader = TRUE, collapsible = TRUE, collapsed=FALSE, withSpinner(dataTableOutput(outputId="slamseqDynamicsDataTable"))),
+                     box(title = "Sample Meta Data", status = "warning", width = NULL, solidHeader = TRUE, collapsible = TRUE, collapsed=FALSE, withSpinner(dataTableOutput(outputId="slamseqSampleMetaTable"))),
+                     box(title = "DEA results", status = "success", width = NULL, solidHeader = TRUE, collapsible = TRUE, collapsed=FALSE, withSpinner(dataTableOutput(outputId="slamseqDeseq2Table"))),
+                     box(title = "DEA Meta Data", status = "warning", width = NULL, solidHeader = TRUE, collapsible = TRUE, collapsed=FALSE, withSpinner(dataTableOutput(outputId="slamseqDeseq2MetaTable")))
               ),
               column(width = 3,
                      box(width = NULL, solidHeader = TRUE,
-                         
+                         checkboxGroupInput(
+                           "slamseqDataIncludeDataset",
+                           label = "Include datasets:",
+                           choices = list("Quant-seq" = "quant", "SLAM-seq" = "slam"),
+                           selected = c("quant", "slam"),
+                           inline = F
+                         ),
                          radioButtons(
                            "slamseqDataSpeciesSelect",
                            label = "Species:",
@@ -788,85 +808,87 @@ body <- dashboardBody(
                          )
                      ),
                      box(width = NULL, solidHeader = TRUE,
+                         checkboxInput(
+                           inputId = "slamseqDataCheckOnlyIncludeBaseline",
+                           label = "Only include baseline reference samples",
+                           value = FALSE
+                         ),
                          selectizeInput(
                            inputId = "slamseqDataTissueSelect",
                            label = "Tissue:",
                            choices = NULL,
                            multiple = TRUE,
-                           selected = NULL
-                         ),
-                         checkboxInput(
-                           inputId = "slamseqDataCheckTissueAll",
-                           label = "Search All Tissues",
-                           value = FALSE
-                         ),
+                           selected = NULL),
+                         disabled(
+                           checkboxInput(
+                             inputId = "slamseqDataCheckTissueAll",
+                             label = "Search All Tissues",
+                             value = FALSE)),
                          disabled(
                            selectizeInput(
                              inputId = "slamseqDataCellLineSelect",
                              label = "Cell Line:",
                              choices = NULL,
                              multiple = TRUE,
-                             selected = NULL
-                           )
-                         ),
+                             selected = NULL)),
                          disabled(
                            checkboxInput(
                              inputId = "slamseqDataCheckCellLineAll",
                              label = "Search All Cell Lines",
-                             value = FALSE
-                           )
-                         ),
+                             value = FALSE)),
                          disabled(
                            selectizeInput(
                              inputId = "slamseqDataGeneSelect",
                              label = "Gene:",
                              choices = NULL,
                              multiple = TRUE,
-                             selected = NULL
-                           )
-                         ),
-                         disabled(fileInput("slamseqData_inputFile", "Upload list of genes:",
-                                            accept = c(
-                                              "text/csv",
-                                              "text/comma-separated-values,text/plain")
-                         )),
+                             selected = NULL)),
+                         disabled(
+                           fileInput("slamseqData_inputFile", "Upload list of genes:",
+                                     accept = c(
+                                       "text/csv",
+                                       "text/comma-separated-values,text/plain"))),
                          disabled(
                            checkboxInput(
                              inputId = "slamseqDataCheckGeneAll",
                              label = "Search All Genes",
-                             value = FALSE
-                           )
-                         ),
+                             value = FALSE)),
                          disabled(
                            actionButton(inputId = "slamseqDataLoadButton", 
-                                        label = "Load data!"
-                           )
-                         )
-                     ),
+                                        label = "Load data!"))
+                         ),
                      box(
                        width = NULL,
                        solidHeader = TRUE,
                        downloadButton(
                          width = NULL,
-                         outputId = "slamseqDataButtonDownload",
-                         label = "Download displayed table"
+                         outputId = "slamseqExpressionDataButtonDownload",
+                         label = "Download Expression Level table"
+                       ),
+                       downloadButton(
+                         width = NULL,
+                         outputId = "slamseqExpressionDynamicsDataButtonDownload",
+                         label = "Download Expression Dynamics table"
+                       ),
+                       tags$br(),
+                       downloadButton(
+                         width = NULL,
+                         outputId = "slamseqSampleMetaDataButtonDownload",
+                         label = "Download Sample metadata table"
+                       ),
+                       tags$br(),
+                       downloadButton(
+                         width = NULL,
+                         outputId = "slamseqDeseq2DataButtonDownload",
+                         label = "Download DEA results table"
+                       ),
+                       tags$br(),
+                       downloadButton(
+                         width = NULL,
+                         outputId = "slamseqDeseq2MetaDataButtonDownload",
+                         label = "Download DEA metadata table"
                        )
                      )
-                     # box(
-                     #   width = NULL,
-                     #   solidHeader = TRUE,
-                     #   checkboxGroupInput(
-                     #     "slamseqDataDownloadPrimaryTablesCheck",
-                     #     label = "Download primary data (expression value table of all tissues):",
-                     #     choices = list("Human" = "Human", "Mouse" = "Mouse"),
-                     #     selected = c("Human", "Mouse"),
-                     #     inline = F
-                     #   ),
-                     #   downloadButton(
-                     #     width = NULL,
-                     #     outputId = "slamseqDataButtonDownloadPrimaryTables",
-                     #     label = "Download primary data"
-                     #   ))
               )
             ) 
     ),
@@ -997,6 +1019,87 @@ body <- dashboardBody(
               )
           )
       ),
+    # Patient mutation data 
+    tabItem(tabName = "patientMutationSidebar", width = NULL, 
+            fluidRow(tags$head(tags$style(HTML('#patientMutationInfo{color:tomato; font-weight: bold;}'))),
+                     column(width = 12,
+                            box(width = NULL, solidHeader = TRUE, htmlOutput((outputId="patientMutationInfo"))))),
+            fluidRow(
+              column(width = 9,
+                     box(title = "Gene alterations heatmap", status = "success", width=NULL, solidHeader = TRUE, collapsible = TRUE, collapsed=F, withSpinner(imageOutput(outputId="patientMutationHeatmapAlterations", width="100%", height="16px"))),
+                     box(title = "Gene alterations", status = "warning", width = NULL, solidHeader = TRUE, collapsible = TRUE, collapsed=F, withSpinner(dataTableOutput(outputId="patientMutationDataTableAlterations"))),
+                     box(title = "Gene mutations ", status = "danger", width = NULL, solidHeader = TRUE, collapsible = TRUE, collapsed=F, withSpinner(dataTableOutput(outputId="patientMutationDataTableMutations"))),
+                     box(title = "Gene fusions ", status = "danger", width = NULL, solidHeader = TRUE, collapsible = TRUE, collapsed=F, withSpinner(dataTableOutput(outputId="patientMutationDataTableFusions"))),
+                     box(title = "Gene CNVs", status = "danger", width = NULL, solidHeader = TRUE, collapsible = TRUE, collapsed=F, withSpinner(dataTableOutput(outputId="patientMutationDataTableCNVs")))),
+              column(width = 3,
+                     box(width = NULL, solidHeader = TRUE,
+                         selectizeInput(
+                           inputId = "patientMutationCancerTypeSelect",
+                           label = "Cancer type:",
+                           choices = NULL,
+                           multiple = TRUE,
+                           selected = NULL
+                         ),
+                         checkboxInput(
+                           inputId = "patientMutationCheckCancerTypeAll",
+                           label = "Search all cancer types",
+                           value = FALSE
+                         ),
+                         selectizeInput(
+                           inputId = "patientMutationGeneSelect",
+                           label = "Gene:",
+                           choices = NULL,
+                           multiple = TRUE,
+                           selected = NULL
+                         ),
+                         fileInput("patientMutationGeneInputFile", "Upload list of genes:",
+                                            accept = c(
+                                              "text/csv",
+                                              "text/comma-separated-values,text/plain")
+                         ),
+                         sliderInput(
+                           "patientMutationMinPatients", 
+                           "Minimum amount of patients in group:",
+                           min = 10,
+                           max = 500,
+                           value = 25
+                         ),
+                         sliderInput(
+                           "patientMutationMaxHeatmapColour", 
+                           "Group percentage threshold for maximum color:",
+                           min = 2,
+                           max = 50,
+                           value = 5
+                         ),
+                         disabled(
+                           actionButton(inputId = "patientMutationLoadButton", 
+                                        label = "Load data!"
+                           )
+                         )
+                     ),
+                     box(
+                       width = NULL,
+                       solidHeader = TRUE,
+                       checkboxGroupInput(
+                         "patientMutationDownloadCheck",
+                         label = "Download result tables:",
+                         choices = list("Gene alterations heatmap" = "Gene alterations heatmap", 
+                                        "Gene alterations" = "Gene alterations", 
+                                        "Gene mutations" = "Gene mutations", 
+                                        "Gene fusions" = "Gene fusions", 
+                                        "Gene CNVs" = "Gene CNVs"),
+                         selected = c("Gene alterations heatmap", "Gene alterations", "Gene mutations", "Gene fusions", "Gene CNVs"),
+                         inline = F
+                       ),
+                       downloadButton(
+                         width = NULL,
+                         outputId = "patientMutationButtonDownload",
+                         label = "Download"
+                       )
+                     )
+              )
+            ) 
+    ),
     # Cell line meta data 
     tabItem(tabName = "cellLineSidebar", width = NULL, 
             fluidRow(tags$head(tags$style(HTML('#cellLineInfo{color:tomato; font-weight: bold;}'))),
@@ -1261,12 +1364,301 @@ body <- dashboardBody(
                      )
               )
             ) 
-    )
+    ),
+    #Group Testing  
+    tabItem(tabName = "groupTestingSidebar", width = NULL, 
+            fluidRow(tags$head(tags$style(HTML('#groupTestingInfo{color:tomato; font-weight: bold;}'))),
+                     column(width = 12,
+                            box(width = NULL, solidHeader = TRUE, htmlOutput((outputId="groupTestingInfo"))))),
+            fluidRow(
+              column(width = 9,
+                     box(title = "Group testing plot", status = "info", width = NULL, solidHeader = TRUE, collapsible = TRUE, collapsed=F, withSpinner(plotlyOutput(outputId="groupTestingPlot", height = "auto"))),
+                     box(title = "Group testing results", status = "info", width = NULL, solidHeader = TRUE, collapsible = TRUE, collapsed=F, withSpinner(dataTableOutput(outputId="groupTestingDataTableResults"))),
+                     box(title = "Group testing contrasts", status = "info", width = NULL, solidHeader = TRUE, collapsible = TRUE, collapsed=F, withSpinner(dataTableOutput(outputId="groupTestingDataTableContrasts")))
+                     ),
+              column(width = 3,
+                     box(width = NULL, solidHeader = TRUE,
+                         
+                         radioButtons(
+                           "groupTestingSpeciesSelect",
+                           label = "Species:",
+                           choices = list("Human" = "human", "Mouse" = "mouse"),
+                           selected = "human",
+                           inline = T
+                         ),
+                         radioButtons(
+                           "groupTestingDatasetSelect",
+                           label = "Dataset:",
+                           choices = list("Gene dependency (dropout screens)" = "dependency", "Gene expression" = "expression"),
+                           selected = "dependency",
+                           inline = F
+                         )
+                     ),
+                     box(width = NULL, solidHeader = TRUE,
+                         radioButtons(
+                           "groupTestingSearchRadio",
+                           label = "Compare:",
+                           choices = list("Guide-level" = "guide", "Gene-level" = "gene"),
+                           selected = "gene",
+                           inline = T
+                         ),
+                         selectizeInput(
+                           inputId = "groupTestingLibrarySelect",
+                           label = "sgRNA library:",
+                           choices = NULL,
+                           multiple = TRUE,
+                           selected = NULL
+                         ),
+                         checkboxInput(
+                           inputId = "groupTestingCheckLibraryAll",
+                           label = " Consider all libraries",
+                           value = TRUE
+                         ),
+                     ),
+                     box(title = "Target group", width = NULL, solidHeader = TRUE,
+                         selectizeInput(
+                           inputId = "groupTestingTissueSelect",
+                           label = "Tissue:",
+                           choices = NULL,
+                           multiple = TRUE,
+                           selected = NULL
+                         ),
+                         checkboxInput(
+                           inputId = "groupTestingCheckTissueAll",
+                           label = "Consider all tissues",
+                           value = FALSE
+                         ),
+                         disabled(
+                           selectizeInput(
+                             inputId = "groupTestingCellLineSelect",
+                             label = "Cell Line:",
+                             choices = NULL,
+                             multiple = TRUE,
+                             selected = NULL
+                           )
+                         ),
+                         disabled(
+                           checkboxInput(
+                             inputId = "groupTestingCheckCellLineAll",
+                             label = "Consider all cell lines",
+                             value = FALSE
+                           )
+                         )
+                     ),
+                     box(title = "Control group", width = NULL, solidHeader = TRUE,
+                         selectizeInput(
+                           inputId = "groupTestingRestTissueSelect",
+                           label = "Other Tissue:",
+                           choices = NULL,
+                           multiple = TRUE,
+                           selected = NULL
+                         ),
+                         checkboxInput(
+                           inputId = "groupTestingRestCheckTissueAll",
+                           label = "Consider all other tissues",
+                           value = FALSE
+                         ),
+                         disabled(
+                           selectizeInput(
+                             inputId = "groupTestingRestCellLineSelect",
+                             label = "Other Cell Line:",
+                             choices = NULL,
+                             multiple = TRUE,
+                             selected = NULL
+                           )
+                         ),
+                         disabled(
+                           checkboxInput(
+                             inputId = "groupTestingRestCheckCellLineAll",
+                             label = "Consider all other cell lines",
+                             value = FALSE
+                           )
+                         )
+                     ),
+                     box(width = NULL, solidHeader = TRUE,
+                       disabled(
+                         actionButton(inputId = "groupTestingLoadButton", 
+                                      label = "Load data!"
+                         )
+                       )
+                     ),
+                     box(
+                       width = NULL,
+                       solidHeader = TRUE,
+                       downloadButton(
+                         width = NULL,
+                         outputId = "groupTestingButtonDownload",
+                         label = "Download"
+                       )
+                     )
+              )
+            ) 
+    ),
+    # Gene of interest
+    tabItem(tabName = "geneOfInterestSidebar", width = NULL, 
+            fluidRow(tags$head(tags$style(HTML('#geneOfInterestInfo{color:tomato; font-weight: bold;}'))),
+                     column(width = 12,
+                            box(width = NULL, solidHeader = TRUE, htmlOutput(outputId="geneOfInterestInfo")))),
+            fluidRow(
+              column(width = 9, 
+                     box(title = "CRISPR/Cas9 screen hits", status = "info", width = NULL, solidHeader = TRUE, collapsible = TRUE, collapsed=F, withSpinner(dataTableOutput("geneOfInterestScreenHitsTable"))),
+                     box(title = "Differental expression analysis hits", status = "info", width = NULL, solidHeader = TRUE, collapsible = TRUE, collapsed=F, withSpinner(dataTableOutput("geneOfInterestDEAHitsTable"))),
+                     box(title = "CRISPR/Cas9 screen meta data", status = "warning", width = NULL, solidHeader = TRUE, collapsible = TRUE, collapsed=F, withSpinner(dataTableOutput("geneOfInterestScreenMetaTable"))),
+                     box(title = "Differental expression analysis meta data", status = "warning", width = NULL, solidHeader = TRUE, collapsible = TRUE, collapsed=F, withSpinner(dataTableOutput("geneOfInterestDEAMetaTable")))
+              ), 
+              column(width = 3,
+                     box(width = NULL, solidHeader = TRUE,
+                         
+                         radioButtons(
+                           "geneOfInterestSpeciesSelect",
+                           label = "Species:",
+                           choices = list("Human" = "human", "Mouse" = "mouse"),
+                           selected = "",
+                           inline = T
+                         )
+                     ),
+                     box(width = NULL, solidHeader = TRUE,
+                         radioButtons(
+                           "geneOfInterestSearchRadio",
+                           label = "Screens filtering level:",
+                           choices = list("Genes" = "gene_stats", "Guides" = "guide_stats"),
+                           selected = "gene_stats",
+                           inline = T
+                         ),
+                         checkboxGroupInput(
+                           "geneOfInterestScreenInclude",
+                           label = "Include screen gene hits:",
+                           choices = list("Depleting" = "depletion", "Enriching" = "enrichment"),
+                           selected = c("depletion", "enrichment"),
+                           inline = T
+                         ),
+                         sliderInput("geneOfInterestScreenDepletingLFC", "Minimal depleting LFC in CRISPR/Cas9 screen:",
+                           min = -8, 
+                           max = 0, 
+                           value = -2,
+                           step = 0.1
+                         ),
+                         sliderInput("geneOfInterestScreenEnrichingLFC", "Minimal enriching LFC in CRISPR/Cas9 screen:",
+                           min = 0, 
+                           max = 6, 
+                           value = 2,
+                           step = 0.1
+                         )
+                     ),
+                     box(width = NULL, solidHeader = TRUE,
+                         checkboxGroupInput(
+                           "geneOfInterestDEAInclude",
+                           label = "Include DEA gene hits:",
+                           choices = list("Depleting" = "depletion", "Enriching" = "enrichment"),
+                           selected = c("depletion", "enrichment"),
+                           inline = T
+                         ),
+                         sliderInput("geneOfInterestDEADepletingLFC", "Minimal depleting LFC in differential expression analysis:",
+                                     min = -3, 
+                                     max = 0, 
+                                     value = -1,
+                                     step = 0.1
+                         ),
+                         sliderInput("geneOfInterestDEAEnrichingLFC", "Minimal enriching LFC in differential expression analysis:",
+                                     min = 0, 
+                                     max = 3, 
+                                     value = 1,
+                                     step = 0.1
+                         )
+                     ),
+                     box(width = NULL, solidHeader = TRUE,
+                         
+                         selectizeInput(
+                           inputId = "geneOfInterestGeneSelect",
+                           label = "Gene:",
+                           choices = NULL,
+                           multiple = TRUE,
+                           selected = NULL
+                         ), 
+                         fileInput(
+                           "geneOfInterestGeneInputFile", "Upload list of genes:",
+                           accept = c("text/csv","text/comma-separated-values,text/plain")
+                         ),
+                         disabled(
+                           actionButton(inputId = "geneOfInterestLoadButton", 
+                                        label = "Load data!"
+                           )
+                         )
+                     ),
+                     box(
+                       width = NULL,
+                       solidHeader = TRUE,
+                       downloadButton(
+                         width = NULL,
+                         outputId = "geneOfInterestScreenHitsButtonDownload",
+                         label = "Download screen hits table"
+                       ),
+                       downloadButton(
+                         width = NULL,
+                         outputId = "geneOfInterestDEAHitsButtonDownload",
+                         label = "Download DEA hits table"
+                       ),
+                       downloadButton(
+                         width = NULL,
+                         outputId = "geneOfInterestScreenMetaButtonDownload",
+                         label = "Download screen metadata table"
+                       ),
+                       downloadButton(
+                         width = NULL,
+                         outputId = "geneOfInterestDEAMetaButtonDownload",
+                         label = "Download DEA metadata table"
+                       )
+                     )
+              )
+            )
+          )
+    
   )
 )
   
-dashboardPage(
-  header,
-  sidebar, 
-  body
+ui <- tagList(
+  tags$head(
+    tags$style(HTML("
+    html {
+      /* This affects elements that use rem/em units */
+      font-size: 80% !important;
+    }
+    
+    /* Scale down sidebar menu items */
+    .sidebar-menu li a {
+      font-size: 0.8em !important;
+    }
+    /* Scale down boxes */
+    .box-body {
+      font-size: 0.8em !important;
+    }
+    
+    .box-title {
+      font-size: 1em !important;
+    }
+    
+    .item {
+      font-size: 0.8em !important;
+    }
+    .shiny-input-checkbox {
+      transform: scale(0.8);
+    }
+    .form-control {
+      padding: 0.4em 0.8em !important;
+      height: auto !important;
+    }
+    
+    /* (Add similar overrides for other elements as needed.) */
+  "))
+  ),
+  tags$script(HTML("
+      Shiny.addCustomMessageHandler('updateImageHeight', function(message) {
+        $('#patientMutationHeatmapAlterations').css('height', message.height + 'px');
+      });
+    ")),
+  dashboardPage(
+    header,
+    sidebar,
+    body
+  )
 )

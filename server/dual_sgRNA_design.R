@@ -289,7 +289,19 @@ dualSgRNAsTable <- reactive({
   
   DBI::dbDisconnect(con_sgRNAs)
   
-  dualSgRNAs_output 
+  #add cloning overhangs
+  dualSgRNAs_output %>%
+    dplyr::rowwise() %>%
+    dplyr::mutate(name_first_fwd=paste0(Symbol, "_", EntrezID, "_", first_sgRNA_final_rank, "_fwd"), 
+                  seq_first_fwd=paste0("cacc", first_sgRNA_mature), 
+                  name_first_rev=paste0(Symbol, "_", EntrezID, "_", first_sgRNA_final_rank, "_rev"), 
+                  seq_first_rev=paste0("aaac", as.character(reverseComplement(DNAString(as.character(first_sgRNA_mature))))),	
+                  name_match_fwd=paste0(Symbol, "_", EntrezID, "_", matching_sgRNA_final_rank, "_fwd"),
+                  seq_match_fwd=paste0("cttgttt", matching_sgRNA_mature, "gttta"),
+                  name_match_rev=paste0(Symbol, "_", EntrezID, "_", matching_sgRNA_final_rank, "_rev"),
+                  seq_match_rev=paste0("ctcttaaac", as.character(reverseComplement(DNAString(as.character(matching_sgRNA_mature)))), "aaa")
+    ) %>%
+    dplyr::ungroup()
 })
 
 dualSgRNAsDataTable <- eventReactive(input$dualSgRNALoadButton,{

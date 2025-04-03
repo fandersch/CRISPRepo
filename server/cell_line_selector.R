@@ -655,7 +655,7 @@ cellLineSelectorModelList <- reactive({
     if(is.null(input$cellLineSelectorHLAalleleSelect)){
       
       type <- local(input$cellLineSelectorHLAtypeSelect) %>%
-        str_replace("HLA_", "RPKM_")
+        str_replace("HLA-", "RPKM-")
       
       cellline_names <- con_cell_lines %>%
         tbl("cell_line_hla_type") %>%
@@ -667,10 +667,10 @@ cellLineSelectorModelList <- reactive({
       
     }else{
       type <- local(input$cellLineSelectorHLAtypeSelect) %>%
-        str_replace("HLA_", "RPKM_")
+        str_replace("HLA-", "RPKM-")
 
-      allele <- c(paste0(local(input$cellLineSelectorHLAtypeSelect), "_A1"),
-                   paste0(local(input$cellLineSelectorHLAtypeSelect), "_A2"))
+      allele <- c(paste0(local(input$cellLineSelectorHLAtypeSelect), "-A1"),
+                   paste0(local(input$cellLineSelectorHLAtypeSelect), "-A2"))
       
       cellline_names <- con_cell_lines %>%
         tbl("cell_line_hla_type") %>%
@@ -780,6 +780,18 @@ cellLineSelectorModelList <- reactive({
   DBI::dbDisconnect(con_cell_lines)
   DBI::dbDisconnect(con)
   DBI::dbDisconnect(con_expression)
+  
+  if(length(cell_line_ids) == 0){
+  
+    showModal(modalDialog(
+      title = "WARNING!", 
+      paste0("WARNING: The specified filtering criteria do not match any cell lines. Try removing/changing some criteria to find matching cell lines."),
+      footer = tagList(
+        modalButton("OK"),
+      )
+    ))
+    
+  }
   
   cell_line_ids %>% 
     unique
@@ -934,71 +946,6 @@ cellLineSelectorGeneFusion5primeList <- reactive({
     
 })
 
-cellLineSelectorGeneCNVList <- reactive({
-  
-  #get selected tissue
-  if(isTRUE(input$cellLineSelectorCheckTissueAll)){
-    presel_tissue <- tissue_list_cellLine
-  }else{
-    presel_tissue <- local(input$cellLineSelectorTissueSelect)
-  }
-  
-  con_cell_lines <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "databases/cell_line_meta_data.db")
-  
-  cell_line_ids <- con_cell_lines %>%
-    tbl("cell_line_meta") %>%
-    dplyr::filter(tissue_name %in% presel_tissue) %>%
-    dplyr::select(cell_line_id) %>%
-    distinct() %>%
-    collect() %>%
-    .$cell_line_id
-  
-  symbol <- con_cell_lines %>%
-    tbl("cell_line_gene_cnv") %>%
-    dplyr::filter(cell_line_id %in% local(cell_line_ids)) %>%
-    dplyr::select(symbol) %>%
-    distinct() %>%
-    collect() %>%
-    arrange(symbol) %>%
-    .$symbol
-  
-  DBI::dbDisconnect(con_cell_lines)
-  
-  symbol
-})
-
-cellLineSelectorGeneCNVCategoryList <- reactive({
-  
-  #get selected tissue
-  if(isTRUE(input$cellLineSelectorCheckTissueAll)){
-    presel_tissue <- tissue_list_cellLine
-  }else{
-    presel_tissue <- local(input$cellLineSelectorTissueSelect)
-  }
-  
-  con_cell_lines <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "databases/cell_line_meta_data.db")
-
-  cell_line_ids <- con_cell_lines %>%
-    tbl("cell_line_meta") %>%
-    dplyr::filter(tissue_name %in% presel_tissue) %>%
-    dplyr::select(cell_line_id) %>%
-    collect() %>%
-    .$cell_line_id
-  
-  cn_category <- con_cell_lines %>%
-    tbl("cell_line_gene_cnv") %>%
-    dplyr::filter(cell_line_id %in% local(cell_line_ids)) %>%
-    dplyr::select(cn_category) %>%
-    distinct() %>%
-    collect() %>%
-    arrange(cn_category) %>%
-    .$cn_category
-  
-  DBI::dbDisconnect(con_cell_lines)
-  
-  cn_category
-})
-
 cellLineSelectorHLAalleleList <- reactive({
   
   #get selected tissue
@@ -1024,10 +971,10 @@ cellLineSelectorHLAalleleList <- reactive({
     hla <- con_cell_lines %>%
       tbl("cell_line_hla_type") %>%
       dplyr::filter(cell_line_name %in% local(cell_line_names)) %>%
-      dplyr::select(matches(local(input$cellLineSelectorHLAtypeSelect))) %>%
       distinct() %>%
       collect() %>%
-      unlist() %>%
+      dplyr::select(starts_with(local(input$cellLineSelectorHLAtypeSelect))) %>%
+      unlist %>%
       as.character %>%
       sort
     
@@ -1052,22 +999,9 @@ observeEvent(input$cellLineSelectorLoadButton, {
     }
   })
   
-  dt_screens <- cellLineSelectorDataTableScreens()
-  
-  output$cellLineSelectorDataTableScreens <- renderDataTable({
-    
-    if(!is.null(dt_screens)){
-      dt_screens
-    }
-  })
-  
-  dt_expression <- cellLineSelectorDataTableExpression()
-  
-  output$cellLineSelectorDataTableExpression <- renderDataTable({
-    if(!is.null(dt_expression)){
-      dt_expression
-    }
-  })
+})
+
+observeEvent(input$cellLineSelectorLoadButton, {
   
   dt_mutation <- cellLineSelectorDataTableMutations()
   
@@ -1076,6 +1010,9 @@ observeEvent(input$cellLineSelectorLoadButton, {
       dt_mutation
     }
   })
+})
+
+observeEvent(input$cellLineSelectorLoadButton, {
   
   dt_fusion <- cellLineSelectorDataTableFusions()
 
@@ -1084,6 +1021,9 @@ observeEvent(input$cellLineSelectorLoadButton, {
       dt_fusion
     }
   })
+})
+
+observeEvent(input$cellLineSelectorLoadButton, {
   
   dt_cnv <- cellLineSelectorDataTableCNVs()
 
@@ -1092,6 +1032,9 @@ observeEvent(input$cellLineSelectorLoadButton, {
       dt_cnv
     }
   })
+})
+
+observeEvent(input$cellLineSelectorLoadButton, {
   
   dt_hla <- cellLineSelectorDataTableHLAs()
   
@@ -1100,18 +1043,42 @@ observeEvent(input$cellLineSelectorLoadButton, {
       dt_hla
     }
   })
-  
-  if(is.null(dt_meta) & is.null(dt_screens) & is.null(dt_expression) & is.null(dt_mutation) & is.null(dt_fusion) & is.null(dt_cnv) & is.null(dt_hla)){
-    output$cellLineSelectorInfo <- renderText({
-      "ATTENTION: No cell lines found that fulfill filtering criteria. Please adjust the query!"
-    })
-  }else{
-    output$cellLineSelectorInfo <- renderText({
-      "SUCCESS: Loading completed!"
-    })
-  }
-  
 })
+
+observeEvent(input$cellLineSelectorLoadButton, {
+  
+  dt_expression <- cellLineSelectorDataTableExpression()
+  
+  output$cellLineSelectorDataTableExpression <- renderDataTable({
+    if(!is.null(dt_expression)){
+      dt_expression
+    }
+  })
+})
+
+observeEvent(input$cellLineSelectorLoadButton, {
+  
+  dt_screens <- cellLineSelectorDataTableScreens()
+  
+  output$cellLineSelectorDataTableScreens <- renderDataTable({
+    
+    if(!is.null(dt_screens)){
+      dt_screens
+    }
+  })
+})
+  
+#   if(is.null(dt_meta) & is.null(dt_screens) & is.null(dt_expression) & is.null(dt_mutation) & is.null(dt_fusion) & is.null(dt_cnv) & is.null(dt_hla)){
+#     output$cellLineSelectorInfo <- renderText({
+#       "ATTENTION: No cell lines found that fulfill filtering criteria. Please adjust the query!"
+#     })
+#   }else{
+#     output$cellLineSelectorInfo <- renderText({
+#       "SUCCESS: Loading completed!"
+#     })
+#   }
+#   
+# })
 
 observeEvent(input$cellLineSelectorTissueSelect, {
   if(!is.null(input$cellLineSelectorTissueSelect)){
@@ -1150,8 +1117,6 @@ observeEvent(input$cellLineSelectorTissueSelect, {
   updateSelectizeInput(session, 'cellLineSelectorGeneExpressionSelect', choices = cellLineSelectorGeneExpressionList(), selected=NULL,server = TRUE)
   updateSelectizeInput(session, 'cellLineSelectorGeneFusion3primeSelect', choices = cellLineSelectorGeneFusion3primeList(), selected=NULL,server = TRUE)
   updateSelectizeInput(session, 'cellLineSelectorGeneFusion5primeSelect', choices = cellLineSelectorGeneFusion5primeList(), selected=NULL,server = TRUE)
-  updateSelectizeInput(session, 'cellLineSelectorGeneCNVSelect', choices = cellLineSelectorGeneCNVList(), selected=NULL,server = TRUE)
-  updateSelectizeInput(session, 'cellLineSelectorGeneCNVCategorySelect', choices = cellLineSelectorGeneCNVCategoryList(), selected=NULL, server = TRUE)
   updateSelectizeInput(session, 'cellLineSelectorHLAalleleSelect', choices = cellLineSelectorHLAalleleList(), selected=NULL, server = TRUE)
 
   cellLineSelectorUpdateText()
@@ -1194,8 +1159,6 @@ observeEvent(input$cellLineSelectorCheckTissueAll, {
   updateSelectizeInput(session, 'cellLineSelectorGeneExpressionSelect', choices = cellLineSelectorGeneExpressionList(), selected=NULL,server = TRUE)
   updateSelectizeInput(session, 'cellLineSelectorGeneFusion3primeSelect', choices = cellLineSelectorGeneFusion3primeList(), selected=NULL, server = TRUE)
   updateSelectizeInput(session, 'cellLineSelectorGeneFusion5primeSelect', choices = cellLineSelectorGeneFusion5primeList(), selected=NULL, server = TRUE)
-  updateSelectizeInput(session, 'cellLineSelectorGeneCNVSelect', choices = cellLineSelectorGeneCNVList(), selected=NULL, server = TRUE)
-  updateSelectizeInput(session, 'cellLineSelectorGeneCNVCategorySelect', choices = cellLineSelectorGeneCNVCategoryList(), selected=NULL, server = TRUE)
   updateSelectizeInput(session, 'cellLineSelectorHLAalleleSelect', choices = cellLineSelectorHLAalleleList(), selected=NULL, server = TRUE)
 
   cellLineSelectorUpdateText()

@@ -7,7 +7,7 @@ groupTestingUpdateText <- function(){
       invisible("INFO: Please select the tissue(s) in the right panel!")
     }else{
       if(is.null(input$groupTestingCellLineSelect) & !isTRUE(input$groupTestingCheckCellLineAll)){
-        invisible("INFO: Please select the cell line(s) in the right panel!")
+        invisible("INFO: Please select the cell line(s) in the right panel! You can add additional filtering critera for gene dependency or expression.")
       }else{
         invisible("INFO: Click Load data!")
       }
@@ -26,26 +26,9 @@ output$groupTestingDataTableContrasts <- renderDataTable({
 #query database and create dataframe
 groupTestingResultsDataFrame <- reactive({
   
-  #get selected tissue
-  if(isTRUE(input$groupTestingCheckTissueAll)){
-    presel_tissue <- groupTestingTissueList()
-  }else{
-    presel_tissue <- local(input$groupTestingTissueSelect)
-  }
+  presel_cell_line <- groupTestingCellLineList()
   
-  #get selected cell line
-  if(isTRUE(input$groupTestingCheckCellLineAll)){
-    presel_cell_line <- groupTestingCellLineList()
-  }else{
-    presel_cell_line <- local(input$groupTestingCellLineSelect)
-  }
-  
-  #get selected cell lines rest
-  if(isTRUE(input$groupTestingCheckCellLineAll)){
-    presel_cell_line_rest <- groupTestingRestCellLineList()
-  }else{
-    presel_cell_line_rest <- local(input$groupTestingRestCellLineSelect)
-  }
+  presel_cell_line_rest <- groupTestingRestCellLineList()
   
   #get selected library
   if(isTRUE(input$groupTestingCheckLibraryAll)){
@@ -56,7 +39,7 @@ groupTestingResultsDataFrame <- reactive({
   
   if(input$groupTestingDatasetSelect == "dependency"){
     
-    testing_contrasts_target <- contrasts %>% 
+    testing_data_target <- contrasts %>% 
       filter(species == local(input$groupTestingSpeciesSelect), 
              type == "dropout", reference_type == "reference", 
              cellline_name %in% presel_cell_line, library_id %in% presel_library, 
@@ -66,7 +49,7 @@ groupTestingResultsDataFrame <- reactive({
       mutate(contrast_id_QC = paste0(contrast_id, "_", abs(dynamic_range))) %>%
       ungroup()
     
-    testing_contrasts_rest <- contrasts %>% 
+    testing_data_rest <- contrasts %>% 
       filter(species == local(input$groupTestingSpeciesSelect), 
              type == "dropout", reference_type == "reference", 
              cellline_name %in% presel_cell_line_rest, library_id %in% presel_library,
@@ -76,27 +59,28 @@ groupTestingResultsDataFrame <- reactive({
       mutate(contrast_id_QC = paste0(contrast_id, "_", abs(dynamic_range))) %>%
       ungroup()
     
-    testing_contrasts_all <- testing_contrasts_target %>%
-      bind_rows(testing_contrasts_rest)
+    testing_data_all <- testing_data_target %>%
+      bind_rows(testing_data_rest)
     
     if(input$groupTestingSearchRadio == "gene"){
-      dropout_data <- read_tsv(file="essentiality_data/human_scaledLFC_geneLevel_HQscreens.tsv", col_names = T) %>%
+      data <- read_tsv(file="essentiality_data/human_scaledLFC_geneLevel_HQscreens.tsv", col_names = T) %>%
         mutate(guide_id = entrez_id)
     }else{
-      dropout_data <- read_tsv(file="essentiality_data/human_scaledLFC_guideLevel_HQscreens.tsv", col_names = T)
+      data <- read_tsv(file="essentiality_data/human_scaledLFC_guideLevel_HQscreens.tsv", col_names = T)
     }
-    symbols <- dropout_data %>%
+    
+    symbols <- data %>%
       select(symbol, entrez_id) %>%
       distinct()
     
-    dropout_data <- dropout_data %>%
-      dplyr::select(symbol, entrez_id, guide_id, starts_with(as.character(testing_contrasts_all$contrast_id_QC))) %>%
-      pivot_longer(matches(as.character(testing_contrasts_all$contrast_id_QC)), names_to = "contrast_id", values_to="effect_essentialome") %>%
-      inner_join(testing_contrasts_all %>% select(contrast_id=contrast_id_QC, cellline_name, group)) %>%
+    data <- data %>%
+      dplyr::select(symbol, entrez_id, guide_id, starts_with(as.character(testing_data_all$contrast_id_QC))) %>%
+      pivot_longer(matches(as.character(testing_data_all$contrast_id_QC)), names_to = "contrast_id", values_to="effect_essentialome") %>%
+      inner_join(testing_data_all %>% select(contrast_id=contrast_id_QC, cellline_name, group)) %>%
       filter(!is.na(effect_essentialome))
     
-    testing_data_target <- dropout_data %>%
-      dplyr::filter(contrast_id %in% testing_contrasts_target$contrast_id_QC) %>%
+    testing_data_target <- data %>%
+      dplyr::filter(contrast_id %in% testing_data_target$contrast_id_QC) %>%
       dplyr::group_by(symbol, entrez_id, guide_id, cellline_name) %>%
       dplyr::summarize(effect_essentialome = median(effect_essentialome, na.rm=TRUE)) %>%
       dplyr::group_by(symbol, entrez_id, guide_id) %>%
@@ -110,8 +94,8 @@ groupTestingResultsDataFrame <- reactive({
       dplyr::filter(n >= 2) %>%
       dplyr::ungroup()
     
-    testing_data_rest <- dropout_data %>%
-      dplyr::filter(contrast_id %in% testing_contrasts_rest$contrast_id_QC) %>%
+    testing_data_rest <- data %>%
+      dplyr::filter(contrast_id %in% testing_data_rest$contrast_id_QC) %>%
       dplyr::group_by(symbol, entrez_id, guide_id) %>%
       dplyr::filter(n() >= 2) %>%
       summarize(n=sum(!is.na(effect_essentialome)),
@@ -127,48 +111,106 @@ groupTestingResultsDataFrame <- reactive({
     
     testing_data_joined <- testing_data_joined %>%
       dplyr::group_by(symbol, entrez_id, guide_id) %>%
-      # filter(abs(avgLFC.x - avgLFC.y) > 0.05, sdLFC.x > 0 | sdLFC.y > 0) %>%
       mutate(avgLFC_Differential = avgLFC.x - avgLFC.y, medianLFC_Differential = medianLFC.x - medianLFC.y,
              # p_value = format(t.test(unlist(LFCs.x), unlist(LFCs.y), alternative = "two.sided", paired = FALSE, var.equal = FALSE)$p.value,3),
              log10_BF= log10(extractBF(ttestBF(x = unlist(LFCs.x), y=unlist(LFCs.y)))$bf)) %>%
       dplyr::ungroup() %>%
       arrange(desc(log10_BF)) %>%
       select(-LFCs.x, -LFCs.y)
-
-      # testing_data_joined$p_adjusted <- p.adjust(testing_data_joined$p_value, "fdr")
-      
-      testing_data_joined
+    
+    # testing_data_joined$p_adjusted <- p.adjust(testing_data_joined$p_value, "fdr")
+    testing_data_joined
+    
     
   }else{
+    con_expression <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "databases/expression_data_counts_tpm_tmm.db")
     
+    celllines_expressionData <- con_expression %>%
+      tbl("expression_data_meta_info") %>%
+      distinct() %>%
+      arrange(cell_line_name) %>%
+      collect() %>%
+      rename(cellline_name=cell_line_name)
     
+    DBI::dbDisconnect(con_expression)
+    
+    testing_data_target <- celllines_expressionData %>% 
+      filter(species == local(input$groupTestingSpeciesSelect), 
+             cellline_name %in% presel_cell_line) %>%
+      mutate(group="target") %>%
+      dplyr::rename(sample_name = sample_id)
+    
+    testing_data_rest <- celllines_expressionData %>% 
+      filter(species == local(input$groupTestingSpeciesSelect), 
+             cellline_name %in% presel_cell_line_rest) %>%
+      mutate(group="rest") %>%
+      dplyr::rename(sample_name = sample_id)
+    
+    testing_data_all <- testing_data_target %>%
+      bind_rows(testing_data_rest) 
+    
+    data <- read_tsv(file="expression_values_per_tissue/all_tissues_log2_TMM_rpkm_human_spread.tsv", col_names = T)
+   
+    symbols <- data %>%
+      select(symbol, entrez_id) %>%
+      distinct()
+    
+    data <- data %>%
+      dplyr::select(symbol, entrez_id, starts_with(as.character(testing_data_all$sample_name))) %>%
+      pivot_longer(starts_with(as.character(testing_data_all$sample_name)), names_to = "sample_name", values_to="log2_TMM_rpkm") %>%
+      inner_join(testing_data_all %>% select(sample_name, cellline_name, group)) %>%
+      filter(!is.na(log2_TMM_rpkm))
+    
+    testing_data_target <- data %>%
+      dplyr::filter(sample_name %in% testing_data_target$sample_name) %>%
+      dplyr::group_by(symbol, entrez_id, cellline_name) %>%
+      dplyr::summarize(log2_TMM_rpkm = median(log2_TMM_rpkm, na.rm=TRUE)) %>%
+      dplyr::group_by(symbol, entrez_id) %>%
+      dplyr::filter(n() >= 2) %>%
+      summarize(n=sum(!is.na(log2_TMM_rpkm)),
+                log2_TMM_rpkms=list(log2_TMM_rpkm),
+                avg_log2_TMM_rpkm = round(mean(log2_TMM_rpkm, na.rm=TRUE), 2),
+                median_log2_TMM_rpkm = round(median(log2_TMM_rpkm, na.rm=TRUE), 2),
+                sd_log2_TMM_rpkm = round(sd(log2_TMM_rpkm, na.rm=TRUE), 2)) %>%
+      dplyr::filter(n >= 2) %>%
+      dplyr::ungroup()
+    
+    testing_data_rest <- data %>%
+      dplyr::filter(sample_name %in% testing_data_rest$sample_name) %>%
+      dplyr::group_by(symbol, entrez_id) %>%
+      dplyr::filter(n() >= 2) %>%
+      summarize(n=sum(!is.na(log2_TMM_rpkm)),
+                log2_TMM_rpkms=list(log2_TMM_rpkm),
+                avg_log2_TMM_rpkm = mean(log2_TMM_rpkm, na.rm=TRUE),
+                median_log2_TMM_rpkm = median(log2_TMM_rpkm, na.rm=TRUE),
+                sd_log2_TMM_rpkm = sd(log2_TMM_rpkm, na.rm=TRUE)) %>%
+      dplyr::ungroup()
+    
+    testing_data_joined <- testing_data_target %>%
+      inner_join(testing_data_rest, by=c(c("symbol", "entrez_id")))
+    
+    testing_data_joined <- testing_data_joined %>%
+      dplyr::group_by(symbol, entrez_id) %>%
+      mutate(avg_log2_TMM_rpkm_Differential = avg_log2_TMM_rpkm.x - avg_log2_TMM_rpkm.y, median_log2_TMM_rpkm_Differential = median_log2_TMM_rpkm.x - median_log2_TMM_rpkm.y,
+             # p_value = format(t.test(unlist(LFCs.x), unlist(LFCs.y), alternative = "two.sided", paired = FALSE, var.equal = FALSE)$p.value,3),
+             log10_BF= ifelse(length(unique(unlist(log2_TMM_rpkms.x)))!=1 & length(unique(unlist(log2_TMM_rpkms.y)))!=1,
+                              log10(extractBF(ttestBF(x = unlist(log2_TMM_rpkms.x), y=unlist(log2_TMM_rpkms.y)))$bf), NA)) %>%
+      dplyr::ungroup() %>%
+      arrange(desc(log10_BF)) %>%
+      select(-log2_TMM_rpkms.x, -log2_TMM_rpkms.y)
+    
+    # testing_data_joined$p_adjusted <- p.adjust(testing_data_joined$p_value, "fdr")
+    testing_data_joined 
   }
-  testing_data_joined
+  
 })
 
 #query database and create dataframe
 groupTestingContrastsDataFrame <- reactive({
+
+  presel_cell_line <- groupTestingCellLineList()
   
-  #get selected tissue
-  if(isTRUE(input$groupTestingCheckTissueAll)){
-    presel_tissue <- groupTestingTissueList()
-  }else{
-    presel_tissue <- local(input$groupTestingTissueSelect)
-  }
-  
-  #get selected cell lines
-  if(isTRUE(input$groupTestingCheckCellLineAll)){
-    presel_cell_line <- groupTestingCellLineList()
-  }else{
-    presel_cell_line <- local(input$groupTestingCellLineSelect)
-  }
-  
-  #get selected cell lines rest
-  if(isTRUE(input$groupTestingCheckCellLineAll)){
-    presel_cell_line_rest <- groupTestingRestCellLineList()
-  }else{
-    presel_cell_line_rest <- local(input$groupTestingRestCellLineSelect)
-  }
+  presel_cell_line_rest <- groupTestingRestCellLineList()
   
   #get selected library
   if(isTRUE(input$groupTestingCheckLibraryAll)){
@@ -179,7 +221,7 @@ groupTestingContrastsDataFrame <- reactive({
   
   if(input$groupTestingDatasetSelect == "dependency"){
     
-    testing_contrasts_target <- contrasts %>% 
+    testing_data_target <- contrasts %>% 
       filter(species == local(input$groupTestingSpeciesSelect), 
              type == "dropout", reference_type == "reference", 
              cellline_name %in% presel_cell_line, library_id %in% presel_library, 
@@ -189,7 +231,7 @@ groupTestingContrastsDataFrame <- reactive({
       mutate(contrast_id_QC = paste0(contrast_id, "_", abs(dynamic_range))) %>%
       ungroup()
     
-    testing_contrasts_rest <- contrasts %>% 
+    testing_data_rest <- contrasts %>% 
       filter(species == local(input$groupTestingSpeciesSelect), 
              type == "dropout", reference_type == "reference", 
              cellline_name %in% presel_cell_line_rest, library_id %in% presel_library,
@@ -199,9 +241,34 @@ groupTestingContrastsDataFrame <- reactive({
       mutate(contrast_id_QC = paste0(contrast_id, "_", abs(dynamic_range))) %>%
       ungroup()
     
-    testing_contrasts_all <- testing_contrasts_target %>%
-      bind_rows(testing_contrasts_rest)
+    testing_data_all <- testing_data_target %>%
+      bind_rows(testing_data_rest)
+  }else{
+    con_expression <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "databases/expression_data_counts_tpm_tmm.db")
+    
+    celllines_expressionData <- con_expression %>%
+      tbl("expression_data_meta_info") %>%
+      distinct() %>%
+      arrange(cell_line_name) %>%
+      collect() %>%
+      rename(cellline_name=cell_line_name)
+    
+    DBI::dbDisconnect(con_expression)
+    
+    testing_data_target <- celllines_expressionData %>% 
+      filter(species == local(input$groupTestingSpeciesSelect), 
+             cellline_name %in% presel_cell_line) %>%
+      mutate(group="target")
+    
+    testing_data_rest <- celllines_expressionData %>% 
+      filter(species == local(input$groupTestingSpeciesSelect), 
+             cellline_name %in% presel_cell_line_rest) %>%
+      mutate(group="rest")
+    
+    testing_data_all <- testing_data_target %>%
+      bind_rows(testing_data_rest)
   }
+  testing_data_all
 })
 
 #create plot out of dataframe
@@ -210,29 +277,46 @@ groupTestingResultsPlot <- eventReactive(input$groupTestingLoadButton,{
   if (nrow(df) > 0) {
     output$groupTestingInfo <- renderText({"INFO: Loading completed!"})
     
+    if(input$groupTestingDatasetSelect == "dependency"){
+      values <- df$avgLFC_Differential
+      df$values <- values
+      delta <- "delta LFC"
+      xaxis <- "avgLFC_Differential"
+    }else{
+      values <- df$avg_log2_TMM_rpkm_Differential
+      df$values <- values
+      delta <- "delta log2-TMM-RPKM"
+      xaxis <- "avg_log2_TMM_rpkm"
+    }
+    
     df$text <- paste("Gene: ", df$symbol, "\n",
                      "BF: ", round(df$log10_BF,2), "\n",
-                     "delta LFC: ", round(df$avgLFC_Differential,2))
+                     paste0(delta,": ", round(values,2)))
     
     df$log10_BF<- 10^(-df$log10_BF)
     
+    
+    # Create a grouping variable using the same cutoffs as in EnhancedVolcano
+    df$group <- with(df, ifelse((abs(values) >= 0.25) & (log10_BF < 0.1), paste0("BF & ", delta),
+                                ifelse((abs(values) >= 0.25), delta,
+                                       ifelse((log10_BF < 0.1), "BF", "Not sig."))))
+    
     p<- EnhancedVolcano(df,
                         lab = df$symbol,
-                        x = "avgLFC_Differential",
+                        x = "values",
                         y = "log10_BF",
                         pCutoff = 0.1,
                         FCcutoff = 0.25,
                         pointSize = 1.0,
                         labSize = 2,
                         ylim = c(min(-log10(df$log10_BF)), max(-log10(df$log10_BF))),
-                        xlim = c(min(df$avgLFC_Differential), max(df$avgLFC_Differential))) + 
-      xlab("delta LFC") + 
+                        xlim = c(min(values), max(values))) + 
+      xlab(delta) + 
       ylab("log10 Bayes Factor")
     
     p<-ggplotly(p)
     
-    legend_names <- c('Not sig.', 'delta LFC', 'BF', 'BF & delta LFC')
-    p$x$data[[1]]$hoverinfo <- "none"
+    legend_names <- c("Not sig.", delta, "BF", paste0("BF & ", delta))
     # Loop over the Plotly traces to update their legend names.
     trace_index <- 1
     for(i in seq_along(p$x$data)) {
@@ -245,26 +329,26 @@ groupTestingResultsPlot <- eventReactive(input$groupTestingLoadButton,{
         if(trace_index > length(legend_names)) break
       }
     }
+    
+    # Now, update the hover text for each trace based on the group membership
+    for (i in seq_along(p$x$data)) {
+      trace_name <- p$x$data[[i]]$name
+      if (trace_name %in% legend_names) {
+        # Find the indices in df corresponding to this group
+        idx <- which(df$group == trace_name)
+        # Assign hover text only for these points
+        p$x$data[[i]]$hovertext <- df$text[idx]
+        p$x$data[[i]]$hoverinfo <- "text"
+      }
+    }
 
-        p <- p %>% 
-      style(textposition = "top left", hovertext = df$text, hoverinfo = "text", traces = seq_along(p$x$data)) %>%
+    p <- p %>% 
+      style(textposition = "top left") %>%
       layout(
         height = 800,
-        title = list(
-          font = list(size = 12)
-        ),
-        xaxis = list(
-          title = list(
-            font = list(size = 10)
-          ),
-          tickfont = list(size = 10)
-        ),
-        yaxis = list(
-          title = list(
-            font = list(size = 10)
-          ),
-          tickfont = list(size = 10)
-        ),
+        title = list(font = list(size = 12)),
+        xaxis = list(title = list(font = list(size = 10)), tickfont = list(size = 10)),
+        yaxis = list(title = list(font = list(size = 10)), tickfont = list(size = 10)),
         legend = list(
           title = list(text = "Legend"),
           font = list(size = 12),
@@ -273,7 +357,7 @@ groupTestingResultsPlot <- eventReactive(input$groupTestingLoadButton,{
           y = 0.5    # Adjust vertical position if needed
         )
       )
-    p$x$data[[1]]$hoverinfo <- "none"
+    
     # Assume p is your existing Plotly object.
     for(i in seq_along(p$x$data)) {
       # Check if the trace is a scatter trace (or has mode markers)
@@ -297,7 +381,7 @@ groupTestingResultsDataTable <- eventReactive(input$groupTestingLoadButton,{
     mutate_if(is.numeric, round, 2) %>%
     mutate(entrez_id = round(entrez_id))
   
-  if(input$groupTestingSearchRadio == "gene"){
+  if(input$groupTestingSearchRadio == "gene" & input$groupTestingDatasetSelect == "dependency"){
     df <- df %>%
       select(-guide_id)
   }
@@ -398,7 +482,38 @@ groupTestingTissueList <- reactive({
   
 })
 
-############# groupt testing target group ##############
+groupTestingGeneDependencyList <- reactive({
+  #get selected tissue
+  if(isTRUE(input$groupTestingCheckLibraryAll)){
+    library <- contrasts %>%
+      filter(species == local(input$groupTestingSpeciesSelect), type == "dropout", reference_type == "reference") %>%
+      .$library_id %>%
+      unique
+  }else{
+    library <- local(input$groupTestingLibrarySelect)
+  }
+  
+  gene_list_screens %>%
+    left_join(libraries %>% dplyr::select(library_id, species) %>% distinct) %>%
+    dplyr::filter(library_id %in% local(library), species == local(input$groupTestingSpeciesSelect)) %>%
+    dplyr::select(symbol) %>%
+    distinct() %>%
+    arrange(symbol) %>%
+    .$symbol
+  
+})
+
+groupTestingGeneExpressionList <- reactive({
+  gene_list_expressionData %>%
+    dplyr::filter(species == local(input$groupTestingSpeciesSelect)) %>%
+    dplyr::select(symbol) %>%
+    distinct() %>%
+    arrange(symbol) %>%
+    .$symbol
+  
+})
+
+############# group testing target group ##############
 
 groupTestingCellLineList <- reactive({
   
@@ -420,48 +535,107 @@ groupTestingCellLineList <- reactive({
     cell_lines <- cellline_list_expressionData
   }
   
-  cell_lines %>%
+  cell_lines <- cell_lines %>%
     dplyr::filter(tissue_name %in% preselTissue, species == local(input$groupTestingSpeciesSelect)) %>%
     dplyr::select(cell_line_name) %>%
     arrange(cell_line_name) %>%
     .$cell_line_name
-})
-
-############# groupt testing rest group ##############
-
-groupTestingRestTissueList <- reactive({
   
-  if(input$groupTestingDatasetSelect == "dependency"){
-    contrasts_dropout <- contrasts %>%
-      filter(species == local(input$groupTestingSpeciesSelect), type == "dropout", reference_type == "reference")
+  #get cell lines with requested gene dependency
+  if(!is.null(input$groupTestingGeneDependencySelect) & length(cell_lines) > 0){
+    con <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "databases/screen.db")
     
-    if(isTRUE(input$groupTestingCheckLibraryAll)){
-      library <- contrasts_dropout %>%
-        .$library_id %>%
-        unique
-    }else{
-      library <- local(input$groupTestingLibrarySelect)
+    gene_ids <- gene_list_screens %>%
+      dplyr::filter(symbol %in% local(input$groupTestingGeneDependencySelect)) %>%
+      select(gene_id) %>%
+      distinct() %>%
+      .$gene_id
+    
+    contrasts_filtered <- contrasts %>%
+      dplyr::filter(type == "dropout", reference_type == "reference", dynamic_range <= -1.5, auc > 0.9, cellline_name %in% local(cell_lines)) %>%
+      distinct()
+    
+    contrast_ids <- con %>%
+      tbl("gene_stats") %>%
+      dplyr::filter(contrast_id %in% local(contrasts_filtered$contrast_id), gene_id %in% local(gene_ids), effect_essentialome <= local(input$groupTestingGeneDependencySlider)) %>%
+      dplyr::select(contrast_id, effect_essentialome) %>%
+      dplyr::distinct() %>%
+      collect() %>%
+      group_by(contrast_id) %>%
+      summarize(n_check=sum(effect_essentialome <= local(input$groupTestingGeneDependencySlider)), n_genes=length(local(input$groupTestingGeneDependencySelect))) %>%
+      dplyr::filter(n_check==n_genes) %>%
+      .$contrast_id %>%
+      unique
+    
+    cellline_names <- contrasts_filtered %>%
+      dplyr::filter(contrast_id %in% contrast_ids) %>%
+      .$cellline_name %>%
+      unique
+    
+    cell_lines <- cell_lines[cell_lines %in% cellline_names]
+    DBI::dbDisconnect(con)
+    
+    if(length(cell_lines) == 0){
+      
+      showModal(modalDialog(
+        title = "WARNING!", 
+        paste0("WARNING: The specified gene dependency filtering criteria do not match any cell lines. Try removing/changing some criteria to find matching cell lines."),
+        footer = tagList(
+          modalButton("OK"),
+        )
+      ))
+      
     }
-    tissues <- contrasts_dropout %>%
-      filter(library_id %in% library)
-  }else{
-    tissues <- cellline_list_expressionData %>%
-      filter(species == local(input$groupTestingSpeciesSelect))
   }
   
-  preselTissueTarget <- groupTestingTissueList()
-  if(!isTRUE(input$groupTestingCheckTissueAll) & !is.null(input$groupTestingTissueSelect)){
-    preselTissueTarget <- input$groupTestingTissueSelect
+  #get cell lines with requested gene expression
+  if(!is.null(input$groupTestingGeneExpressionSelect) & length(cell_lines) > 0){
+    con_expression <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "databases/expression_data_counts_tpm_tmm.db")
+    
+    sample_ids_filtered <- cellline_list_expressionData %>%
+      dplyr::filter(cell_line_name %in% local(cell_lines)) %>%
+      dplyr::select(sample_id) %>%
+      distinct() %>%
+      collect() %>%
+      .$sample_id
+    
+    sample_ids <- con_expression %>%
+      tbl("expression_data_values") %>%
+      dplyr::filter(sample_id %in% local(sample_ids_filtered), symbol %in% local(input$groupTestingGeneExpressionSelect), log2_tpm >= local(input$groupTestingGeneExpressionSlider)) %>%
+      dplyr::select(sample_id, log2_tpm) %>%
+      dplyr::distinct() %>%
+      collect() %>%
+      group_by(sample_id) %>%
+      summarize(n_check=sum(log2_tpm >= local(input$groupTestingGeneExpressionSlider)), n_genes=length(local(input$groupTestingGeneExpressionSelect))) %>%
+      dplyr::filter(n_check==n_genes) %>%
+      .$sample_id %>%
+      unique
+    
+    cellline_names <- cellline_list_expressionData %>%
+      dplyr::filter(sample_id %in% sample_ids) %>%
+      .$cell_line_name %>%
+      unique
+    
+    cell_lines <- cell_lines[cell_lines %in% cellline_names]
+    DBI::dbDisconnect(con_expression)
+    
+    if(length(cell_lines) == 0){
+      
+      showModal(modalDialog(
+        title = "WARNING!", 
+        paste0("WARNING: The specified gene expression filtering criteria do not match any cell lines. Try removing/changing some criteria to find matching cell lines."),
+        footer = tagList(
+          modalButton("OK"),
+        )
+      ))
+      
+    }
   }
   
-  tissues %>% 
-    filter(!tissue_name %in% preselTissueTarget) %>%
-    dplyr::select(tissue_name) %>%
-    distinct() %>%
-    arrange(tissue_name) %>%
-    .$tissue_name
-  
+  cell_lines %>% unique
 })
+
+############# group testing rest group ##############
 
 groupTestingRestCellLineList <- reactive({
   
@@ -469,10 +643,19 @@ groupTestingRestCellLineList <- reactive({
   if(!isTRUE(input$groupTestingCheckLibraryAll) & !is.null(input$groupTestingLibrarySelect)){
     preselLibrary <- input$groupTestingLibrarySelect
   }
-  
-  preselTissue <- groupTestingRestTissueList()
+
+  preselTissue <- groupTestingTissueList()
   if(!isTRUE(input$groupTestingRestCheckTissueAll) & !is.null(input$groupTestingRestTissueSelect)){
     preselTissue <- input$groupTestingRestTissueSelect
+  }
+  
+  preselCellLinesTarget <- c()
+  if(!isTRUE(input$groupTestingCheckCellLineAll) & !is.null(input$groupTestingCellLineSelect)){
+    preselCellLinesTarget <- input$groupTestingCellLineSelect
+  }else{
+    if(isTRUE(input$groupTestingCheckCellLineAll) & is.null(input$groupTestingCellLineSelect)){
+      preselCellLinesTarget <- groupTestingCellLineList()
+    }
   }
   
   if(input$groupTestingDatasetSelect == "dependency"){
@@ -483,11 +666,107 @@ groupTestingRestCellLineList <- reactive({
     cell_lines <- cellline_list_expressionData
   }
   
-  cell_lines %>%
-    dplyr::filter(tissue_name %in% preselTissue, species == local(input$groupTestingSpeciesSelect)) %>%
+  cell_lines <- cell_lines %>%
+    dplyr::filter(tissue_name %in% preselTissue, species == local(input$groupTestingSpeciesSelect), !cell_line_name %in% preselCellLinesTarget) %>%
     dplyr::select(cell_line_name) %>%
     arrange(cell_line_name) %>%
-    .$cell_line_name
+    .$cell_line_name %>%
+    unique
+  
+  #get cell lines with requested gene dependency
+  if(!is.null(input$groupTestingRestGeneDependencySelect) & length(cell_lines) > 0){
+    con <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "databases/screen.db")
+    
+    gene_ids <- gene_list_screens %>%
+      dplyr::filter(symbol %in% local(input$groupTestingRestGeneDependencySelect)) %>%
+      select(gene_id) %>%
+      distinct() %>%
+      .$gene_id
+    
+    contrasts_filtered <- contrasts %>%
+      dplyr::filter(type == "dropout", reference_type == "reference", dynamic_range <= -1.5, auc > 0.9, cellline_name %in% local(cell_lines)) %>%
+      distinct()
+    
+    contrast_ids <- con %>%
+      tbl("gene_stats") %>%
+      dplyr::filter(contrast_id %in% local(contrasts_filtered$contrast_id), gene_id %in% local(gene_ids), effect_essentialome >= local(input$groupTestingRestGeneDependencySlider)) %>%
+      dplyr::select(contrast_id, effect_essentialome) %>%
+      dplyr::distinct() %>%
+      collect() %>%
+      group_by(contrast_id) %>%
+      summarize(n_check=sum(effect_essentialome >= local(input$groupTestingRestGeneDependencySlider)), n_genes=length(local(input$groupTestingRestGeneDependencySelect))) %>%
+      dplyr::filter(n_check==n_genes) %>%
+      .$contrast_id %>%
+      unique
+    
+    cellline_names <- contrasts_filtered %>%
+      dplyr::filter(contrast_id %in% contrast_ids) %>%
+      .$cellline_name %>%
+      unique
+    
+    cell_lines <- cell_lines[cell_lines %in% cellline_names]
+    DBI::dbDisconnect(con)
+    
+    if(length(cell_lines) == 0){
+      
+      showModal(modalDialog(
+        title = "WARNING!", 
+        paste0("WARNING: The specified gene dependency filtering criteria do not match any cell lines. Try removing/changing some criteria to find matching cell lines."),
+        footer = tagList(
+          modalButton("OK"),
+        )
+      ))
+      
+    }
+  }
+  
+  #get cell lines with requested gene expression
+  if(!is.null(input$groupTestingGeneExpressionSelect) & length(cell_lines) > 0){
+    con_expression <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "databases/expression_data_counts_tpm_tmm.db")
+    
+    sample_ids_filtered <- cellline_list_expressionData %>%
+      dplyr::filter(cell_line_name %in% local(cell_lines)) %>%
+      dplyr::select(sample_id) %>%
+      distinct() %>%
+      collect() %>%
+      .$sample_id
+    
+    sample_ids <- con_expression %>%
+      tbl("expression_data_values") %>%
+      dplyr::filter(sample_id %in% local(sample_ids_filtered), symbol %in% local(input$groupTestingGeneExpressionSelect), log2_tpm <= local(input$groupTestingGeneExpressionSlider)) %>%
+      dplyr::select(sample_id, log2_tpm) %>%
+      dplyr::distinct() %>%
+      collect() %>%
+      group_by(sample_id) %>%
+      summarize(n_check=sum(log2_tpm <= local(input$groupTestingGeneExpressionSlider)), n_genes=length(local(input$groupTestingGeneExpressionSelect))) %>%
+      dplyr::filter(n_check==n_genes) %>%
+      .$sample_id %>%
+      unique
+    
+    cellline_names <- cellline_list_expressionData %>%
+      dplyr::filter(sample_id %in% sample_ids) %>%
+      .$cell_line_name %>%
+      unique
+    
+    cell_lines <- cell_lines[cell_lines %in% cellline_names]
+    DBI::dbDisconnect(con_expression)
+    
+    if(length(cell_lines) == 0){
+      
+      showModal(modalDialog(
+        title = "WARNING!", 
+        paste0("WARNING: The specified gene expression filtering criteria do not match any cell lines. Try removing/changing some criteria to find matching cell lines."),
+        footer = tagList(
+          modalButton("OK"),
+        )
+      ))
+      
+    }
+    
+  }
+  
+  cell_lines %>% 
+    unique
 })
 
 
@@ -523,19 +802,27 @@ observeEvent(input$groupTestingSpeciesSelect, {
   #update tissue selectbox
   updateSelectizeInput(session, 'groupTestingTissueSelect', choices = groupTestingTissueList(), server = TRUE)
   #select checbox tissue
-  updateCheckboxInput(session, 'groupTestingCheckTissueAll', value = FALSE)
+  updateCheckboxInput(session, 'groupTestingCheckTissueAll', value = TRUE)
   #update cell line selectbox
   updateSelectizeInput(session, 'groupTestingCellLineSelect', choices = groupTestingCellLineList(), server = TRUE)
   #select cell line checkbox
   updateCheckboxInput(session, 'groupTestingCheckCellLineAll', value = FALSE)
+  #update gene dependency selectbox
+  updateSelectizeInput(session, 'groupTestingGeneDependencySelect', choices = groupTestingGeneDependencyList(), server = TRUE)
+  #update gene expression selectbox
+  updateSelectizeInput(session, 'groupTestingGeneExpressionSelect', choices = groupTestingGeneExpressionList(), server = TRUE)
   #update tissue selectbox
-  updateSelectizeInput(session, 'groupTestingRestTissueSelect', choices = groupTestingRestTissueList(), server = TRUE)
+  updateSelectizeInput(session, 'groupTestingRestTissueSelect', choices = groupTestingTissueList(), server = TRUE)
   #select checbox tissue
   updateCheckboxInput(session, 'groupTestingRestCheckTissueAll', value = FALSE)
   #update cell line selectbox
   updateSelectizeInput(session, 'groupTestingRestCellLineSelect', choices = groupTestingRestCellLineList(), server = TRUE)
   #select cell line checkbox
   updateCheckboxInput(session, 'groupTestingRestCheckCellLineAll', value = FALSE)
+  #update gene dependency selectbox
+  updateSelectizeInput(session, 'groupTestingRestGeneDependencySelect', choices = groupTestingGeneDependencyList(), server = TRUE)
+  #update gene expression selectbox
+  updateSelectizeInput(session, 'groupTestingRestGeneExpressionSelect', choices = groupTestingGeneExpressionList(), server = TRUE)
   
   groupTestingUpdateText()
   
@@ -560,13 +847,13 @@ observeEvent(input$groupTestingDatasetSelect, {
   #update tissue selectbox
   updateSelectizeInput(session, 'groupTestingTissueSelect', choices = groupTestingTissueList(), server = TRUE)
   #select checbox tissue
-  updateCheckboxInput(session, 'groupTestingCheckTissueAll', value = FALSE)
+  updateCheckboxInput(session, 'groupTestingCheckTissueAll', value = TRUE)
   #update cell line selectbox
   updateSelectizeInput(session, 'groupTestingCellLineSelect', choices = groupTestingCellLineList(), server = TRUE)
   #select cell line checkbox
   updateCheckboxInput(session, 'groupTestingCheckCellLineAll', value = FALSE)
   #update tissue selectbox
-  updateSelectizeInput(session, 'groupTestingRestTissueSelect', choices = groupTestingRestTissueList(), server = TRUE)
+  updateSelectizeInput(session, 'groupTestingRestTissueSelect', choices = groupTestingTissueList(), server = TRUE)
   #select checbox tissue
   updateCheckboxInput(session, 'groupTestingRestCheckTissueAll', value = FALSE)
   #update cell line selectbox
@@ -581,7 +868,7 @@ observeEvent(input$groupTestingDatasetSelect, {
 observeEvent(input$groupTestingSearchRadio, {
   if(!is.null(input$groupTestingTissueSelect)){
     #unselect checkbox tissue
-    updateCheckboxInput(session, 'groupTestingCheckTissueAll', value = FALSE)
+    updateCheckboxInput(session, 'groupTestingCheckTissueAll', value = TRUE)
   }
   
   #update tissue selectbox
@@ -591,7 +878,7 @@ observeEvent(input$groupTestingSearchRadio, {
   #select cell line checkbox
   updateCheckboxInput(session, 'groupTestingCheckCellLineAll', value = FALSE)
   #update tissue selectbox
-  updateSelectizeInput(session, 'groupTestingRestTissueSelect', choices = groupTestingRestTissueList(), server = TRUE)
+  updateSelectizeInput(session, 'groupTestingRestTissueSelect', choices = groupTestingTissueList(), server = TRUE)
   #select checbox tissue
   updateCheckboxInput(session, 'groupTestingRestCheckTissueAll', value = FALSE)
   #update cell line selectbox
@@ -614,13 +901,13 @@ observeEvent(input$groupTestingLibrarySelect, {
   #update tissue selectbox
   updateSelectizeInput(session, 'groupTestingTissueSelect', choices = groupTestingTissueList(), server = TRUE)
   #select tissue checkbox
-  updateCheckboxInput(session, 'groupTestingCheckTissueAll', value = FALSE)
+  updateCheckboxInput(session, 'groupTestingCheckTissueAll', value = TRUE)
   #update cell line selectbox
   updateSelectizeInput(session, 'groupTestingCellLineSelect', choices = groupTestingCellLineList(), server = TRUE)
   #select cell line checkbox
   updateCheckboxInput(session, 'groupTestingCheckCellLineAll', value = FALSE)
   #update tissue selectbox
-  updateSelectizeInput(session, 'groupTestingRestTissueSelect', choices = groupTestingRestTissueList(), server = TRUE)
+  updateSelectizeInput(session, 'groupTestingRestTissueSelect', choices = groupTestingTissueList(), server = TRUE)
   #select checbox tissue
   updateCheckboxInput(session, 'groupTestingRestCheckTissueAll', value = FALSE)
   #update cell line selectbox
@@ -641,13 +928,13 @@ observeEvent(input$groupTestingCheckLibraryAll, {
   #update tissue selectbox
   updateSelectizeInput(session, 'groupTestingTissueSelect', choices = groupTestingTissueList(), server = TRUE)
   #select tissue checkbox
-  updateCheckboxInput(session, 'groupTestingCheckTissueAll', value = FALSE)
+  updateCheckboxInput(session, 'groupTestingCheckTissueAll', value = TRUE)
   #update cell line selectbox
   updateSelectizeInput(session, 'groupTestingCellLineSelect', choices = groupTestingCellLineList(), server = TRUE)
   #select cell line checkbox
   updateCheckboxInput(session, 'groupTestingCheckCellLineAll', value = FALSE)
   #update tissue selectbox
-  updateSelectizeInput(session, 'groupTestingRestTissueSelect', choices = groupTestingRestTissueList(), server = TRUE)
+  updateSelectizeInput(session, 'groupTestingRestTissueSelect', choices = groupTestingTissueList(), server = TRUE)
   #select checbox tissue
   updateCheckboxInput(session, 'groupTestingRestCheckTissueAll', value = FALSE)
   #update cell line selectbox
@@ -659,7 +946,7 @@ observeEvent(input$groupTestingCheckLibraryAll, {
   
 }, ignoreNULL = FALSE)
 
-############# groupt testing target group ##############
+############# group testing target group ##############
 
 observeEvent(input$groupTestingTissueSelect, {
   if(!is.null(input$groupTestingTissueSelect)){
@@ -668,7 +955,7 @@ observeEvent(input$groupTestingTissueSelect, {
   }
   
   #update cell line selectbox
-  updateSelectizeInput(session, 'groupTestingRestTissueSelect', choices = groupTestingRestTissueList(), server = TRUE)
+  updateSelectizeInput(session, 'groupTestingRestTissueSelect', choices = groupTestingTissueList(), server = TRUE)
   #select cell line checkbox
   updateCheckboxInput(session, 'groupTestingRestCheckTissueAll', value = TRUE)
   
@@ -680,9 +967,13 @@ observeEvent(input$groupTestingTissueSelect, {
   if(isTRUE(input$groupTestingCheckTissueAll) | (!is.null(input$groupTestingTissueSelect))){
     enable("groupTestingCellLineSelect")
     enable("groupTestingCheckCellLineAll")
+    enable("groupTestingGeneDependencySelect")
+    enable("groupTestingGeneExpressionSelect")
   }else{
     disable("groupTestingCellLineSelect")
     disable("groupTestingCheckCellLineAll")
+    disable("groupTestingGeneDependencySelect")
+    disable("groupTestingGeneExpressionSelect")
   }
   
   groupTestingUpdateText()
@@ -696,7 +987,7 @@ observeEvent(input$groupTestingCheckTissueAll, {
   }
   
   #update cell line selectbox
-  updateSelectizeInput(session, 'groupTestingRestTissueSelect', choices = groupTestingRestTissueList(), server = TRUE)
+  updateSelectizeInput(session, 'groupTestingRestTissueSelect', choices = groupTestingTissueList(), server = TRUE)
   #select cell line checkbox
   updateCheckboxInput(session, 'groupTestingRestCheckTissueAll', value = TRUE)
   
@@ -708,9 +999,13 @@ observeEvent(input$groupTestingCheckTissueAll, {
   if(isTRUE(input$groupTestingCheckTissueAll) | (!is.null(input$groupTestingTissueSelect))){
     enable("groupTestingCellLineSelect")
     enable("groupTestingCheckCellLineAll")
+    enable("groupTestingGeneDependencySelect")
+    enable("groupTestingGeneExpressionSelect")
   }else{
     disable("groupTestingCellLineSelect")
     disable("groupTestingCheckCellLineAll")
+    disable("groupTestingGeneDependencySelect")
+    disable("groupTestingGeneExpressionSelect")
   }
   
   groupTestingUpdateText()
@@ -723,9 +1018,22 @@ observeEvent(input$groupTestingCellLineSelect, {
     updateCheckboxInput(session, 'groupTestingCheckCellLineAll', value = FALSE)
   }
   
-  if(isTRUE(input$groupTestingCheckCellLineAll) | (!is.null(input$groupTestingCellLineSelect))){
-    enable("groupTestingLoadButton")
+  #update cell line selectbox
+  updateSelectizeInput(session, 'groupTestingRestTissueSelect', choices = groupTestingTissueList(), server = TRUE)
+  #select cell line checkbox
+  updateCheckboxInput(session, 'groupTestingRestCheckTissueAll', value = TRUE)
+  #update cell line selectbox
+  updateSelectizeInput(session, 'groupTestingRestCellLineSelect', choices = groupTestingRestCellLineList(), server = TRUE)
+  #select cell line checkbox
+  updateCheckboxInput(session, 'groupTestingRestCheckCellLineAll', value = TRUE)
+  
+  if(isTRUE(input$groupTestingCheckCellLineAll) | !is.null(input$groupTestingCellLineSelect)){
+    enable("groupTestingRest")
+    if(isTRUE(input$groupTestingRestCheckCellLineAll) | !is.null(input$groupTestingRestCellLineSelect)){
+      enable("groupTestingLoadButton")
+    }
   }else{
+    disable("groupTestingRest")
     disable("groupTestingLoadButton")
   }
   
@@ -739,14 +1047,51 @@ observeEvent(input$groupTestingCheckCellLineAll, {
     updateSelectizeInput(session, 'groupTestingCellLineSelect', choices = groupTestingCellLineList(), server = TRUE)
   }
   
-  if(isTRUE(input$groupTestingCheckCellLineAll) | (!is.null(input$groupTestingCellLineSelect))){
-    enable("groupTestingLoadButton")
+  #update cell line selectbox
+  updateSelectizeInput(session, 'groupTestingRestTissueSelect', choices = groupTestingTissueList(), server = TRUE)
+  #select cell line checkbox
+  updateCheckboxInput(session, 'groupTestingRestCheckTissueAll', value = TRUE)
+  #update cell line selectbox
+  updateSelectizeInput(session, 'groupTestingRestCellLineSelect', choices = groupTestingRestCellLineList(), server = TRUE)
+  #select cell line checkbox
+  updateCheckboxInput(session, 'groupTestingRestCheckCellLineAll', value = TRUE)
+  
+  if(isTRUE(input$groupTestingCheckCellLineAll) | !is.null(input$groupTestingCellLineSelect)){
+    enable("groupTestingRest")
+    if(length(groupTestingCellLineList()) > 0 & length(groupTestingTissueList()) > 0 & (isTRUE(input$groupTestingRestCheckCellLineAll) | !is.null(input$groupTestingRestCellLineSelect))){
+      enable("groupTestingLoadButton")
+    }
   }else{
+    disable("groupTestingRest")
     disable("groupTestingLoadButton")
   }
   
   groupTestingUpdateText()
   
+}, ignoreNULL = FALSE)
+
+observeEvent(input$groupTestingGeneDependencySelect, {
+  updateSelectizeInput(session, 'groupTestingCellLineSelect', choices = groupTestingCellLineList(), server = TRUE)
+  updateCheckboxInput(session, 'groupTestingCheckCellLineAll', value = FALSE)
+  
+  groupTestingUpdateText()
+  
+}, ignoreNULL = FALSE)
+
+observeEvent(input$groupTestingGeneExpressionSelect, {
+  updateSelectizeInput(session, 'groupTestingCellLineSelect', choices = groupTestingCellLineList(), server = TRUE)
+  updateCheckboxInput(session, 'groupTestingCheckCellLineAll', value = FALSE)
+  
+  groupTestingUpdateText()
+  
+}, ignoreNULL = FALSE)
+
+observeEvent(input$groupTestingGeneDependencySlider, {
+  updateSelectizeInput(session, 'groupTestingCellLineSelect', choices = groupTestingCellLineList(), server = TRUE)
+}, ignoreNULL = FALSE)
+
+observeEvent(input$groupTestingGeneExpressionSlider, {
+  updateSelectizeInput(session, 'groupTestingCellLineSelect', choices = groupTestingCellLineList(), server = TRUE)
 }, ignoreNULL = FALSE)
 
 ############# groupt testing rest group ##############
@@ -761,12 +1106,22 @@ observeEvent(input$groupTestingRestTissueSelect, {
   #select cell line checkbox
   updateCheckboxInput(session, 'groupTestingRestCheckCellLineAll', value = FALSE)
   #update cell line selectb
-  if(isTRUE(input$groupTestingRestCheckTissueAll) | (!is.null(input$groupTestingRestTissueSelect))){
-    enable("groupTestingRestCellLineSelect")
-    enable("groupTestingRestCheckCellLineAll")
-  }else{
-    disable("groupTestingRestCellLineSelect")
-    disable("groupTestingRestCheckCellLineAll")
+  if(isTRUE(input$groupTestingCheckCellLineAll) | !is.null(input$groupTestingCellLineSelect)){
+    if(isTRUE(input$groupTestingRestCheckTissueAll) | (!is.null(input$groupTestingRestTissueSelect))){
+      enable("groupTestingRestCellLineSelect")
+      enable("groupTestingRestCheckCellLineAll")
+      enable("groupTestingRestGeneDependencySelect")
+      enable("groupTestingRestGeneExpressionSelect")
+      enable("groupTestingRestGeneDependencySlider")
+      enable("groupTestingRestGeneExpressionSlider")
+    }else{
+      disable("groupTestingRestCellLineSelect")
+      disable("groupTestingRestCheckCellLineAll")
+      disable("groupTestingRestGeneDependencySelect")
+      disable("groupTestingRestGeneExpressionSelect")
+      disable("groupTestingRestGeneDependencySlider")
+      disable("groupTestingRestGeneExpressionSlider")
+    }
   }
   
   groupTestingUpdateText()
@@ -776,20 +1131,32 @@ observeEvent(input$groupTestingRestTissueSelect, {
 observeEvent(input$groupTestingRestCheckTissueAll, {
   if(isTRUE(input$groupTestingRestCheckTissueAll)){
     #reset tissue selectbox
-    updateSelectizeInput(session, 'groupTestingRestTissueSelect', choices = groupTestingRestTissueList(), server = TRUE)
+    updateSelectizeInput(session, 'groupTestingRestTissueSelect', choices = groupTestingTissueList(), server = TRUE)
   }
   
   #update cell line selectbox
   updateSelectizeInput(session, 'groupTestingRestCellLineSelect', choices = groupTestingRestCellLineList(), server = TRUE)
   #select cell line checkbox
-  updateCheckboxInput(session, 'groupTestingRestCheckCellLineAll', value = TRUE)
+  updateCheckboxInput(session, 'groupTestingRestCheckCellLineAll', value = FALSE)
+  
   #update cell line selectb
-  if(isTRUE(input$groupTestingRestCheckTissueAll) | (!is.null(input$groupTestingRestTissueSelect))){
-    enable("groupTestingRestCellLineSelect")
-    enable("groupTestingRestCheckCellLineAll")
-  }else{
-    disable("groupTestingRestCellLineSelect")
-    disable("groupTestingRestCheckCellLineAll")
+  if(isTRUE(input$groupTestingCheckCellLineAll) | !is.null(input$groupTestingCellLineSelect)){
+    if(isTRUE(input$groupTestingRestCheckTissueAll) | (!is.null(input$groupTestingRestTissueSelect))){
+      enable("groupTestingRestCellLineSelect")
+      enable("groupTestingRestCheckCellLineAll")
+      enable("groupTestingRestGeneDependencySelect")
+      enable("groupTestingRestGeneExpressionSelect")
+      enable("groupTestingRestGeneDependencySlider")
+      enable("groupTestingRestGeneExpressionSlider")
+      
+    }else{
+      disable("groupTestingRestCellLineSelect")
+      disable("groupTestingRestCheckCellLineAll")
+      disable("groupTestingRestGeneDependencySelect")
+      disable("groupTestingRestGeneExpressionSelect")
+      disable("groupTestingRestGeneDependencySlider")
+      disable("groupTestingRestGeneExpressionSlider")
+    }
   }
   
   groupTestingUpdateText()
@@ -802,10 +1169,11 @@ observeEvent(input$groupTestingRestCellLineSelect, {
     updateCheckboxInput(session, 'groupTestingRestCheckCellLineAll', value = FALSE)
   }
   
-  if(isTRUE(input$groupTestingRestCheckCellLineAll) | (!is.null(input$groupTestingRestCellLineSelect))){
-    enable("groupTestingRestLoadButton")
+  if((isTRUE(input$groupTestingCheckCellLineAll) | !is.null(input$groupTestingCellLineSelect)) & 
+     (isTRUE(input$groupTestingRestCheckCellLineAll) | !is.null(input$groupTestingRestCellLineSelect))){
+    enable("groupTestingLoadButton")
   }else{
-    disable("groupTestingRestLoadButton")
+    disable("groupTestingLoadButton")
   }
   
   groupTestingUpdateText()
@@ -818,15 +1186,43 @@ observeEvent(input$groupTestingRestCheckCellLineAll, {
     updateSelectizeInput(session, 'groupTestingRestCellLineSelect', choices = groupTestingRestCellLineList(), server = TRUE)
   }
   
-  if(isTRUE(input$groupTestingRestCheckCellLineAll) | (!is.null(input$groupTestingRestCellLineSelect))){
-    enable("groupTestingRestLoadButton")
+  if(length(groupTestingCellLineList()) > 0 & length(groupTestingTissueList()) > 0 & 
+     (isTRUE(input$groupTestingCheckCellLineAll) | !is.null(input$groupTestingCellLineSelect)) & 
+     (isTRUE(input$groupTestingRestCheckCellLineAll) | !is.null(input$groupTestingRestCellLineSelect))){
+    enable("groupTestingLoadButton")
   }else{
-    disable("groupTestingRestLoadButton")
+    disable("groupTestingLoadButton")
   }
   
   groupTestingUpdateText()
   
 }, ignoreNULL = FALSE)
+
+observeEvent(input$groupTestingRestGeneDependencySelect, {
+  updateSelectizeInput(session, 'groupTestingRestCellLineSelect', choices = groupTestingRestCellLineList(), server = TRUE)
+  updateCheckboxInput(session, 'groupTestingRestCheckCellLineAll', value = FALSE)
+  
+  groupTestingUpdateText()
+  
+}, ignoreNULL = FALSE)
+
+observeEvent(input$groupTestingRestGeneExpressionSelect, {
+  updateSelectizeInput(session, 'groupTestingRestCellLineSelect', choices = groupTestingRestCellLineList(), server = TRUE)
+  updateCheckboxInput(session, 'groupTestingRestCheckCellLineAll', value = FALSE)
+  
+  
+  groupTestingUpdateText()
+  
+}, ignoreNULL = FALSE)
+
+observeEvent(input$groupTestingRestGeneDependencySlider, {
+  updateSelectizeInput(session, 'groupTestingRestCellLineSelect', choices = groupTestingRestCellLineList(), server = TRUE)
+}, ignoreNULL = FALSE)
+
+observeEvent(input$groupTestingRestGeneExpressionSlider, {
+  updateSelectizeInput(session, 'groupTestingRestCellLineSelect', choices = groupTestingRestCellLineList(), server = TRUE)
+}, ignoreNULL = FALSE)
+
 
 #############################################
 
@@ -847,28 +1243,40 @@ output$groupTestingButtonDownload <- downloadHandler(
     contrast_table <- groupTestingContrastsDataTable()$x$data
     df <- groupTestingResultsDataFrame()
     
+    if(input$groupTestingDatasetSelect == "dependency"){
+      values <- df$avgLFC_Differential
+      df$values <- values
+      delta <- "delta LFC"
+      xaxis <- "avgLFC_Differential"
+    }else{
+      values <- df$avg_log2_TMM_rpkm_Differential
+      df$values <- values
+      delta <- "delta log2-TMM-RPKM"
+      xaxis <- "avg_log2_TMM_rpkm"
+    }
+    
     #plot
     df$log10_BF <- 10^(-df$log10_BF)
     p<-EnhancedVolcano(df,
                         lab = df$symbol,
-                        x = "avgLFC_Differential",
+                        x = "values",
                         y = "log10_BF",
                         pCutoff = 0.1,
                         FCcutoff = 0.25,
                         pointSize = 1.0,
-                        labSize = 2,
-                        max.overlaps = Inf,
-                        maxoverlapsConnectors = Inf,
+                        labSize = 1,
+                        max.overlaps = 5,
+                        maxoverlapsConnectors = 5,
                         drawConnectors = TRUE,
                         widthConnectors = 0.25,
                         arrowheads = F,
-                        legendLabels = c('Not sig.', 'delta LFC', 'BF', 'BF & delta LFC'),
+                        legendLabels = c("Not sig.", delta, "BF", paste0("BF & ", delta)),
                         legendPosition = 'right',
-                        legendLabSize = 16,
-                        legendIconSize = 5.0,
+                        legendLabSize = 10,
+                        legendIconSize = 3.0,
                         ylim = c(min(-log10(df$log10_BF)), max(-log10(df$log10_BF))),
-                        xlim = c(min(df$avgLFC_Differential), max(df$avgLFC_Differential))) + 
-      xlab("delta LFC") + 
+                        xlim = c(min(df$values), max(df$values))) + 
+      xlab(delta) + 
       ylab("Bayes Factor (log10)")
     
     #go to a temp dir to avoid permission issues
@@ -878,12 +1286,12 @@ output$groupTestingButtonDownload <- downloadHandler(
     
     #write each sheet to a csv file, save the name
     fileName <- "group_testing_results.pdf"
-    ggsave(fileName, p, "pdf", width=9, height=9)
+    ggsave(fileName, p, "pdf", width=12, height=9)
     files <- c(fileName,files)
     fileName <- "group_testing_results.txt"
     write_tsv(results_table,fileName)
     files <- c(fileName,files)
-    fileName <- "group_testing_contrasts.txt"
+    fileName <- "group_testing_metadata.txt"
     write_tsv(contrast_table,fileName)
     files <- c(fileName,files)
     

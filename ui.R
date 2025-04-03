@@ -1234,7 +1234,7 @@ body <- dashboardBody(
                              multiple = TRUE,
                              selected = NULL
                            )
-                         ),
+                         )
                       ),
                       box(width = NULL, solidHeader = TRUE,
                          disabled(
@@ -1252,7 +1252,7 @@ body <- dashboardBody(
                            min = -1,
                            max = 0,
                            value = -0.5
-                         ),
+                         )
                      ),
                      box(width = NULL, solidHeader = TRUE,
                          disabled(
@@ -1270,14 +1270,14 @@ body <- dashboardBody(
                            min = 0,
                            max = 15,
                            value = 1
-                         ),
+                         )
                      ),
                      box(width = NULL, solidHeader = TRUE,
                          disabled(
                            selectizeInput(
                              inputId = "cellLineSelectorHLAtypeSelect",
                              label = "HLA-type:",
-                             choices = c("-"="none", "HLA-A"="HLA_A","HLA_B"="HLA_B","HLA_C"="HLA_C","HLA_DQA1"="HLA_DQA1","HLA_DQB1"="HLA_DQB1","HLA_DRB1"="HLA_DRB1"),
+                             choices = c("-"="none", "HLA-A"="HLA-A","HLA-B"="HLA-B","HLA-C"="HLA-C","HLA-DQA1"="HLA-DQA1","HLA-DQB1"="HLA-DQB1","HLA-DRB1"="HLA-DRB1"),
                              multiple = FALSE,
                              selected = NULL
                            )
@@ -1297,7 +1297,7 @@ body <- dashboardBody(
                            min = 0,
                            max = 1000,
                            value = 5
-                         ),
+                         )
                      ),
                      box(width = NULL, solidHeader = TRUE,
                          disabled(
@@ -1317,7 +1317,7 @@ body <- dashboardBody(
                              multiple = TRUE,
                              selected = NULL
                            )
-                         ),
+                         )
                      ),
                      box(width = NULL, solidHeader = TRUE,
                          disabled(
@@ -1337,7 +1337,7 @@ body <- dashboardBody(
                              multiple = TRUE,
                              selected = NULL
                            )
-                         ),
+                         )
                      ),
                      box(width = NULL, solidHeader = TRUE,
                          disabled(
@@ -1382,7 +1382,7 @@ body <- dashboardBody(
                          radioButtons(
                            "groupTestingSpeciesSelect",
                            label = "Species:",
-                           choices = list("Human" = "human", "Mouse" = "mouse"),
+                           choices = list("Human" = "human"),
                            selected = "human",
                            inline = T
                          ),
@@ -1413,7 +1413,7 @@ body <- dashboardBody(
                            inputId = "groupTestingCheckLibraryAll",
                            label = " Consider all libraries",
                            value = TRUE
-                         ),
+                         )
                      ),
                      box(title = "Target group", width = NULL, solidHeader = TRUE,
                          selectizeInput(
@@ -1426,54 +1426,104 @@ body <- dashboardBody(
                          checkboxInput(
                            inputId = "groupTestingCheckTissueAll",
                            label = "Consider all tissues",
-                           value = FALSE
+                           value = TRUE
                          ),
-                         disabled(
-                           selectizeInput(
-                             inputId = "groupTestingCellLineSelect",
-                             label = "Cell Line:",
-                             choices = NULL,
-                             multiple = TRUE,
-                             selected = NULL
-                           )
-                         ),
-                         disabled(
-                           checkboxInput(
-                             inputId = "groupTestingCheckCellLineAll",
-                             label = "Consider all cell lines",
-                             value = FALSE
-                           )
-                         )
-                     ),
-                     box(title = "Control group", width = NULL, solidHeader = TRUE,
                          selectizeInput(
-                           inputId = "groupTestingRestTissueSelect",
-                           label = "Other Tissue:",
+                           inputId = "groupTestingGeneDependencySelect",
+                           label = "Gene dependency:",
+                           choices = NULL,
+                           multiple = TRUE,
+                           selected = NULL
+                         ),
+                         sliderInput(
+                           "groupTestingGeneDependencySlider", 
+                           "Filter for cell lines with scaled gene dependency stronger or euqal than (-1 equals to mean essential gene dropout):",
+                           min = -1,
+                           max = 0,
+                           value = c(-0.66)
+                         ),
+                         selectizeInput(
+                           inputId = "groupTestingGeneExpressionSelect",
+                           label = "Gene expression:",
+                           choices = NULL,
+                           multiple = TRUE,
+                           selected = NULL
+                         ),
+                         sliderInput(
+                           "groupTestingGeneExpressionSlider", 
+                           "Filter for cell lines with gene expression higher or equal than (log2-TPMs):",
+                           min = 0,
+                           max = 15,
+                           value = c(5)
+                         ),
+                         selectizeInput(
+                           inputId = "groupTestingCellLineSelect",
+                           label = "Cell Line:",
                            choices = NULL,
                            multiple = TRUE,
                            selected = NULL
                          ),
                          checkboxInput(
-                           inputId = "groupTestingRestCheckTissueAll",
-                           label = "Consider all other tissues",
+                           inputId = "groupTestingCheckCellLineAll",
+                           label = "Consider all cell lines",
                            value = FALSE
                          ),
-                         disabled(
+                     ),
+                     disabled(
+                       box(id="groupTestingRest", title = "Control group", width = NULL, solidHeader = TRUE,
+                           selectizeInput(
+                             inputId = "groupTestingRestTissueSelect",
+                             label = "Other Tissue:",
+                             choices = NULL,
+                             multiple = TRUE,
+                             selected = NULL
+                           ),
+                           checkboxInput(
+                             inputId = "groupTestingRestCheckTissueAll",
+                             label = "Consider all other tissues",
+                             value = FALSE
+                           ),
+                           selectizeInput(
+                             inputId = "groupTestingRestGeneDependencySelect",
+                             label = "Gene dependency:",
+                             choices = NULL,
+                             multiple = TRUE,
+                             selected = NULL
+                           ),
+                           sliderInput(
+                             "groupTestingRestGeneDependencySlider", 
+                             "Filter for cell lines with scaled gene dependency weaker or euqal than (-1 equals to mean essential gene dropout):",
+                             min = -1,
+                             max = 0,
+                             value = c(-0.33)
+                           ),
+                           selectizeInput(
+                             inputId = "groupTestingRestGeneExpressionSelect",
+                             label = "Gene expression:",
+                             choices = NULL,
+                             multiple = TRUE,
+                             selected = NULL
+                           ),
+                           sliderInput(
+                             "groupTestingRestGeneExpressionSlider", 
+                             "Filter for cell lines with gene expression lower or equal than (log2-TPMs):",
+                             min = 0,
+                             max = 15,
+                             value = c(0)
+                           ),
                            selectizeInput(
                              inputId = "groupTestingRestCellLineSelect",
                              label = "Other Cell Line:",
                              choices = NULL,
                              multiple = TRUE,
                              selected = NULL
-                           )
-                         ),
-                         disabled(
+                           ),
                            checkboxInput(
                              inputId = "groupTestingRestCheckCellLineAll",
                              label = "Consider all other cell lines",
                              value = FALSE
                            )
-                         )
+                       )
                      ),
                      box(width = NULL, solidHeader = TRUE,
                        disabled(

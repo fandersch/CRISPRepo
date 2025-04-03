@@ -84,12 +84,12 @@ slamseqDataTotalDataFrame <- reactive({
     unit <- ifelse(local(input$slamseqDataUnitSelect) == "rpm", "TPM", "count")
     
     df_quant <- df_quant %>%
-      dplyr::select(sample_id, entrez_id, symbol, matches(unit)) %>%
+      dplyr::select(sample_id, entrez_id, symbol, ends_with(unit)) %>%
       distinct() %>%
       collect() %>%
       mutate(sample_id = as.character(sample_id)) %>%
       left_join(sample_list_quantseq %>% dplyr::select(sample_id, sample_name, species) %>% distinct) %>%
-      dplyr::rename(expression_value = matches(unit))
+      dplyr::rename(expression_value = ends_with(unit))
     
     DBI::dbDisconnect(con_quantseq)
   }
@@ -112,15 +112,15 @@ slamseqDataTotalDataFrame <- reactive({
         dplyr::filter(entrez_id %in% presel_gene_entrez)
     }
     
-    unit <- ifelse(local(input$slamseqDataUnitSelect) == "rpm", "RPMu", "TCcount")
+    unit <- ifelse(local(input$slamseqDataUnitSelect) == "rpm", "RPM", "TCcount")
     
     df_slam <- df_slam %>%
-      dplyr::select(sample_id, entrez_id, symbol, matches(unit)) %>%
+      dplyr::select(sample_id, entrez_id, symbol, ends_with(unit)) %>%
       distinct() %>%
       collect() %>%
       mutate(sample_id = as.character(sample_id)) %>%
       left_join(sample_list_slamseq %>% dplyr::select(sample_id, sample_name, species) %>% distinct) %>%
-      dplyr::rename(expression_value = matches(unit))
+      dplyr::rename(expression_value = ends_with(unit))
     
     DBI::dbDisconnect(con_slamseq)
   }
@@ -205,7 +205,7 @@ slamseqDataTotalDataTable <- eventReactive(input$slamseqDataLoadButton,{
     
     max_value_slam <- 0
     if("slam" %in% input$slamseqDataIncludeDataset){
-      unit <- ifelse(local(input$slamseqDataUnitSelect) == "rpm", "RPMu", "TCcount")
+      unit <- ifelse(local(input$slamseqDataUnitSelect) == "rpm", "RPM", "TCcount")
       #get value between max and average
       con_slamseq <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "databases/slamseq.db")
       values <- con_slamseq %>%

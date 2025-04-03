@@ -159,6 +159,10 @@ function(input, output, session) {
   source(file = "server/cell_line_selector.R", local = T)
   updateSelectizeInput(session, 'cellLineSelectorTissueSelect', choices = tissue_list_cellLine, server = TRUE)
   updateSelectizeInput(session, 'cellLineSelectorGeneMutationSelect', choices = gene_list_cellLine$symbol, server = TRUE)
+  updateSelectizeInput(session, 'cellLineSelectorGeneCNVSelect', choices = gene_list_cellLine$symbol, server = TRUE)
+  updateSelectizeInput(session, 'cellLineSelectorGeneCNVCategorySelect', choices = cn_category_cellLine, server = TRUE)
+  
+  
   
   # ----------------------------------------------------------------------------
   # Gene of interest

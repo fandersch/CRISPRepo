@@ -206,6 +206,13 @@ tissue_list_cellLine <- cellline_list_cellLine %>%
   arrange(tissue_name) %>%
   .$tissue_name
 
+cn_category_cellLine <- con_cell_lines %>%
+  tbl("cell_line_gene_cnv") %>%
+  dplyr::select(cn_category) %>%
+  distinct() %>%
+  collect() %>%
+  .$cn_category
+
 #patient
 patient_cancer_types <- con_patient_data %>%
   tbl("curated_set_non_redundant_sample_info") %>%

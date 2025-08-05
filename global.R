@@ -190,7 +190,8 @@ loadExpressionDataTissueList <- F
 #cell line
 cellline_list_cellLine <- con_cell_lines %>%
   tbl("cell_line_meta") %>%
-  dplyr::select(cell_line_name, tissue_name, cell_line_id) %>%
+  dplyr::select(cell_line_name, tissue_name, cell_line_id, SangerCellModelPassports_cancer_type, SangerCellModelPassports_cancer_type_detail, 
+                BroadDepMap_OncotreeSubtype, BroadDepMap_OncotreePrimaryDisease) %>%
   distinct() %>%
   arrange(cell_line_name) %>%
   collect
@@ -222,9 +223,34 @@ patient_cancer_types <- con_patient_data %>%
   collect() %>%
   .$cancer_type
 
+patient_cancer_types_pediatric <- con_patient_data %>%
+  tbl("curated_set_non_redundant_sample_info") %>%
+  dplyr::select(cancer_type_pediatric) %>%
+  distinct() %>%
+  arrange(cancer_type_pediatric) %>%
+  collect() %>%
+  .$cancer_type_pediatric
+
+patient_studies <- con_patient_data %>%
+  tbl("curated_set_non_redundant_sample_info") %>%
+  dplyr::select(study_name) %>%
+  distinct() %>%
+  arrange(study_name) %>%
+  collect() %>%
+  .$study_name
+
+patient_studies_pediatric <- con_patient_data %>%
+  tbl("curated_set_non_redundant_sample_info") %>%
+  dplyr::filter(pediatric) %>%
+  dplyr::select(study_name) %>%
+  distinct() %>%
+  arrange(study_name) %>%
+  collect() %>%
+  .$study_name
+
 patient_genes_all <- con_patient_data %>%
   tbl("genes") %>%
-  dplyr::select(cancer_type, entrez_id, symbol) %>%
+  dplyr::select(cancer_type, cancer_type_pediatric, study_name, entrez_id, symbol) %>%
   distinct() %>%
   arrange(symbol) %>%
   collect()

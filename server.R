@@ -175,8 +175,6 @@ function(input, output, session) {
   # ----------------------------------------------------------------------------
   
   source(file = "server/group_testing.R", local = T)
-  updateSelectizeInput(session, 'groupTestingTissueSelect', choices = tissue_list_screens, server = TRUE)
-  updateSelectizeInput(session, 'groupTestingRestTissueSelect', choices = tissue_list_screens, server = TRUE)
 
   # ----------------------------------------------------------------------------
   # Correlations

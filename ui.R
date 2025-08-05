@@ -1026,23 +1026,48 @@ body <- dashboardBody(
                             box(width = NULL, solidHeader = TRUE, htmlOutput((outputId="patientMutationInfo"))))),
             fluidRow(
               column(width = 9,
-                     box(title = "Gene alterations heatmap", status = "success", width=NULL, solidHeader = TRUE, collapsible = TRUE, collapsed=F, withSpinner(imageOutput(outputId="patientMutationHeatmapAlterations", width="100%", height="16px"))),
+                     box(title = "Gene alterations heatmap", status = "success", width=NULL, solidHeader = TRUE, collapsible = TRUE, collapsed=F, withSpinner(imageOutput(outputId="patientMutationHeatmapAlterations", width="100%", height="20px"))),
                      box(title = "Gene alterations", status = "warning", width = NULL, solidHeader = TRUE, collapsible = TRUE, collapsed=F, withSpinner(dataTableOutput(outputId="patientMutationDataTableAlterations"))),
                      box(title = "Gene mutations ", status = "danger", width = NULL, solidHeader = TRUE, collapsible = TRUE, collapsed=F, withSpinner(dataTableOutput(outputId="patientMutationDataTableMutations"))),
                      box(title = "Gene fusions ", status = "danger", width = NULL, solidHeader = TRUE, collapsible = TRUE, collapsed=F, withSpinner(dataTableOutput(outputId="patientMutationDataTableFusions"))),
                      box(title = "Gene CNVs", status = "danger", width = NULL, solidHeader = TRUE, collapsible = TRUE, collapsed=F, withSpinner(dataTableOutput(outputId="patientMutationDataTableCNVs")))),
               column(width = 3,
                      box(width = NULL, solidHeader = TRUE,
+                         radioButtons(
+                           "patientMutationDataSourceSelect",
+                           label = "Data sources:",
+                           choices = list("All" = "all", "Pediatric studies" = "pediatric", "Non-pediatric studies" = "non_pediatric"),
+                           selected = c("all"),
+                           inline = T
+                         ),
+                         radioButtons(
+                           "patientMutationDataTypeSelect",
+                           label = "Focus on:",
+                           choices = list("Alterations (any gene modification)" = "alterations", 
+                                          "Deletions" = "deletions", 
+                                          "Amplifications" = "amplifications", 
+                                          "Mutations"="mutations", 
+                                          "Fusions"="fusions"),
+                           selected = c("alterations"),
+                           inline = F
+                         ),
+                         radioButtons(
+                           "patientMutationDataGrouping",
+                           label = "Grouping by:",
+                           choices = list("Cancer type" = "cancer_type", "Study" = "study_name"),
+                           selected = c("cancer_type"),
+                           inline = T
+                         ),
                          selectizeInput(
-                           inputId = "patientMutationCancerTypeSelect",
-                           label = "Cancer type:",
+                           inputId = "patientMutationGroupSelect",
+                           label = "Group:",
                            choices = NULL,
                            multiple = TRUE,
                            selected = NULL
                          ),
                          checkboxInput(
-                           inputId = "patientMutationCheckCancerTypeAll",
-                           label = "Search all cancer types",
+                           inputId = "patientMutationCheckGroupAll",
+                           label = "Search all groups",
                            value = FALSE
                          ),
                          selectizeInput(
@@ -1056,6 +1081,20 @@ body <- dashboardBody(
                                             accept = c(
                                               "text/csv",
                                               "text/comma-separated-values,text/plain")
+                         ),
+                         checkboxInput(
+                           inputId = "patientMutationCheckAgeFiltering",
+                           label = "Filter patients by Age",
+                           value = FALSE
+                         ),
+                         disabled(
+                           sliderInput(
+                           "patientMutationAgeFiltering", 
+                           "Age of patients:",
+                           min = 0,
+                           max = 100,
+                           value = c(0, 18)
+                          )
                          ),
                          sliderInput(
                            "patientMutationMinPatients", 
@@ -1417,15 +1456,24 @@ body <- dashboardBody(
                      ),
                      box(title = "Target group", width = NULL, solidHeader = TRUE,
                          selectizeInput(
-                           inputId = "groupTestingTissueSelect",
-                           label = "Tissue:",
+                           inputId = "groupTestingFilteringGroupSelect",
+                           label = "Tissue/Cancer type filtering groups:",
+                           choices = c("Tissue"="tissue_name", "Cancer Type (Cell-Model-Passports)"="SangerCellModelPassports_cancer_type", 
+                                      "Cancer Type Detail (Cell-Model-Passports)"="SangerCellModelPassports_cancer_type_detail", 
+                                      "Oncotree Subtype (DepMap)"="BroadDepMap_OncotreeSubtype", "Oncrotree Primary Disease (DepMap)"="BroadDepMap_OncotreePrimaryDisease"),
+                           multiple = TRUE,
+                           selected = c("tissue_name")
+                         ),
+                         selectizeInput(
+                           inputId = "groupTestingFilteringValueSelect",
+                           label = "Tissue/Cancer type filtering values:",
                            choices = NULL,
                            multiple = TRUE,
                            selected = NULL
                          ),
                          checkboxInput(
                            inputId = "groupTestingCheckTissueAll",
-                           label = "Consider all tissues",
+                           label = "Consider all tissues/cancer types",
                            value = TRUE
                          ),
                          selectizeInput(
@@ -1471,16 +1519,26 @@ body <- dashboardBody(
                      ),
                      disabled(
                        box(id="groupTestingRest", title = "Control group", width = NULL, solidHeader = TRUE,
+                           
                            selectizeInput(
-                             inputId = "groupTestingRestTissueSelect",
-                             label = "Other Tissue:",
+                             inputId = "groupTestingRestFilteringGroupSelect",
+                             label = "Other tissue/cancer type filtering groups:",
+                             choices = c("Tissue"="tissue_name", "Cancer Type (Cell-Model-Passports)"="SangerCellModelPassports_cancer_type", 
+                                         "Cancer Type Detail (Cell-Model-Passports)"="SangerCellModelPassports_cancer_type_detail", 
+                                         "Oncotree Subtype (DepMap)"="BroadDepMap_OncotreeSubtype", "Oncrotree Primary Disease (DepMap)"="BroadDepMap_OncotreePrimaryDisease"),
+                             multiple = TRUE,
+                             selected = c("tissue_name")
+                           ),
+                           selectizeInput(
+                             inputId = "groupTestingRestFilteringValueSelect",
+                             label = "Other tissue/cancer type filtering values:",
                              choices = NULL,
                              multiple = TRUE,
                              selected = NULL
                            ),
                            checkboxInput(
                              inputId = "groupTestingRestCheckTissueAll",
-                             label = "Consider all other tissues",
+                             label = "Consider all other tissues/cancer types",
                              value = FALSE
                            ),
                            selectizeInput(

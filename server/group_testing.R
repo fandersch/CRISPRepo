@@ -3,7 +3,7 @@
 # ----------------------------------------------------------------------------
 groupTestingUpdateText <- function(){
   output$groupTestingInfo <- renderText({
-    if(is.null(input$groupTestingTissueSelect) & !isTRUE(input$groupTestingCheckTissueAll)){
+    if(is.null(input$groupTestingFilteringValueSelect) & !isTRUE(input$groupTestingCheckTissueAll)){
       invisible("INFO: Please select the tissue(s) in the right panel!")
     }else{
       if(is.null(input$groupTestingCellLineSelect) & !isTRUE(input$groupTestingCheckCellLineAll)){
@@ -130,7 +130,7 @@ groupTestingResultsDataFrame <- reactive({
       distinct() %>%
       arrange(cell_line_name) %>%
       collect() %>%
-      rename(cellline_name=cell_line_name)
+      dplyr::rename(cellline_name=cell_line_name)
     
     DBI::dbDisconnect(con_expression)
     
@@ -251,7 +251,7 @@ groupTestingContrastsDataFrame <- reactive({
       distinct() %>%
       arrange(cell_line_name) %>%
       collect() %>%
-      rename(cellline_name=cell_line_name)
+      dplyr::rename(cellline_name=cell_line_name)
     
     DBI::dbDisconnect(con_expression)
     
@@ -454,7 +454,8 @@ groupTestingLibraryList <- reactive({
   
 })
 
-groupTestingTissueList <- reactive({
+
+groupTestingFilteringValuesList <- reactive({
   
   if(input$groupTestingDatasetSelect == "dependency"){
     contrasts_dropout <- contrasts %>%
@@ -467,18 +468,60 @@ groupTestingTissueList <- reactive({
     }else{
       library <- local(input$groupTestingLibrarySelect)
     }
-    tissues <- contrasts_dropout %>%
-      filter(library_id %in% library)
+    
+    cell_lines_meta <- cellline_list_cellLine %>%
+      filter(cell_line_name %in% c(contrasts_dropout %>%
+                                    filter(library_id %in% library) %>%
+                                    .$cellline_name))
+    
   }else{
-    tissues <- cellline_list_expressionData %>%
-      filter(species == local(input$groupTestingSpeciesSelect))
+    cell_lines_meta <- cellline_list_cellLine %>%
+      filter(cell_line_name %in% c(cellline_list_expressionData %>% .$cell_line_name))
   }
   
-  tissues %>% 
-    dplyr::select(tissue_name) %>%
+  filtering_groups <- local(input$groupTestingFilteringGroupSelect)
+  
+  cell_lines_meta %>% 
+    dplyr::select(any_of(filtering_groups)) %>%
     distinct() %>%
-    arrange(tissue_name) %>%
-    .$tissue_name
+    unlist %>%
+    as.character %>%
+    sort()
+  
+})
+
+groupTestingRestFilteringValuesList <- reactive({
+  
+  if(input$groupTestingDatasetSelect == "dependency"){
+    contrasts_dropout <- contrasts %>%
+      filter(species == local(input$groupTestingSpeciesSelect), type == "dropout", reference_type == "reference")
+    
+    if(isTRUE(input$groupTestingCheckLibraryAll)){
+      library <- contrasts_dropout %>%
+        .$library_id %>%
+        unique
+    }else{
+      library <- local(input$groupTestingLibrarySelect)
+    }
+    
+    cell_lines_meta <- cellline_list_cellLine %>%
+      filter(cell_line_name %in% c(contrasts_dropout %>%
+                                     filter(library_id %in% library) %>%
+                                     .$cellline_name))
+    
+  }else{
+    cell_lines_meta <- cellline_list_cellLine %>%
+      filter(cell_line_name %in% c(cellline_list_expressionData %>% .$cell_line_name))
+  }
+  
+  filtering_groups <- local(input$groupTestingRestFilteringGroupSelect)
+  
+  cell_lines_meta %>% 
+    dplyr::select(any_of(filtering_groups)) %>%
+    distinct() %>%
+    unlist %>%
+    as.character %>%
+    sort()
   
 })
 
@@ -522,25 +565,36 @@ groupTestingCellLineList <- reactive({
     preselLibrary <- input$groupTestingLibrarySelect
   }
   
-  preselTissue <- groupTestingTissueList()
-  if(!isTRUE(input$groupTestingCheckTissueAll) & !is.null(input$groupTestingTissueSelect)){
-    preselTissue <- input$groupTestingTissueSelect
+  preselFilteringValue <- groupTestingFilteringValuesList()
+  filtering_groups <- local(input$groupTestingFilteringGroupSelect)
+  if(!isTRUE(input$groupTestingCheckTissueAll) & !is.null(input$groupTestingFilteringValueSelect)){
+    preselFilteringValue <- input$groupTestingFilteringValueSelect
   }
   
   if(input$groupTestingDatasetSelect == "dependency"){
-    cell_lines <- contrasts %>%
-      filter(library_id %in% preselLibrary) %>%
-      dplyr::rename(cell_line_name = cellline_name)
+    
+    contrasts_dropout <- contrasts %>%
+      filter(species == local(input$groupTestingSpeciesSelect), type == "dropout", reference_type == "reference")
+
+    cell_lines <- cellline_list_cellLine %>%
+      filter(cell_line_name %in% c(contrasts_dropout %>%
+                                     filter(library_id %in% preselLibrary) %>%
+                                     .$cellline_name))
+    
   }else{
-    cell_lines <- cellline_list_expressionData
+    cell_lines <- cellline_list_cellLine %>%
+      filter(cell_line_name %in% c(cellline_list_expressionData %>% .$cell_line_name))
   }
   
   cell_lines <- cell_lines %>%
-    dplyr::filter(tissue_name %in% preselTissue, species == local(input$groupTestingSpeciesSelect)) %>%
-    dplyr::select(cell_line_name) %>%
-    arrange(cell_line_name) %>%
-    .$cell_line_name
+    dplyr::select(cell_line_name, tissue_name, SangerCellModelPassports_cancer_type, SangerCellModelPassports_cancer_type_detail, 
+                  BroadDepMap_OncotreeSubtype, BroadDepMap_OncotreePrimaryDisease) %>%
+    pivot_longer(!cell_line_name, names_to = "FilteringGroup", values_to = "FilteringValue") %>%
+    dplyr::filter(FilteringGroup %in% filtering_groups) %>%
+    dplyr::filter(FilteringValue %in% preselFilteringValue) %>%
+    .$cell_line_name %>% unique %>% sort
   
+
   #get cell lines with requested gene dependency
   if(!is.null(input$groupTestingGeneDependencySelect) & length(cell_lines) > 0){
     con <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "databases/screen.db")
@@ -644,9 +698,10 @@ groupTestingRestCellLineList <- reactive({
     preselLibrary <- input$groupTestingLibrarySelect
   }
 
-  preselTissue <- groupTestingTissueList()
-  if(!isTRUE(input$groupTestingRestCheckTissueAll) & !is.null(input$groupTestingRestTissueSelect)){
-    preselTissue <- input$groupTestingRestTissueSelect
+  preselRestFilteringValue <- groupTestingRestFilteringValuesList()
+  rest_filtering_groups <- local(input$groupTestingRestFilteringGroupSelect)
+  if(!isTRUE(input$groupTestingRestCheckTissueAll) & !is.null(input$groupTestingRestFilteringValueSelect)){
+    preselRestFilteringValue <- input$groupTestingRestFilteringValueSelect
   }
   
   preselCellLinesTarget <- c()
@@ -659,19 +714,28 @@ groupTestingRestCellLineList <- reactive({
   }
   
   if(input$groupTestingDatasetSelect == "dependency"){
-    cell_lines <- contrasts %>%
-      filter(library_id %in% preselLibrary) %>%
-      dplyr::rename(cell_line_name = cellline_name)
+    
+    contrasts_dropout <- contrasts %>%
+      filter(species == local(input$groupTestingSpeciesSelect), type == "dropout", reference_type == "reference")
+    
+    cell_lines <- cellline_list_cellLine %>%
+      filter(cell_line_name %in% c(contrasts_dropout %>%
+                                     filter(library_id %in% preselLibrary) %>%
+                                     .$cellline_name))
+    
   }else{
-    cell_lines <- cellline_list_expressionData
+    cell_lines <- cellline_list_cellLine %>%
+      filter(cell_line_name %in% c(cellline_list_expressionData %>% .$cell_line_name))
   }
   
   cell_lines <- cell_lines %>%
-    dplyr::filter(tissue_name %in% preselTissue, species == local(input$groupTestingSpeciesSelect), !cell_line_name %in% preselCellLinesTarget) %>%
-    dplyr::select(cell_line_name) %>%
-    arrange(cell_line_name) %>%
-    .$cell_line_name %>%
-    unique
+    dplyr::filter(!cell_line_name %in% preselCellLinesTarget) %>%
+    dplyr::select(cell_line_name, tissue_name, SangerCellModelPassports_cancer_type, SangerCellModelPassports_cancer_type_detail, 
+                  BroadDepMap_OncotreeSubtype, BroadDepMap_OncotreePrimaryDisease) %>%
+    pivot_longer(!cell_line_name, names_to = "FilteringGroup", values_to = "FilteringValue") %>%
+    dplyr::filter(FilteringGroup %in% rest_filtering_groups) %>%
+    dplyr::filter(FilteringValue %in% preselRestFilteringValue) %>%
+    .$cell_line_name %>% unique %>% sort
   
   #get cell lines with requested gene dependency
   if(!is.null(input$groupTestingRestGeneDependencySelect) & length(cell_lines) > 0){
@@ -800,7 +864,7 @@ observeEvent(input$groupTestingSpeciesSelect, {
   #select checbox library
   updateCheckboxInput(session, 'groupTestingCheckLibraryAll', value = TRUE)
   #update tissue selectbox
-  updateSelectizeInput(session, 'groupTestingTissueSelect', choices = groupTestingTissueList(), server = TRUE)
+  updateSelectizeInput(session, 'groupTestingFilteringValueSelect', choices = groupTestingFilteringValuesList(), server = TRUE)
   #select checbox tissue
   updateCheckboxInput(session, 'groupTestingCheckTissueAll', value = TRUE)
   #update cell line selectbox
@@ -812,7 +876,7 @@ observeEvent(input$groupTestingSpeciesSelect, {
   #update gene expression selectbox
   updateSelectizeInput(session, 'groupTestingGeneExpressionSelect', choices = groupTestingGeneExpressionList(), server = TRUE)
   #update tissue selectbox
-  updateSelectizeInput(session, 'groupTestingRestTissueSelect', choices = groupTestingTissueList(), server = TRUE)
+  updateSelectizeInput(session, 'groupTestingRestFilteringValueSelect', choices = groupTestingRestFilteringValuesList(), server = TRUE)
   #select checbox tissue
   updateCheckboxInput(session, 'groupTestingRestCheckTissueAll', value = FALSE)
   #update cell line selectbox
@@ -845,7 +909,7 @@ observeEvent(input$groupTestingDatasetSelect, {
   #select checbox library
   updateCheckboxInput(session, 'groupTestingCheckLibraryAll', value = TRUE)
   #update tissue selectbox
-  updateSelectizeInput(session, 'groupTestingTissueSelect', choices = groupTestingTissueList(), server = TRUE)
+  updateSelectizeInput(session, 'groupTestingFilteringValueSelect', choices = groupTestingFilteringValuesList(), server = TRUE)
   #select checbox tissue
   updateCheckboxInput(session, 'groupTestingCheckTissueAll', value = TRUE)
   #update cell line selectbox
@@ -853,7 +917,7 @@ observeEvent(input$groupTestingDatasetSelect, {
   #select cell line checkbox
   updateCheckboxInput(session, 'groupTestingCheckCellLineAll', value = FALSE)
   #update tissue selectbox
-  updateSelectizeInput(session, 'groupTestingRestTissueSelect', choices = groupTestingTissueList(), server = TRUE)
+  updateSelectizeInput(session, 'groupTestingRestFilteringValueSelect', choices = groupTestingRestFilteringValuesList(), server = TRUE)
   #select checbox tissue
   updateCheckboxInput(session, 'groupTestingRestCheckTissueAll', value = FALSE)
   #update cell line selectbox
@@ -866,19 +930,19 @@ observeEvent(input$groupTestingDatasetSelect, {
 }, ignoreNULL = FALSE)
 
 observeEvent(input$groupTestingSearchRadio, {
-  if(!is.null(input$groupTestingTissueSelect)){
+  if(!is.null(input$groupTestingFilteringValueSelect)){
     #unselect checkbox tissue
     updateCheckboxInput(session, 'groupTestingCheckTissueAll', value = TRUE)
   }
   
   #update tissue selectbox
-  updateSelectizeInput(session, 'groupTestingTissueSelect', choices = groupTestingTissueList(), server = TRUE)
+  updateSelectizeInput(session, 'groupTestingFilteringValueSelect', choices = groupTestingFilteringValuesList(), server = TRUE)
   #update cell line selectbox
   updateSelectizeInput(session, 'groupTestingCellLineSelect', choices = groupTestingCellLineList(), server = TRUE)
   #select cell line checkbox
   updateCheckboxInput(session, 'groupTestingCheckCellLineAll', value = FALSE)
   #update tissue selectbox
-  updateSelectizeInput(session, 'groupTestingRestTissueSelect', choices = groupTestingTissueList(), server = TRUE)
+  updateSelectizeInput(session, 'groupTestingRestFilteringValueSelect', choices = groupTestingRestFilteringValuesList(), server = TRUE)
   #select checbox tissue
   updateCheckboxInput(session, 'groupTestingRestCheckTissueAll', value = FALSE)
   #update cell line selectbox
@@ -899,7 +963,7 @@ observeEvent(input$groupTestingLibrarySelect, {
   }
   
   #update tissue selectbox
-  updateSelectizeInput(session, 'groupTestingTissueSelect', choices = groupTestingTissueList(), server = TRUE)
+  updateSelectizeInput(session, 'groupTestingFilteringValueSelect', choices = groupTestingFilteringValuesList(), server = TRUE)
   #select tissue checkbox
   updateCheckboxInput(session, 'groupTestingCheckTissueAll', value = TRUE)
   #update cell line selectbox
@@ -907,7 +971,7 @@ observeEvent(input$groupTestingLibrarySelect, {
   #select cell line checkbox
   updateCheckboxInput(session, 'groupTestingCheckCellLineAll', value = FALSE)
   #update tissue selectbox
-  updateSelectizeInput(session, 'groupTestingRestTissueSelect', choices = groupTestingTissueList(), server = TRUE)
+  updateSelectizeInput(session, 'groupTestingRestFilteringValueSelect', choices = groupTestingRestFilteringValuesList(), server = TRUE)
   #select checbox tissue
   updateCheckboxInput(session, 'groupTestingRestCheckTissueAll', value = FALSE)
   #update cell line selectbox
@@ -926,7 +990,7 @@ observeEvent(input$groupTestingCheckLibraryAll, {
   }
   
   #update tissue selectbox
-  updateSelectizeInput(session, 'groupTestingTissueSelect', choices = groupTestingTissueList(), server = TRUE)
+  updateSelectizeInput(session, 'groupTestingFilteringValueSelect', choices = groupTestingFilteringValuesList(), server = TRUE)
   #select tissue checkbox
   updateCheckboxInput(session, 'groupTestingCheckTissueAll', value = TRUE)
   #update cell line selectbox
@@ -934,7 +998,7 @@ observeEvent(input$groupTestingCheckLibraryAll, {
   #select cell line checkbox
   updateCheckboxInput(session, 'groupTestingCheckCellLineAll', value = FALSE)
   #update tissue selectbox
-  updateSelectizeInput(session, 'groupTestingRestTissueSelect', choices = groupTestingTissueList(), server = TRUE)
+  updateSelectizeInput(session, 'groupTestingRestFilteringValueSelect', choices = groupTestingRestFilteringValuesList(), server = TRUE)
   #select checbox tissue
   updateCheckboxInput(session, 'groupTestingRestCheckTissueAll', value = FALSE)
   #update cell line selectbox
@@ -948,23 +1012,27 @@ observeEvent(input$groupTestingCheckLibraryAll, {
 
 ############# group testing target group ##############
 
-observeEvent(input$groupTestingTissueSelect, {
-  if(!is.null(input$groupTestingTissueSelect)){
+observeEvent(input$groupTestingFilteringGroupSelect, {
+  #update selectbox
+  updateSelectizeInput(session, 'groupTestingFilteringValueSelect', choices = groupTestingFilteringValuesList(), server = TRUE, 
+                       selected = input$groupTestingFilteringValueSelect)
+  groupTestingUpdateText()
+  
+}, ignoreNULL = FALSE)
+
+
+observeEvent(input$groupTestingFilteringValueSelect, {
+  if(!is.null(input$groupTestingFilteringValueSelect)){
     #unselect checkbox tissue
     updateCheckboxInput(session, 'groupTestingCheckTissueAll', value = FALSE)
   }
-  
-  #update cell line selectbox
-  updateSelectizeInput(session, 'groupTestingRestTissueSelect', choices = groupTestingTissueList(), server = TRUE)
-  #select cell line checkbox
-  updateCheckboxInput(session, 'groupTestingRestCheckTissueAll', value = TRUE)
   
   #update cell line selectbox
   updateSelectizeInput(session, 'groupTestingCellLineSelect', choices = groupTestingCellLineList(), server = TRUE)
   #select cell line checkbox
   updateCheckboxInput(session, 'groupTestingCheckCellLineAll', value = FALSE)
   #update cell line selectb
-  if(isTRUE(input$groupTestingCheckTissueAll) | (!is.null(input$groupTestingTissueSelect))){
+  if(isTRUE(input$groupTestingCheckTissueAll) | (!is.null(input$groupTestingFilteringValueSelect))){
     enable("groupTestingCellLineSelect")
     enable("groupTestingCheckCellLineAll")
     enable("groupTestingGeneDependencySelect")
@@ -983,20 +1051,15 @@ observeEvent(input$groupTestingTissueSelect, {
 observeEvent(input$groupTestingCheckTissueAll, {
   if(isTRUE(input$groupTestingCheckTissueAll)){
     #reset tissue selectbox
-    updateSelectizeInput(session, 'groupTestingTissueSelect', choices = groupTestingTissueList(), server = TRUE)
+    updateSelectizeInput(session, 'groupTestingFilteringValueSelect', choices = groupTestingFilteringValuesList(), server = TRUE)
   }
-  
-  #update cell line selectbox
-  updateSelectizeInput(session, 'groupTestingRestTissueSelect', choices = groupTestingTissueList(), server = TRUE)
-  #select cell line checkbox
-  updateCheckboxInput(session, 'groupTestingRestCheckTissueAll', value = TRUE)
   
   #update cell line selectbox
   updateSelectizeInput(session, 'groupTestingCellLineSelect', choices = groupTestingCellLineList(), server = TRUE)
   #select cell line checkbox
   updateCheckboxInput(session, 'groupTestingCheckCellLineAll', value = FALSE)
   #update cell line selectb
-  if(isTRUE(input$groupTestingCheckTissueAll) | (!is.null(input$groupTestingTissueSelect))){
+  if(isTRUE(input$groupTestingCheckTissueAll) | (!is.null(input$groupTestingFilteringValueSelect))){
     enable("groupTestingCellLineSelect")
     enable("groupTestingCheckCellLineAll")
     enable("groupTestingGeneDependencySelect")
@@ -1018,10 +1081,6 @@ observeEvent(input$groupTestingCellLineSelect, {
     updateCheckboxInput(session, 'groupTestingCheckCellLineAll', value = FALSE)
   }
   
-  #update cell line selectbox
-  updateSelectizeInput(session, 'groupTestingRestTissueSelect', choices = groupTestingTissueList(), server = TRUE)
-  #select cell line checkbox
-  updateCheckboxInput(session, 'groupTestingRestCheckTissueAll', value = TRUE)
   #update cell line selectbox
   updateSelectizeInput(session, 'groupTestingRestCellLineSelect', choices = groupTestingRestCellLineList(), server = TRUE)
   #select cell line checkbox
@@ -1046,11 +1105,7 @@ observeEvent(input$groupTestingCheckCellLineAll, {
     #update library selectbox
     updateSelectizeInput(session, 'groupTestingCellLineSelect', choices = groupTestingCellLineList(), server = TRUE)
   }
-  
-  #update cell line selectbox
-  updateSelectizeInput(session, 'groupTestingRestTissueSelect', choices = groupTestingTissueList(), server = TRUE)
-  #select cell line checkbox
-  updateCheckboxInput(session, 'groupTestingRestCheckTissueAll', value = TRUE)
+
   #update cell line selectbox
   updateSelectizeInput(session, 'groupTestingRestCellLineSelect', choices = groupTestingRestCellLineList(), server = TRUE)
   #select cell line checkbox
@@ -1058,7 +1113,7 @@ observeEvent(input$groupTestingCheckCellLineAll, {
   
   if(isTRUE(input$groupTestingCheckCellLineAll) | !is.null(input$groupTestingCellLineSelect)){
     enable("groupTestingRest")
-    if(length(groupTestingCellLineList()) > 0 & length(groupTestingTissueList()) > 0 & (isTRUE(input$groupTestingRestCheckCellLineAll) | !is.null(input$groupTestingRestCellLineSelect))){
+    if(length(groupTestingCellLineList()) > 0 & length(groupTestingFilteringValuesList()) > 0 & (isTRUE(input$groupTestingRestCheckCellLineAll) | !is.null(input$groupTestingRestCellLineSelect))){
       enable("groupTestingLoadButton")
     }
   }else{
@@ -1095,8 +1150,15 @@ observeEvent(input$groupTestingGeneExpressionSlider, {
 }, ignoreNULL = FALSE)
 
 ############# groupt testing rest group ##############
-observeEvent(input$groupTestingRestTissueSelect, {
-  if(!is.null(input$groupTestingRestTissueSelect)){
+observeEvent(input$groupTestingRestFilteringGroupSelect, {
+  #update selectbox
+  updateSelectizeInput(session, 'groupTestingRestFilteringValueSelect', choices = groupTestingRestFilteringValuesList(), server = TRUE, 
+                       selected = input$groupTestingRestFilteringValueSelect)
+  
+}, ignoreNULL = FALSE)
+
+observeEvent(input$groupTestingRestFilteringValueSelect, {
+  if(!is.null(input$groupTestingRestFilteringValueSelect)){
     #unselect checkbox tissue
     updateCheckboxInput(session, 'groupTestingRestCheckTissueAll', value = FALSE)
   }
@@ -1107,7 +1169,7 @@ observeEvent(input$groupTestingRestTissueSelect, {
   updateCheckboxInput(session, 'groupTestingRestCheckCellLineAll', value = FALSE)
   #update cell line selectb
   if(isTRUE(input$groupTestingCheckCellLineAll) | !is.null(input$groupTestingCellLineSelect)){
-    if(isTRUE(input$groupTestingRestCheckTissueAll) | (!is.null(input$groupTestingRestTissueSelect))){
+    if(isTRUE(input$groupTestingRestCheckTissueAll) | (!is.null(input$groupTestingRestFilteringValueSelect))){
       enable("groupTestingRestCellLineSelect")
       enable("groupTestingRestCheckCellLineAll")
       enable("groupTestingRestGeneDependencySelect")
@@ -1131,7 +1193,7 @@ observeEvent(input$groupTestingRestTissueSelect, {
 observeEvent(input$groupTestingRestCheckTissueAll, {
   if(isTRUE(input$groupTestingRestCheckTissueAll)){
     #reset tissue selectbox
-    updateSelectizeInput(session, 'groupTestingRestTissueSelect', choices = groupTestingTissueList(), server = TRUE)
+    updateSelectizeInput(session, 'groupTestingRestFilteringValueSelect', choices = groupTestingRestFilteringValuesList(), server = TRUE)
   }
   
   #update cell line selectbox
@@ -1141,7 +1203,7 @@ observeEvent(input$groupTestingRestCheckTissueAll, {
   
   #update cell line selectb
   if(isTRUE(input$groupTestingCheckCellLineAll) | !is.null(input$groupTestingCellLineSelect)){
-    if(isTRUE(input$groupTestingRestCheckTissueAll) | (!is.null(input$groupTestingRestTissueSelect))){
+    if(isTRUE(input$groupTestingRestCheckTissueAll) | (!is.null(input$groupTestingRestFilteringValueSelect))){
       enable("groupTestingRestCellLineSelect")
       enable("groupTestingRestCheckCellLineAll")
       enable("groupTestingRestGeneDependencySelect")
@@ -1186,7 +1248,7 @@ observeEvent(input$groupTestingRestCheckCellLineAll, {
     updateSelectizeInput(session, 'groupTestingRestCellLineSelect', choices = groupTestingRestCellLineList(), server = TRUE)
   }
   
-  if(length(groupTestingCellLineList()) > 0 & length(groupTestingTissueList()) > 0 & 
+  if(length(groupTestingCellLineList()) > 0 & length(groupTestingRestFilteringValuesList()) > 0 & 
      (isTRUE(input$groupTestingCheckCellLineAll) | !is.null(input$groupTestingCellLineSelect)) & 
      (isTRUE(input$groupTestingRestCheckCellLineAll) | !is.null(input$groupTestingRestCellLineSelect))){
     enable("groupTestingLoadButton")

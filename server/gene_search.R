@@ -652,6 +652,47 @@ gwsGeneDataTable <- eventReactive(input$gwsGeneLoadButton,{
 # ----------------------------------------------------------------------------
 # Selectbox lists
 # ----------------------------------------------------------------------------
+gwsGenenDatasetList <- reactive({
+  if(input$gwsGenenSpeciesSelect == "all"){
+    speciesList <- c("human", "mouse")
+  }else{
+    speciesList <- input$gwsGenenSpeciesSelect
+  }
+  contrasts %>%
+    dplyr::filter(species %in% speciesList, !is.na(type)) %>%
+    .$type %>%
+    as.character %>%
+    unique
+})
+
+gwsGenenDataset <- reactive({
+  if(isTRUE(input$gwsGenenCheckDatasetAll)){
+    gwsGenenDatasetList()
+  }else{
+    input$gwsGenenDatasetSelect
+  }
+})
+
+gwsGenenReferenceList <- reactive({
+  if(input$gwsGenenSpeciesSelect == "all"){
+    speciesList <- c("human", "mouse")
+  }else{
+    speciesList <- input$gwsGenenSpeciesSelect
+  }
+  contrasts %>%
+    dplyr::filter(species %in% speciesList, !is.na(reference_type)) %>%
+    .$reference_type %>%
+    as.character %>%
+    unique
+})
+
+gwsGenenReference <- reactive({
+  if(isTRUE(input$gwsGenenCheckReferenceAll)){
+    gwsGenenReferenceList()
+  }else{
+    input$gwsGenenReferenceSelect
+  }
+})
 
 gwsGeneTissueList <- reactive({
 
@@ -1050,8 +1091,6 @@ observeEvent(input$gwsGeneSpeciesSelect, {
   updateSelectizeInput(session, 'gwsGeneContrastSelect', choices = gwsGeneContrastList(), server = TRUE)
   #update gene selectbox
   updateSelectizeInput(session, 'gwsGeneGeneSelect', choices = gwsGeneGeneList(), server = TRUE)
-  #update other species selects
-  updateSpecies(input$gwsGeneSpeciesSelect)
   #disable load button
   disable("gwsGeneLoadButton")
   gwsGeneUpdateText()

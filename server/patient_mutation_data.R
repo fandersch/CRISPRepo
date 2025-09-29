@@ -20,6 +20,97 @@ patientMutationUpdateText <- function(){
   })
 }
 
+patientMutationAvailableGroups <- function(grouping_value, data_source_value) {
+  if (identical(grouping_value, "study_name")) {
+    if (identical(data_source_value, "pediatric")) {
+      groups_df <- patient_studies_pediatric
+      value_column <- "study_name"
+    } else {
+      groups_df <- patient_studies
+      value_column <- "study_name"
+    }
+  } else {
+    if (identical(data_source_value, "pediatric")) {
+      groups_df <- patient_cancer_types_pediatric
+      value_column <- "cancer_type_pediatric"
+    } else {
+      groups_df <- patient_cancer_types
+      value_column <- "cancer_type"
+    }
+  }
+
+  if (is.null(groups_df)) {
+    return(character(0))
+  }
+
+  groups_df <- as.data.frame(groups_df)
+
+  if (identical(data_source_value, "tcga_pan_cancer") && "TCGA_pan_cancer" %in% names(groups_df)) {
+    groups_df <- groups_df[groups_df$TCGA_pan_cancer %in% TRUE, , drop = FALSE]
+  }
+
+  if (!nrow(groups_df) || !value_column %in% names(groups_df)) {
+    return(character(0))
+  }
+
+  groups <- groups_df[[value_column]]
+  groups <- groups[!is.na(groups)]
+  unique(groups)
+}
+
+patientMutationResolveGroups <- function(grouping_value, data_source_value, check_all, selected_groups) {
+  if (!isTRUE(check_all)) {
+    return(selected_groups)
+  }
+
+  patientMutationAvailableGroups(grouping_value, data_source_value)
+}
+
+patientMutationFilterSampleInfo <- function(df, data_source_value) {
+  if ("pediatric" %in% names(df)) {
+    df <- df %>% mutate(pediatric = as.logical(pediatric))
+  }
+
+  if ("TCGA_pan_cancer" %in% names(df)) {
+    df <- df %>% mutate(TCGA_pan_cancer = as.logical(TCGA_pan_cancer))
+  }
+
+  if (identical(data_source_value, "pediatric")) {
+    df <- df %>%
+      mutate(cancer_type = cancer_type_pediatric) %>%
+      filter(pediatric %in% TRUE)
+  } else if (identical(data_source_value, "non_pediatric")) {
+    df <- df %>%
+      filter(pediatric %in% FALSE)
+  }
+
+  if (identical(data_source_value, "tcga_pan_cancer")) {
+    df <- df %>%
+      filter(TCGA_pan_cancer %in% TRUE)
+  }
+
+  df
+}
+
+patientMutationFetchSampleInfo <- function(con, data_source_value) {
+  con %>%
+    tbl("curated_set_non_redundant_sample_info") %>%
+    dplyr::select(
+      study_name,
+      cancer_type,
+      cancer_type_pediatric,
+      study_id,
+      sample_id,
+      patient_id,
+      dataset,
+      pediatric,
+      TCGA_pan_cancer
+    ) %>%
+    distinct() %>%
+    collect() %>%
+    patientMutationFilterSampleInfo(data_source_value = data_source_value)
+}
+
 #upon load display nothing
 output$patientMutationDataTableAlterations <- renderDataTable({
 })
@@ -31,21 +122,13 @@ output$patientMutationDataTableCNVs <- renderDataTable({
 })
 
 patientMutationAlterationsDataFrame <- reactive({
-  
-  if(local(input$patientMutationDataGrouping)=="study_name"){
-    presel_Group <- patient_studies
-  }else{
-    if(local(input$patientMutationDataSourceSelect) == "pediatric"){
-      presel_Group <- patient_cancer_types_pediatric
-    }else{
-      presel_Group <- patient_cancer_types
-    }
-  }
-  #get selected Group
-  if(!isTRUE(input$patientMutationCheckGroupAll)){
-    presel_Group <- local(input$patientMutationGroupSelect)
-  }
-  
+  presel_Group <- patientMutationResolveGroups(
+    local(input$patientMutationDataGrouping),
+    local(input$patientMutationDataSourceSelect),
+    input$patientMutationCheckGroupAll,
+    local(input$patientMutationGroupSelect)
+  )
+
   if(!is.null(patientMutationGeneInputFile$data)){
     presel_genes_buff <- patientMutationGeneList()
     genes_fileUpload <- c(patientMutationGeneInputFile$data$X1 %>% as.character)
@@ -57,44 +140,29 @@ patientMutationAlterationsDataFrame <- reactive({
       presel_genes_both <- local(input$patientMutationGeneSelect)
     }
   }
-  
+
   #retrieve selected genes
   presel_genes_both<- presel_genes_both %>% strsplit(split="\\(|\\)")
   presel_genes <- unlist(presel_genes_both)[c(TRUE, FALSE)] %>% trimws()
   presel_entrez <- unlist(presel_genes_both)[c(FALSE, TRUE)]
   gene_select <- c(presel_entrez, presel_genes)
-  
+
+  data_source_value <- local(input$patientMutationDataSourceSelect)
+  grouping_value <- local(input$patientMutationDataGrouping)
+
   con_patient_data <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "databases/cBioportal_mutations_CNAs_fusions.db")
-  
-  #number patients per cancer type and dataset
-  patients_per_Group <- con_patient_data %>%
-    tbl("curated_set_non_redundant_sample_info") %>%
-    dplyr::select(study_name, cancer_type, cancer_type_pediatric, study_id, sample_id, patient_id, dataset, pediatric) %>%
-    distinct %>%
-    collect()
-  
-  if(local(input$patientMutationDataSourceSelect) == "pediatric"){
-    patients_per_Group <- patients_per_Group %>%
-      mutate(cancer_type = cancer_type_pediatric) %>%
-      filter(pediatric==T)
-  }
-  
-  if(local(input$patientMutationDataSourceSelect) == "non_pediatric"){
-    patients_per_Group <- patients_per_Group %>%
-      filter(pediatric==F)
-  }
-  
-  patients_per_Group <- patients_per_Group %>%
-    mutate(group:=!!as.name(local(input$patientMutationDataGrouping))) %>%
+
+  patients_per_Group <- patientMutationFetchSampleInfo(con_patient_data, data_source_value) %>%
+    mutate(group := !!as.name(grouping_value)) %>%
     dplyr::filter(group %in% presel_Group)
-  
+
   n_patients_per_Group_total <- patients_per_Group %>%
     dplyr::select(group, study_name, cancer_type, study_id, patient_id) %>%
     distinct %>%
     group_by(group) %>%
     summarize(n_patients_total=n()) %>%
     ungroup
-    
+
   n_patients_per_Group_mutations <- patients_per_Group %>%
     filter(dataset == "mutations") %>%
     dplyr::select(group, study_name, cancer_type, study_id, patient_id) %>%
@@ -102,7 +170,7 @@ patientMutationAlterationsDataFrame <- reactive({
     group_by(group) %>%
     summarize(n_patients_total=n()) %>%
     ungroup
-  
+
   n_patients_per_Group_structuralVariants <- patients_per_Group %>%
     filter(dataset == "structuralVariants") %>%
     dplyr::select(group, study_name, cancer_type, study_id, patient_id) %>%
@@ -110,7 +178,7 @@ patientMutationAlterationsDataFrame <- reactive({
     group_by(group) %>%
     summarize(n_patients_total=n()) %>%
     ungroup
-  
+
   n_patients_per_Group_CNAs <- patients_per_Group %>%
     filter(dataset == "CNAs") %>%
     dplyr::select(group, study_name, cancer_type, study_id, patient_id) %>%
@@ -118,7 +186,7 @@ patientMutationAlterationsDataFrame <- reactive({
     group_by(group) %>%
     summarize(n_patients_total=n()) %>%
     ungroup
-  
+
   #mutations
   patientMutation_mutation_data <- con_patient_data %>%
     tbl("mutations") %>%
@@ -126,15 +194,15 @@ patientMutationAlterationsDataFrame <- reactive({
     dplyr::select(symbol, entrez_id, study_name, cancer_type, cancer_type_pediatric, sample_id, patient_id, proteinChange) %>%
     distinct() %>%
     collect()
-  
-  if(local(input$patientMutationDataSourceSelect) == "pediatric"){
+
+  if(identical(data_source_value, "pediatric")){
     patientMutation_mutation_data <- patientMutation_mutation_data %>%
       mutate(cancer_type = cancer_type_pediatric)
   }
-  
+
   patientMutation_mutation_data <- patientMutation_mutation_data %>%
-    mutate(group:=!!as.name(local(input$patientMutationDataGrouping)))
-  
+    mutate(group := !!as.name(grouping_value))
+
   patientMutation_mutation_data_per_Group <- patientMutation_mutation_data %>%
     dplyr::select(symbol, entrez_id, group, study_name, cancer_type, patient_id) %>%
     distinct() %>%
@@ -142,7 +210,7 @@ patientMutationAlterationsDataFrame <- reactive({
     group_by(symbol, entrez_id, group, n_patients_total_mutations=n_patients_total) %>%
     summarize(n_patients_gene_mutation=n(), percent_patients_gene_mutation=round(100*(n()/unique(n_patients_total_mutations)),2)) %>%
     ungroup()
-  
+
   #fusions
   patientMutation_fusions_data <- con_patient_data %>%
     tbl("structuralVariants") %>%
@@ -150,28 +218,30 @@ patientMutationAlterationsDataFrame <- reactive({
     dplyr::select(symbol_1,entrez_id_1, symbol_2, entrez_id_2, study_name, cancer_type, cancer_type_pediatric, patient_id, eventInfo) %>%
     distinct() %>%
     collect()
-  
-  if(local(input$patientMutationDataSourceSelect) == "pediatric"){
+
+  if(identical(data_source_value, "pediatric")){
     patientMutation_fusions_data <- patientMutation_fusions_data %>%
       mutate(cancer_type = cancer_type_pediatric)
   }
-  
+
   patientMutation_fusions_data <- patientMutation_fusions_data %>%
-    mutate(group:=!!as.name(local(input$patientMutationDataGrouping)))
-  
-  patientMutation_fusions_data_per_Group <- patientMutation_fusions_data %>% 
-    dplyr::rename(entrez_id=entrez_id_1, symbol=symbol_1) %>% 
+    mutate(group := !!as.name(grouping_value))
+
+  patientMutation_fusions_data <-  patientMutation_fusions_data %>%
+    dplyr::rename(entrez_id=entrez_id_1, symbol=symbol_1) %>%
     bind_rows(patientMutation_fusions_data %>%
                 dplyr::rename(entrez_id=entrez_id_2, symbol=symbol_2)) %>%
     distinct() %>%
     dplyr::select(-entrez_id_1, -symbol_1, -entrez_id_2, -symbol_2, -eventInfo) %>%
     dplyr::filter((symbol %in% presel_genes | entrez_id %in% presel_entrez)) %>%
-    distinct() %>%
+    distinct()
+
+  patientMutation_fusions_data_per_Group <- patientMutation_fusions_data %>%
     inner_join(n_patients_per_Group_structuralVariants) %>%
     group_by(symbol, entrez_id, group, n_patients_total_fusions=n_patients_total) %>%
     summarize(n_patients_gene_fusion = n(), percent_patients_gene_fusion = round(100*(n()/unique(n_patients_total_fusions)),2)) %>%
     ungroup()
-    
+
   #cna
   patientMutation_cna_data <- con_patient_data %>%
     tbl("CNAs") %>%
@@ -179,15 +249,15 @@ patientMutationAlterationsDataFrame <- reactive({
     dplyr::select(symbol, entrez_id, study_name, cancer_type, cancer_type_pediatric, patient_id, alteration) %>%
     distinct() %>%
     collect()
-  
+
   if(local(input$patientMutationDataSourceSelect) == "pediatric"){
     patientMutation_cna_data <- patientMutation_cna_data %>%
       mutate(cancer_type = cancer_type_pediatric)
   }
-  
+
   patientMutation_cna_data <- patientMutation_cna_data %>%
     mutate(group:=!!as.name(local(input$patientMutationDataGrouping)))
-  
+
   patientMutation_cna_data_per_Group <- patientMutation_cna_data %>%
     inner_join(n_patients_per_Group_CNAs) %>%
     group_by(symbol, entrez_id, group, n_patients_total_cna=n_patients_total) %>%
@@ -195,8 +265,8 @@ patientMutationAlterationsDataFrame <- reactive({
               n_patients_gene_cna_deletion=sum(alteration == -2), percent_patients_gene_cna_deletion=round(100*(n_patients_gene_cna_deletion/unique(n_patients_total_cna)),2),
               n_patients_gene_cna_amplification=sum(alteration == 2), percent_patients_gene_cna_amplification=round(100*(n_patients_gene_cna_amplification/unique(n_patients_total_cna)),2)) %>%
     ungroup()
-  
-  switch(local(input$patientMutationDataTypeSelect), 
+
+  switch(local(input$patientMutationDataTypeSelect),
          "alterations"={
            patientMutation_alteration_data <- patientMutation_mutation_data %>%
              full_join(patientMutation_cna_data) %>%
@@ -207,8 +277,8 @@ patientMutationAlterationsDataFrame <- reactive({
              group_by(symbol, entrez_id, group, n_patients_total) %>%
              summarize(n_patients_gene_alteration = n(), percent_patients_gene_alteration = round(100*(n()/unique(n_patients_total)),2)) %>%
              ungroup()
-           
-           patientMutation_alteration_data_details <- patientMutation_alteration_data %>% 
+
+           patientMutation_alteration_data_details <- patientMutation_alteration_data %>%
              full_join(patientMutation_mutation_data_per_Group) %>%
              full_join(patientMutation_cna_data_per_Group) %>%
              full_join(patientMutation_fusions_data_per_Group)
@@ -222,7 +292,7 @@ patientMutationAlterationsDataFrame <- reactive({
              group_by(symbol, entrez_id, group, n_patients_total) %>%
              summarize(n_patients_gene_alteration = n(), percent_patients_gene_alteration = round(100*(n()/unique(n_patients_total)),2)) %>%
              ungroup()
-           
+
            patientMutation_alteration_data_details <- patientMutation_cna_data_per_Group
          },
          "amplifications"={
@@ -234,7 +304,7 @@ patientMutationAlterationsDataFrame <- reactive({
              group_by(symbol, entrez_id, group, n_patients_total) %>%
              summarize(n_patients_gene_alteration = n(), percent_patients_gene_alteration = round(100*(n()/unique(n_patients_total)),2)) %>%
              ungroup()
-           
+
            patientMutation_alteration_data_details <- patientMutation_cna_data_per_Group
          },
          "mutations"={
@@ -245,13 +315,13 @@ patientMutationAlterationsDataFrame <- reactive({
              group_by(symbol, entrez_id, group, n_patients_total) %>%
              summarize(n_patients_gene_alteration = n(), percent_patients_gene_alteration = round(100*(n()/unique(n_patients_total)),2)) %>%
              ungroup()
-           
+
            patientMutation_alteration_data_details <- patientMutation_mutation_data_per_Group
          },
          "fusions"={
            print(patientMutation_fusions_data)
-           patientMutation_alteration_data <- patientMutation_fusions_data %>% 
-             dplyr::rename(entrez_id=entrez_id_1, symbol=symbol_1) %>% 
+           patientMutation_alteration_data <- patientMutation_fusions_data %>%
+             dplyr::rename(entrez_id=entrez_id_1, symbol=symbol_1) %>%
              bind_rows(patientMutation_fusions_data %>%
                          dplyr::rename(entrez_id=entrez_id_2, symbol=symbol_2)) %>%
              distinct() %>%
@@ -262,12 +332,12 @@ patientMutationAlterationsDataFrame <- reactive({
              group_by(symbol, entrez_id, group, n_patients_total) %>%
              summarize(n_patients_gene_alteration = n(), percent_patients_gene_alteration = round(100*(n()/unique(n_patients_total)),2)) %>%
              ungroup()
-           
+
            patientMutation_alteration_data_details <- patientMutation_fusions_data_per_Group
          }
   )
-  
-  patientMutation_alteration_data <- patientMutation_alteration_data %>% 
+
+  patientMutation_alteration_data <- patientMutation_alteration_data %>%
     mutate(group = paste0(group, " (n=", n_patients_total, ")")) %>%
     filter(!is.na(symbol)) %>%
     filter(n_patients_total >= input$patientMutationMinPatients) %>%
@@ -275,28 +345,20 @@ patientMutationAlterationsDataFrame <- reactive({
     column_to_rownames(var = "symbol") %>%
     filter(rowSums(.[,] > 0) > 0) %>%
     select_if(colSums(. > 0) > 0)
-  
+
   DBI::dbDisconnect(con_patient_data)
-  
+
   list(patientMutation_alteration_data, patientMutation_alteration_data_details)
 })
 
 patientMutationMutationsDataFrame <- reactive({
-  
-  if(local(input$patientMutationDataGrouping)=="study_name"){
-    presel_Group <- patient_studies
-  }else{
-    if(local(input$patientMutationDataSourceSelect) == "pediatric"){
-      presel_Group <- patient_cancer_types_pediatric
-    }else{
-      presel_Group <- patient_cancer_types
-    }
-  }
-  #get selected Group
-  if(!isTRUE(input$patientMutationCheckGroupAll)){
-    presel_Group <- local(input$patientMutationGroupSelect)
-  }
-  
+  presel_Group <- patientMutationResolveGroups(
+    local(input$patientMutationDataGrouping),
+    local(input$patientMutationDataSourceSelect),
+    input$patientMutationCheckGroupAll,
+    local(input$patientMutationGroupSelect)
+  )
+
   if(!is.null(patientMutationGeneInputFile$data)){
     presel_genes_buff <- patientMutationGeneList()
     genes_fileUpload <- c(patientMutationGeneInputFile$data$X1 %>% as.character)
@@ -308,63 +370,40 @@ patientMutationMutationsDataFrame <- reactive({
       presel_genes_both <- local(input$patientMutationGeneSelect)
     }
   }
-  
+
   #retrieve selected genes
   presel_genes_both<- presel_genes_both %>% strsplit(split="\\(|\\)")
   presel_genes <- unlist(presel_genes_both)[c(TRUE, FALSE)] %>% trimws()
   presel_entrez <- unlist(presel_genes_both)[c(FALSE, TRUE)]
   gene_select <- c(presel_entrez, presel_genes)
-  
+
+  data_source_value <- local(input$patientMutationDataSourceSelect)
+  grouping_value <- local(input$patientMutationDataGrouping)
+
   con_patient_data <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "databases/cBioportal_mutations_CNAs_fusions.db")
-  
-  #number patients per cancer type and dataset
-  patients_per_Group <- con_patient_data %>%
-    tbl("curated_set_non_redundant_sample_info") %>%
-    dplyr::select(study_name, cancer_type, cancer_type_pediatric, study_id, sample_id, patient_id, dataset, pediatric) %>%
-    distinct %>%
-    collect() 
-  
-  if(local(input$patientMutationDataSourceSelect) == "pediatric"){
-    patients_per_Group <- patients_per_Group %>%
-      mutate(cancer_type = cancer_type_pediatric) %>%
-      filter(pediatric==T)
-  }
-  
-  if(local(input$patientMutationDataSourceSelect) == "non_pediatric"){
-    patients_per_Group <- patients_per_Group %>%
-      filter(pediatric==F)
-  }
-  
-  patients_per_Group <- patients_per_Group %>%
-    mutate(group:=!!as.name(local(input$patientMutationDataGrouping))) %>%
+
+  patients_per_Group <- patientMutationFetchSampleInfo(con_patient_data, data_source_value) %>%
+    mutate(group := !!as.name(grouping_value)) %>%
     dplyr::filter(group %in% presel_Group)
 
   patientMutation_mutation_data <- con_patient_data %>%
     tbl("mutations") %>%
     dplyr::filter(sample_id %in% patients_per_Group$sample_id, symbol %in% presel_genes | entrez_id %in% presel_entrez) %>%
     collect()
-  
+
   DBI::dbDisconnect(con_patient_data)
-  
+
   patientMutation_mutation_data
 })
 
 patientMutationFusionsDataFrame <- reactive({
-  
-  if(local(input$patientMutationDataGrouping)=="study_name"){
-    presel_Group <- patient_studies
-  }else{
-    if(local(input$patientMutationDataSourceSelect) == "pediatric"){
-      presel_Group <- patient_cancer_types_pediatric
-    }else{
-      presel_Group <- patient_cancer_types
-    }
-  }
-  #get selected Group
-  if(!isTRUE(input$patientMutationCheckGroupAll)){
-    presel_Group <- local(input$patientMutationGroupSelect)
-  }
-  
+  presel_Group <- patientMutationResolveGroups(
+    local(input$patientMutationDataGrouping),
+    local(input$patientMutationDataSourceSelect),
+    input$patientMutationCheckGroupAll,
+    local(input$patientMutationGroupSelect)
+  )
+
   if(!is.null(patientMutationGeneInputFile$data)){
     presel_genes_buff <- patientMutationGeneList()
     genes_fileUpload <- c(patientMutationGeneInputFile$data$X1 %>% as.character)
@@ -376,63 +415,40 @@ patientMutationFusionsDataFrame <- reactive({
       presel_genes_both <- local(input$patientMutationGeneSelect)
     }
   }
-  
+
   #retrieve selected genes
   presel_genes_both<- presel_genes_both %>% strsplit(split="\\(|\\)")
   presel_genes <- unlist(presel_genes_both)[c(TRUE, FALSE)] %>% trimws()
   presel_entrez <- unlist(presel_genes_both)[c(FALSE, TRUE)]
   gene_select <- c(presel_entrez, presel_genes)
-  
-  con_patient_data <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "databases/cBioportal_mutations_CNAs_fusions.db")
-  
-  #number patients per cancer type and dataset
-  patients_per_Group <- con_patient_data %>%
-    tbl("curated_set_non_redundant_sample_info") %>%
-    dplyr::select(study_name, cancer_type, cancer_type_pediatric, study_id, sample_id, patient_id, dataset, pediatric) %>%
-    distinct %>%
-    collect() 
 
-  if(local(input$patientMutationDataSourceSelect) == "pediatric"){
-    patients_per_Group <- patients_per_Group %>%
-      mutate(cancer_type = cancer_type_pediatric) %>%
-      filter(pediatric==T)
-  }
-  
-  if(local(input$patientMutationDataSourceSelect) == "non_pediatric"){
-    patients_per_Group <- patients_per_Group %>%
-      filter(pediatric==F)
-  }
-  
-  patients_per_Group <- patients_per_Group %>%
-    mutate(group:=!!as.name(local(input$patientMutationDataGrouping))) %>%
+  data_source_value <- local(input$patientMutationDataSourceSelect)
+  grouping_value <- local(input$patientMutationDataGrouping)
+
+  con_patient_data <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "databases/cBioportal_mutations_CNAs_fusions.db")
+
+  patients_per_Group <- patientMutationFetchSampleInfo(con_patient_data, data_source_value) %>%
+    mutate(group := !!as.name(grouping_value)) %>%
     dplyr::filter(group %in% presel_Group)
-  
+
   patientMutation_fusions_data <- con_patient_data %>%
     tbl("structuralVariants") %>%
     dplyr::filter(sample_id %in% patients_per_Group$sample_id, (symbol_1 %in% presel_genes | entrez_id_1 %in% presel_entrez) | (symbol_2 %in% presel_genes | entrez_id_2 %in% presel_entrez))  %>%
     collect()
-  
+
   DBI::dbDisconnect(con_patient_data)
-  
+
   patientMutation_fusions_data
 })
 
 patientMutationCNVsDataFrame <- reactive({
-  
-  if(local(input$patientMutationDataGrouping)=="study_name"){
-    presel_Group <- patient_studies
-  }else{
-    if(local(input$patientMutationDataSourceSelect) == "pediatric"){
-      presel_Group <- patient_cancer_types_pediatric
-    }else{
-      presel_Group <- patient_cancer_types
-    }
-  }
-  #get selected Group
-  if(!isTRUE(input$patientMutationCheckGroupAll)){
-    presel_Group <- local(input$patientMutationGroupSelect)
-  }
-  
+  presel_Group <- patientMutationResolveGroups(
+    local(input$patientMutationDataGrouping),
+    local(input$patientMutationDataSourceSelect),
+    input$patientMutationCheckGroupAll,
+    local(input$patientMutationGroupSelect)
+  )
+
   if(!is.null(patientMutationGeneInputFile$data)){
     presel_genes_buff <- patientMutationGeneList()
     genes_fileUpload <- c(patientMutationGeneInputFile$data$X1 %>% as.character)
@@ -444,54 +460,39 @@ patientMutationCNVsDataFrame <- reactive({
       presel_genes_both <- local(input$patientMutationGeneSelect)
     }
   }
-  
+
   #retrieve selected genes
   presel_genes_both<- presel_genes_both %>% strsplit(split="\\(|\\)")
   presel_genes <- unlist(presel_genes_both)[c(TRUE, FALSE)] %>% trimws()
   presel_entrez <- unlist(presel_genes_both)[c(FALSE, TRUE)]
   gene_select <- c(presel_entrez, presel_genes)
-  
+
+  data_source_value <- local(input$patientMutationDataSourceSelect)
+  grouping_value <- local(input$patientMutationDataGrouping)
+
   con_patient_data <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "databases/cBioportal_mutations_CNAs_fusions.db")
-  
-  #number patients per cancer type and dataset
-  patients_per_Group <- con_patient_data %>%
-    tbl("curated_set_non_redundant_sample_info") %>%
-    dplyr::select(study_name, cancer_type, cancer_type_pediatric, study_id, sample_id, patient_id, dataset, pediatric) %>%
-    distinct %>%
-    collect()
-  
-  if(local(input$patientMutationDataSourceSelect) == "pediatric"){
-    patients_per_Group <- patients_per_Group %>%
-      mutate(cancer_type = cancer_type_pediatric) %>%
-      filter(pediatric==T)
-  }
-  
-  if(local(input$patientMutationDataSourceSelect) == "non_pediatric"){
-    patients_per_Group <- patients_per_Group %>%
-      filter(pediatric==F)
-  }
-  
-  patients_per_Group <- patients_per_Group %>%
-    mutate(group:=!!as.name(local(input$patientMutationDataGrouping))) %>%
+
+  patients_per_Group <- patientMutationFetchSampleInfo(con_patient_data, data_source_value) %>%
+    mutate(group := !!as.name(grouping_value)) %>%
     dplyr::filter(group %in% presel_Group)
-  
+
   patientMutation_cna_data <- con_patient_data %>%
     tbl("CNAs") %>%
     dplyr::filter(sample_id %in% patients_per_Group$sample_id, symbol %in% presel_genes | entrez_id %in% presel_entrez) %>%
     collect()
-  
+
   DBI::dbDisconnect(con_patient_data)
-  
+
   patientMutation_cna_data
 })
 
 #create plot out of dataframe
 patientMutationHeatmapAlterations <- eventReactive(input$patientMutationLoadButton,{
   heatmap_matrix <- patientMutationAlterationsDataFrame()[[1]]
-  
+
   if (nrow(heatmap_matrix) > 0) {
     output$patientMutationInfo <- renderText({"INFO: Loading completed!"})
-    
+
     nrows <- nrow(heatmap_matrix)
     ncols <- ncol(heatmap_matrix)
     clust_rows<-ifelse(nrows>1,T,F)
@@ -500,19 +501,19 @@ patientMutationHeatmapAlterations <- eventReactive(input$patientMutationLoadButt
     min_font <- 6
     fontsize_row <- max(min(max_font, 50 / nrows), min_font)
     fontsize_col <- max(min(max_font, 50 / ncols), min_font)
-    
+
     max_percent_color <- input$patientMutationMaxHeatmapColour
     breaks<- seq(0.0001, max_percent_color, max_percent_color/20)
 
     #plot heatmap
-    p<-pheatmap(heatmap_matrix, 
+    p<-pheatmap(heatmap_matrix,
                           cluster_rows=clust_rows,
                           cluster_cols=clust_cols,
-                          color=colorRampPalette(c("white", "firebrick3" ))(22), 
-                          breaks = c(0,breaks,max(heatmap_matrix)), 
+                          color=colorRampPalette(c("white", "firebrick3" ))(22),
+                          breaks = c(0,breaks,max(heatmap_matrix)),
                           legend_breaks = c(0,max_percent_color,floor(max(heatmap_matrix))),
-                          fontsize_col=fontsize_col, 
-                          fontsize_row = fontsize_row, 
+                          fontsize_col=fontsize_col,
+                          fontsize_row = fontsize_row,
                           angle_col = 90, main=paste0("Gene ", local(input$patientMutationDataTypeSelect), " per ", tolower(local(input$patientMutationDataGrouping))),
                           silent=T
                )
@@ -525,15 +526,15 @@ patientMutationHeatmapAlterations <- eventReactive(input$patientMutationLoadButt
 
 #create datatable out of dataframe
 patientMutationDataTableAlterations <- eventReactive(input$patientMutationLoadButton,{
-  
+
   df <- patientMutationAlterationsDataFrame()[[2]]
-  
+
   if (nrow(df) > 0) {
     output$patientMutationInfo <- renderText({
       "INFO: Loading completed!"
     })
-    
-    df %>% 
+
+    df %>%
       datatable(extensions = c('FixedColumns','FixedHeader'),
                 class = "display nowrap",
                 options = list(
@@ -554,15 +555,15 @@ patientMutationDataTableAlterations <- eventReactive(input$patientMutationLoadBu
 })
 
 patientMutationDataTableMutations <- eventReactive(input$patientMutationLoadButton,{
-  
+
   df <- patientMutationMutationsDataFrame()
-  
+
   if (nrow(df) > 0) {
     output$patientMutationInfo <- renderText({
       "INFO: Loading completed!"
     })
-    
-    df %>% 
+
+    df %>%
       datatable(extensions = c('FixedColumns','FixedHeader'),
                 class = "display nowrap",
                 options = list(
@@ -583,15 +584,15 @@ patientMutationDataTableMutations <- eventReactive(input$patientMutationLoadButt
 })
 
 patientMutationDataTableFusions <- eventReactive(input$patientMutationLoadButton,{
-  
+
   df <- patientMutationFusionsDataFrame()
-  
+
   if (nrow(df) > 0) {
     output$patientMutationInfo <- renderText({
       "INFO: Loading completed!"
     })
-    
-    df %>% 
+
+    df %>%
       datatable(extensions = c('FixedColumns','FixedHeader'),
                 class = "display nowrap",
                 options = list(
@@ -612,15 +613,15 @@ patientMutationDataTableFusions <- eventReactive(input$patientMutationLoadButton
 })
 
 patientMutationDataTableCNVs <- eventReactive(input$patientMutationLoadButton,{
-  
+
   df <- patientMutationCNVsDataFrame()
-  
+
   if (nrow(df) > 0) {
     output$patientMutationInfo <- renderText({
       "INFO: Loading completed!"
     })
-    
-    df %>% 
+
+    df %>%
       datatable(extensions = c('FixedColumns','FixedHeader'),
                 class = "display nowrap",
                 options = list(
@@ -646,28 +647,20 @@ patientMutationDataTableCNVs <- eventReactive(input$patientMutationLoadButton,{
 #----------------------------------------------------------------------------
 
 patientMutationGeneList <- reactive({
-  
-  if(local(input$patientMutationDataGrouping)=="study_name"){
-    presel_Group <- patient_studies
-  }else{
-    if(local(input$patientMutationDataSourceSelect) == "pediatric"){
-      presel_Group <- patient_cancer_types_pediatric
-    }else{
-      presel_Group <- patient_cancer_types
-    }
-  }
-  #get selected Group
-  if(!isTRUE(input$patientMutationCheckGroupAll)){
-    presel_Group <- local(input$patientMutationGroupSelect)
-  }
-  
+  presel_Group <- patientMutationResolveGroups(
+    local(input$patientMutationDataGrouping),
+    local(input$patientMutationDataSourceSelect),
+    input$patientMutationCheckGroupAll,
+    local(input$patientMutationGroupSelect)
+  )
+
   if(local(input$patientMutationDataSourceSelect) == "pediatric"){
     patient_genes_all_buff <- patient_genes_all %>%
       mutate(cancer_type = cancer_type_pediatric)
   }else{
     patient_genes_all_buff <- patient_genes_all
   }
-  
+
   patient_genes_all_buff %>%
     mutate(group:=!!as.name(local(input$patientMutationDataGrouping))) %>%
     filter(group %in% presel_Group) %>%
@@ -684,17 +677,17 @@ patientMutationGeneList <- reactive({
 output$patientMutationHeatmapAlterations <- renderImage({
   p <- patientMutationHeatmapAlterations()[[1]]
   nrow <-  patientMutationHeatmapAlterations()[[2]]
-  
+
   if(!is.null(p)){
     container_width <- session$clientData$output_patientMutationHeatmapAlterations_width
     # if (is.null(container_width) || container_width == 0) {
-    
-    height <- (nrow*10) + 450 
+
+    height <- (nrow*10) + 450
     session$sendCustomMessage("updateImageHeight", list(height = height))
-    
+
     # A temp file to save the output.
     outfile <- tempfile(fileext='.png')
-    
+
     png(outfile, width=container_width*7, height=height*7, res=600)
     print(p)
     dev.off()
@@ -716,22 +709,22 @@ output$patientMutationHeatmapAlterations <- renderImage({
 }, deleteFile = TRUE)
 
 observeEvent(input$patientMutationLoadButton, {
-  
+
   output$patientMutationDataTableAlterations <- renderDataTable({
     dt <- patientMutationDataTableAlterations()
     if(!is.null(dt)){
       dt
     }
   })
-  
+
   output$patientMutationDataTableMutations <- renderDataTable({
   })
   output$patientMutationDataTableFusions <- renderDataTable({
   })
   output$patientMutationDataTableCNVs <- renderDataTable({
   })
-  
-  switch(local(input$patientMutationDataTypeSelect), 
+
+  switch(local(input$patientMutationDataTypeSelect),
          "alterations"={
            output$patientMutationDataTableCNVs <- renderDataTable({
              dt <- patientMutationDataTableCNVs()
@@ -785,46 +778,38 @@ observeEvent(input$patientMutationLoadButton, {
            })
          }
   )
-  
-  
+
+
 })
 
 observeEvent(input$patientMutationDataGrouping, {
-  if(local(input$patientMutationDataGrouping)=="study_name"){
-    if(local(input$patientMutationDataSourceSelect) == "pediatric"){
-      updateSelectizeInput(session, 'patientMutationGroupSelect', choices = patient_studies_pediatric, server = TRUE)
-    }else{
-      updateSelectizeInput(session, 'patientMutationGroupSelect', choices = patient_studies, server = TRUE)
-    }
-  }else{
-    if(local(input$patientMutationDataSourceSelect) == "pediatric"){
-      updateSelectizeInput(session, 'patientMutationGroupSelect', choices = patient_cancer_types_pediatric, server = TRUE)
-    }else{
-      updateSelectizeInput(session, 'patientMutationGroupSelect', choices = patient_cancer_types, server = TRUE)
-    }
-  }
-  
+  updateSelectizeInput(
+    session,
+    'patientMutationGroupSelect',
+    choices = patientMutationAvailableGroups(
+      local(input$patientMutationDataGrouping),
+      local(input$patientMutationDataSourceSelect)
+    ),
+    server = TRUE
+  )
+
   patientMutationUpdateText()
-  
+
 }, ignoreNULL = FALSE)
 
 observeEvent(input$patientMutationDataSourceSelect, {
-  if(local(input$patientMutationDataGrouping)=="study_name"){
-    if(local(input$patientMutationDataSourceSelect) == "pediatric"){
-      updateSelectizeInput(session, 'patientMutationGroupSelect', choices = patient_studies_pediatric, server = TRUE)
-    }else{
-      updateSelectizeInput(session, 'patientMutationGroupSelect', choices = patient_studies, server = TRUE)
-    }
-  }else{
-    if(local(input$patientMutationDataSourceSelect) == "pediatric"){
-      updateSelectizeInput(session, 'patientMutationGroupSelect', choices = patient_cancer_types_pediatric, server = TRUE)
-    }else{
-      updateSelectizeInput(session, 'patientMutationGroupSelect', choices = patient_cancer_types, server = TRUE)
-    }
-  }
-  
+  updateSelectizeInput(
+    session,
+    'patientMutationGroupSelect',
+    choices = patientMutationAvailableGroups(
+      local(input$patientMutationDataGrouping),
+      local(input$patientMutationDataSourceSelect)
+    ),
+    server = TRUE
+  )
+
   patientMutationUpdateText()
-  
+
 }, ignoreNULL = FALSE)
 
 observeEvent(input$patientMutationGroupSelect, {
@@ -836,23 +821,18 @@ observeEvent(input$patientMutationGroupSelect, {
   }else{
     updateCheckboxInput(session, 'patientMutationCheckGroupAll', value = TRUE)
   }
-  
+
   updateSelectizeInput(session, 'patientMutationGeneSelect', choices = patientMutationGeneList(), server = TRUE)
-  
+
   patientMutationUpdateText()
-  
+
 }, ignoreNULL = FALSE)
 
 observeEvent(input$patientMutationCheckGroupAll, {
-  if(local(input$patientMutationDataGrouping)=="study_name"){
-    presel_Group <- patient_studies
-  }else{
-    if(local(input$patientMutationDataSourceSelect) == "pediatric"){
-      presel_Group <- patient_cancer_types_pediatric
-    }else{
-      presel_Group <- patient_cancer_types
-    }
-  }
+  presel_Group <- patientMutationAvailableGroups(
+    local(input$patientMutationDataGrouping),
+    local(input$patientMutationDataSourceSelect)
+  )
   if(isTRUE(input$patientMutationCheckGroupAll)){
     #reset Group selectbox
     updateSelectizeInput(session, 'patientMutationGroupSelect', choices = presel_Group, server = TRUE)
@@ -864,9 +844,9 @@ observeEvent(input$patientMutationCheckGroupAll, {
       disable("patientMutationGeneInputFile")
     }
   }
-  
+
   updateSelectizeInput(session, 'patientMutationGeneSelect', choices = patientMutationGeneList(), server = TRUE)
-  
+
 }, ignoreNULL = FALSE)
 
 observeEvent(input$patientMutationCancelModal, {
@@ -885,7 +865,7 @@ observeEvent(input$patientMutationGeneSelect, {
     disable("patientMutationLoadButton")
   }
   patientMutationUpdateText()
-  
+
 }, ignoreNULL = FALSE)
 
 observeEvent(input$patientMutationGeneInputFile, {
@@ -902,7 +882,7 @@ observeEvent(input$patientMutationGeneInputFile, {
     disable("patientMutationLoadButton")
   }
   patientMutationUpdateText()
-  
+
 }, ignoreNULL = FALSE)
 
 
@@ -926,12 +906,12 @@ output$patientMutationButtonDownload <- downloadHandler(
         mutations <- patientMutationMutationsDataFrame()
         fusions <- patientMutationFusionsDataFrame()
         cnvs <- patientMutationCNVsDataFrame()
-        
+
         #go to a temp dir to avoid permission issues
         owd <- setwd(tempdir())
         on.exit(setwd(owd))
         files <- NULL;
-        
+
         if("Gene alterations heatmap" %in% input$patientMutationDownloadCheck & nrow(mutations)>0){
           #write each sheet to a csv file, save the name
           plot <- heatmap

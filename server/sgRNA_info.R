@@ -558,8 +558,6 @@ observeEvent(input$sgRNAInfoLoadButton, {
 })
 
 observeEvent(input$sgRNAInfoSpeciesSelect, {
-  #update other species selects
-  updateSpecies(input$sgRNAInfoSpeciesSelect)
   #update gene selectbox
   updateSelectizeInput(session, 'sgRNAInfoSelectGene', choices = sgRNAInfoGeneList(), server = TRUE)
   

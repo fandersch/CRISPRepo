@@ -75,8 +75,6 @@ libLibraryList <- reactive({
 # ----------------------------------------------------------------------------
 
 observeEvent(input$libSpeciesSelect, {
-  #update other species selects
-  updateSpecies(input$libSpeciesSelect)
   #update library selectbox
   updateSelectizeInput(session, 'libSelectLibrary', choices = libLibraryList(), server = TRUE)
 })

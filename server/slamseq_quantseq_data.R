@@ -953,8 +953,6 @@ observeEvent(input$slamseqDataLoadButton, {
 })
 
 observeEvent(input$slamseqDataSpeciesSelect, {
-  #update other species selects
-  updateSpecies(input$slamseqDataSpeciesSelect)
   #select checkbox tissue
   updateCheckboxInput(session, 'slamseqDataCheckTissueAll', value = FALSE)
   #update tissue selectbox

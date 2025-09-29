@@ -412,8 +412,6 @@ observeEvent(input$expressionDataLoadButton, {
 })
 
 observeEvent(input$expressionDataSpeciesSelect, {
-  #update other species selects
-  updateSpecies(input$expressionDataSpeciesSelect)
   #select checkbox tissue
   updateCheckboxInput(session, 'expressionDataCheckTissueAll', value = FALSE)
   #update tissue selectbox

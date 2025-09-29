@@ -154,8 +154,6 @@ observeEvent(input$dualSgRNAsTopCombinationsLoadButton, {
 })
 
 observeEvent(input$dualSgRNAsTopCombinationsSpeciesSelect, {
-  #update other species selects
-  updateSpecies(input$dualSgRNAsTopCombinationsSpeciesSelect)
   #update gene selectbox
   updateSelectizeInput(session, 'dualSgRNAsTopCombinationsGeneSelect', choices = dualSgRNAsTopCombinationsGeneList(), server = TRUE)
 })

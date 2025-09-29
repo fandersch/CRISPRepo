@@ -142,7 +142,7 @@ function(input, output, session) {
   # ----------------------------------------------------------------------------
   
   source(file = "server/patient_mutation_data.R", local = T)
-  updateSelectizeInput(session, 'patientMutationCancerTypeSelect', choices = patient_cancer_types, server = TRUE)
+  updateSelectizeInput(session, 'patientMutationCancerTypeSelect', choices = patient_cancer_types_choices, server = TRUE)
   updateSelectizeInput(session, 'patientMutationGeneSelect', choices = patient_genes_all_init, server = TRUE)
   
   # ----------------------------------------------------------------------------
@@ -217,18 +217,19 @@ function(input, output, session) {
   # ----------------------------------------------------------------------------
   # update species select boxes
   # ----------------------------------------------------------------------------
-
+  
   updateSpecies <- function(species){
-    updateSelectizeInput(session, 'gwsBrowseScreenSpeciesSelect', choices = list("Human" = "human", "Mouse" = "mouse"), selected = species, server = TRUE)
-    updateSelectizeInput(session, 'gwsGeneSpeciesSelect', choices = list("Human" = "human", "Mouse" = "mouse", "All"="all"), selected = species, server = TRUE)
-    updateSelectizeInput(session, 'libSpeciesSelect', choices = list("Human" = "human", "Mouse" = "mouse", "All"="all"), selected = species, server = TRUE)
-    updateSelectizeInput(session, 'sgRNAInfoSpeciesSelect', choices = list("Human" = "human", "Mouse" = "mouse", "All"="all"), selected = species, server = TRUE)
-    updateSelectizeInput(session, 'sgRNAsSpeciesSelect', choices = list("Human" = "human", "Mouse" = "mouse", "All"="all"), selected = species, server = TRUE)
-    updateSelectizeInput(session, 'dualSgRNAsTopCombinationsSpeciesSelect', choices = list("Human" = "human", "Mouse" = "mouse", "All"="all"), selected = species, server = TRUE)
-    updateSelectizeInput(session, 'expressionDataSpeciesSelect', choices = list("Human" = "human", "Mouse" = "mouse", "All"="all"), selected = species, server = TRUE)
-    updateSelectizeInput(session, 'slamseqDataSpeciesSelect', choices = list("Human" = "human", "Mouse" = "mouse", "All"="all"), selected = species, server = TRUE)
-    updateSelectizeInput(session, 'essentialomeSpeciesSelect', choices = list("Human" = "human", "Mouse" = "mouse", "All"="all"), selected = species, server = TRUE)
-    updateSelectizeInput(session, 'geneOfInterestSpeciesSelect', choices = list("Human" = "human", "Mouse" = "mouse"), selected = species, server = TRUE)
+  #   print(paste0("update species: ",species))
+  #   updateSelectizeInput(session, 'gwsBrowseScreenSpeciesSelect', choices = list("Human" = "human", "Mouse" = "mouse"), selected = species, server = TRUE)
+  #   updateSelectizeInput(session, 'gwsGeneSpeciesSelect', choices = list("Human" = "human", "Mouse" = "mouse", "All"="all"), selected = species, server = TRUE)
+  #   updateSelectizeInput(session, 'libSpeciesSelect', choices = list("Human" = "human", "Mouse" = "mouse", "All"="all"), selected = species, server = TRUE)
+  #   updateSelectizeInput(session, 'sgRNAInfoSpeciesSelect', choices = list("Human" = "human", "Mouse" = "mouse", "All"="all"), selected = species, server = TRUE)
+  #   updateSelectizeInput(session, 'sgRNAsSpeciesSelect', choices = list("Human" = "human", "Mouse" = "mouse", "All"="all"), selected = species, server = TRUE)
+  #   updateSelectizeInput(session, 'dualSgRNAsTopCombinationsSpeciesSelect', choices = list("Human" = "human", "Mouse" = "mouse", "All"="all"), selected = species, server = TRUE)
+  #   updateSelectizeInput(session, 'expressionDataSpeciesSelect', choices = list("Human" = "human", "Mouse" = "mouse", "All"="all"), selected = species, server = TRUE)
+  #   updateSelectizeInput(session, 'slamseqDataSpeciesSelect', choices = list("Human" = "human", "Mouse" = "mouse", "All"="all"), selected = species, server = TRUE)
+  #   updateSelectizeInput(session, 'essentialomeSpeciesSelect', choices = list("Human" = "human", "Mouse" = "mouse", "All"="all"), selected = species, server = TRUE)
+  #   updateSelectizeInput(session, 'geneOfInterestSpeciesSelect', choices = list("Human" = "human", "Mouse" = "mouse"), selected = species, server = TRUE)
   }
 
 }

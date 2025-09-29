@@ -384,8 +384,6 @@ observeEvent(input$geneOfInterestLoadButton, {
 })
 
 observeEvent(input$geneOfInterestSpeciesSelect, {
-  #update other species selects
-  updateSpecies(input$geneOfInterestSpeciesSelect)
   #update gene selectbox
   updateSelectizeInput(session, 'geneOfInterestGeneSelect', choices = geneOfInterestGeneList(), server = TRUE)
   

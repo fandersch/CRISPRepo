@@ -1,17 +1,17 @@
 # crisprepo-shiny
 
 # Copyright (c) 2018 Tobias Neumann, Jesse Lipp, Florian Andersch.
-# 
+#
 # crisprepo-shiny is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as
 # published by the Free Software Foundation, either version 3 of the
 # License, or (at your option) any later version.
-# 
+#
 # crisprepo-shiny is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU Affero General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
@@ -68,7 +68,7 @@ pheno <- con %>%
 species <- pheno %>%
   dplyr::select(species) %>%
   distinct %>%
-  .$species 
+  .$species
 
 features <- con %>%
   tbl("features") %>%
@@ -87,7 +87,7 @@ contrasts <- con %>%
   dplyr::select(contrast_id, contrast_id_QC, library_id, cellline_name, tissue_name, species, type, reference_type, dynamic_range, auc, treatment, control) %>%
   collect()
 
-tissue_list_screens <- contrasts %>% 
+tissue_list_screens <- contrasts %>%
   dplyr::filter(type == "dropout") %>%
   dplyr::select(tissue_name) %>%
   distinct() %>%
@@ -95,8 +95,8 @@ tissue_list_screens <- contrasts %>%
   .$tissue_name
 
 libraries <- contrasts %>%
-  dplyr::select(library_id, cellline_name, tissue_name, species, type) %>%
-  distinct 
+  dplyr::select(library_id, cellline_name, tissue_name, species, type, reference_type) %>%
+  distinct
 
 gene_list_screens <- con %>%
   tbl("features") %>%
@@ -112,7 +112,7 @@ gene_list_screens <- con %>%
   collect()
 
 gene_list_human <- NULL
-gene_list_mouse <- NULL 
+gene_list_mouse <- NULL
 
 if("hs_gw_zuber_v2" %in% (libraries %>% collect %>% .$library_id)){
   gene_list_human <- con_sgRNAs %>%
@@ -148,7 +148,7 @@ sample_list_slamseq <- con_slamseq %>%
   distinct() %>%
   arrange(cell_line_name) %>%
   collect() %>%
-  mutate(sample_id = as.character(sample_id), 
+  mutate(sample_id = as.character(sample_id),
          dataset = "SLAM-seq") %>%
   select(dataset, everything())
 
@@ -170,14 +170,14 @@ sample_list_quantseq <- con_quantseq %>%
   distinct() %>%
   arrange(cell_line_name) %>%
   collect() %>%
-  mutate(sample_id = as.character(sample_id), 
+  mutate(sample_id = as.character(sample_id),
          dataset = "Quant-seq") %>%
   select(dataset, everything())
 
 deseq2_list_quantseq <- con_quantseq %>%
   tbl("quantseq_deseq2_metadata") %>%
   distinct() %>%
-  collect() %>% 
+  collect() %>%
   mutate(dataset = "Quant-seq") %>%
   select(dataset, everything())
 
@@ -190,7 +190,7 @@ loadExpressionDataTissueList <- F
 #cell line
 cellline_list_cellLine <- con_cell_lines %>%
   tbl("cell_line_meta") %>%
-  dplyr::select(cell_line_name, tissue_name, cell_line_id, SangerCellModelPassports_cancer_type, SangerCellModelPassports_cancer_type_detail, 
+  dplyr::select(cell_line_name, tissue_name, cell_line_id, SangerCellModelPassports_cancer_type, SangerCellModelPassports_cancer_type_detail,
                 BroadDepMap_OncotreeSubtype, BroadDepMap_OncotreePrimaryDisease) %>%
   distinct() %>%
   arrange(cell_line_name) %>%
@@ -217,27 +217,26 @@ cn_category_cellLine <- con_cell_lines %>%
 #patient
 patient_cancer_types <- con_patient_data %>%
   tbl("curated_set_non_redundant_sample_info") %>%
-  dplyr::select(cancer_type) %>%
+  dplyr::select(cancer_type, TCGA_pan_cancer) %>%
   distinct() %>%
   arrange(cancer_type) %>%
-  collect() %>%
-  .$cancer_type
+  collect()
+
+patient_cancer_types_choices <- patient_cancer_types$cancer_type
 
 patient_cancer_types_pediatric <- con_patient_data %>%
   tbl("curated_set_non_redundant_sample_info") %>%
   dplyr::select(cancer_type_pediatric) %>%
   distinct() %>%
   arrange(cancer_type_pediatric) %>%
-  collect() %>%
-  .$cancer_type_pediatric
+  collect()
 
 patient_studies <- con_patient_data %>%
   tbl("curated_set_non_redundant_sample_info") %>%
-  dplyr::select(study_name) %>%
+  dplyr::select(study_name, TCGA_pan_cancer) %>%
   distinct() %>%
   arrange(study_name) %>%
-  collect() %>%
-  .$study_name
+  collect()
 
 patient_studies_pediatric <- con_patient_data %>%
   tbl("curated_set_non_redundant_sample_info") %>%
@@ -245,8 +244,7 @@ patient_studies_pediatric <- con_patient_data %>%
   dplyr::select(study_name) %>%
   distinct() %>%
   arrange(study_name) %>%
-  collect() %>%
-  .$study_name
+  collect()
 
 patient_genes_all <- con_patient_data %>%
   tbl("genes") %>%
@@ -287,23 +285,15 @@ dict_joined <- read_tsv("dict/dict_joined.txt") %>%
 #load essentialome
 essentialome <- read_tsv("essentialome_file_crisprepo.txt", col_names = T)
 
-all_types <- contrasts %>%
-  collect %>%
-  dplyr::filter(species %in% "human") %>%
-  .$type %>%
-  unique
-
 default_df<-NULL
 #distinguish between internal and external version
 
 if("hs_gw_zuber_v2" %in% (libraries %>% collect %>% .$library_id)){
   view <- "internal"
-  dataset_selection_all <- setNames(all_types, all_types)
   #load default df
   default_df <- read_tsv(file="essentiality_data/human_scaledLFC_fdr_adjusted_geneLevel_HQscreens.tsv", col_names = T)
 }else{
   view <- "external"
-  dataset_selection_all <- list("dropout" = "dropout")
 }
 
 displayed_table <- NULL
@@ -318,4 +308,3 @@ DBI::dbDisconnect(con_correlations)
 DBI::dbDisconnect(con_correlations_tissue)
 DBI::dbDisconnect(con_cell_lines)
 DBI::dbDisconnect(con_patient_data)
-

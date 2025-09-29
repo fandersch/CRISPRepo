@@ -69,8 +69,6 @@ essentialomeSourceList <- reactive({
 # ----------------------------------------------------------------------------
 
 observeEvent(input$essentialomeSpeciesSelect, {
-  #update other species selects
-  updateSpecies(input$essentialomeSpeciesSelect)
   #update selectbox
   updateSelectizeInput(session, 'essentialomeSelectSource', choices = essentialomeSourceList(), server = TRUE)
 })

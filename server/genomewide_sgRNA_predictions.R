@@ -156,8 +156,6 @@ observeEvent(input$sgRNAsLoadButton, {
 })
 
 observeEvent(input$sgRNAsSpeciesSelect, {
-  #update other species selects
-  updateSpecies(input$sgRNAsSpeciesSelect)
   #update gene selectbox
   updateSelectizeInput(session, 'sgRNAsGeneSelect', choices = sgRNAsGeneList(), server = TRUE)
   

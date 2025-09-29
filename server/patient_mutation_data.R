@@ -150,7 +150,7 @@ patientMutationAlterationsDataFrame <- reactive({
   data_source_value <- local(input$patientMutationDataSourceSelect)
   grouping_value <- local(input$patientMutationDataGrouping)
 
-  con_patient_data <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "databases/cBioportal_mutations_CNAs_fusions.db")
+  con_patient_data <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "databases/cBioportal.db")
 
   patients_per_Group <- patientMutationFetchSampleInfo(con_patient_data, data_source_value) %>%
     mutate(group := !!as.name(grouping_value)) %>%
@@ -380,7 +380,7 @@ patientMutationMutationsDataFrame <- reactive({
   data_source_value <- local(input$patientMutationDataSourceSelect)
   grouping_value <- local(input$patientMutationDataGrouping)
 
-  con_patient_data <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "databases/cBioportal_mutations_CNAs_fusions.db")
+  con_patient_data <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "databases/cBioportal.db")
 
   patients_per_Group <- patientMutationFetchSampleInfo(con_patient_data, data_source_value) %>%
     mutate(group := !!as.name(grouping_value)) %>%
@@ -425,7 +425,7 @@ patientMutationFusionsDataFrame <- reactive({
   data_source_value <- local(input$patientMutationDataSourceSelect)
   grouping_value <- local(input$patientMutationDataGrouping)
 
-  con_patient_data <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "databases/cBioportal_mutations_CNAs_fusions.db")
+  con_patient_data <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "databases/cBioportal.db")
 
   patients_per_Group <- patientMutationFetchSampleInfo(con_patient_data, data_source_value) %>%
     mutate(group := !!as.name(grouping_value)) %>%
@@ -470,7 +470,7 @@ patientMutationCNVsDataFrame <- reactive({
   data_source_value <- local(input$patientMutationDataSourceSelect)
   grouping_value <- local(input$patientMutationDataGrouping)
 
-  con_patient_data <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "databases/cBioportal_mutations_CNAs_fusions.db")
+  con_patient_data <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "databases/cBioportal.db")
 
   patients_per_Group <- patientMutationFetchSampleInfo(con_patient_data, data_source_value) %>%
     mutate(group := !!as.name(grouping_value)) %>%

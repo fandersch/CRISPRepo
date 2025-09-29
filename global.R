@@ -59,7 +59,7 @@ con_correlations_tissue <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "dat
 
 con_cell_lines <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "databases/cell_line_meta_data.db")
 
-con_patient_data <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "databases/cBioportal_mutations_CNAs_fusions.db")
+con_patient_data <- DBI::dbConnect(drv = RSQLite::SQLite(), dbname = "databases/cBioportal.db")
 
 pheno <- con %>%
   tbl("pheno") %>%
